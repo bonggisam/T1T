@@ -110,48 +110,53 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
       // 1. Create Auth account
       const cred = await createUserWithEmailAndPassword(auth, email, password);
 
-      // 2. Try to create as super_admin first.
-      //    Firestore rules only allow this if app_meta/initialized doesn't exist.
-      //    If rules reject it, fall back to teacher+pending.
-      let role: UserRole = 'teacher';
-      let status: UserStatus = 'pending';
-      let isFirstUser = false;
+      // 2. Force ID token to be ready for Firestore operations
+      await cred.user.getIdToken(true);
 
+      // 3. Check if this is the first user (app_meta/initialized doesn't exist)
+      let isFirstUser = false;
       try {
+        const metaSnap = await getDoc(doc(db, 'app_meta', 'initialized'));
+        isFirstUser = !metaSnap.exists();
+      } catch {
+        // Can't read → assume not first user (safe default)
+      }
+
+      // 4. Create user document
+      let role: UserRole;
+      let status: UserStatus;
+
+      if (isFirstUser) {
+        role = 'super_admin';
+        status = 'active';
         await setDoc(doc(db, 'users', cred.user.uid), {
           email,
           name,
-          role: 'super_admin' as UserRole,
-          status: 'active' as UserStatus,
+          role,
+          status,
           profileColor: '#FF6B6B',
           createdAt: serverTimestamp(),
           lastLogin: serverTimestamp(),
           settings: defaultSettings,
         });
-        // Success! This is the first user.
-        role = 'super_admin';
-        status = 'active';
-        isFirstUser = true;
-      } catch {
-        // Firestore rules rejected super_admin → create as teacher
+        // 5. Mark app as initialized so next user can't become admin
+        await setDoc(doc(db, 'app_meta', 'initialized'), {
+          createdAt: serverTimestamp(),
+          adminUid: cred.user.uid,
+        });
+      } else {
+        role = 'teacher';
+        status = 'pending';
         await setDoc(doc(db, 'users', cred.user.uid), {
           email,
           name,
-          role: 'teacher' as UserRole,
-          status: 'pending' as UserStatus,
+          role,
+          status,
           profileColor: '#4A90E2',
           createdAt: serverTimestamp(),
           lastLogin: serverTimestamp(),
           settings: defaultSettings,
         });
-      }
-
-      // 3. If first user, mark app as initialized (blocks future super_admin signups)
-      if (isFirstUser) {
-        setDoc(doc(db, 'app_meta', 'initialized'), {
-          createdAt: serverTimestamp(),
-          adminUid: cred.user.uid,
-        }).catch(() => {});
       }
 
       // 4. Send verification email (non-blocking)
