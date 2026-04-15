@@ -37,10 +37,14 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
       return;
     }
 
-    try {
-      await signup(email, password, name);
+    await signup(email, password, name);
+    // If user is now active (admin), App.tsx will show calendar directly.
+    // If pending (teacher), show success message.
+    const currentUser = useAuthStore.getState().user;
+    if (!currentUser || currentUser.status === 'pending') {
       setSuccess(true);
-    } catch {}
+    }
+    // If active → App.tsx re-renders to calendar automatically
   }
 
   if (success) {

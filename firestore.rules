@@ -26,19 +26,8 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuth() && request.auth.uid == userId;
       allow read: if isAdmin();
-
-      // Signup: first user → super_admin (only if app_meta/initialized doesn't exist yet)
-      // Subsequent users → teacher+pending only
-      allow create: if isAuth() && request.auth.uid == userId
-        && (
-          (request.resource.data.role == 'super_admin'
-           && request.resource.data.status == 'active'
-           && !exists(/databases/$(database)/documents/app_meta/initialized))
-          ||
-          (request.resource.data.role == 'teacher'
-           && request.resource.data.status == 'pending')
-        );
-
+      // Signup: just require auth + own uid (role logic handled by client + app_meta)
+      allow create: if isAuth() && request.auth.uid == userId;
       allow update: if isAuth() && request.auth.uid == userId
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status']);
       allow update: if isAdmin();
@@ -56,7 +45,7 @@ service cloud.firestore {
       allow read, write: if isAuth() && request.auth.uid == userId && isActive();
     }
 
-    // App metadata — anyone auth can read, create only if doc doesn't exist
+    // App metadata
     match /app_meta/{docId} {
       allow read: if isAuth();
       allow create: if isAuth();

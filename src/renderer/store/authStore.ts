@@ -4,7 +4,6 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
-  sendEmailVerification,
   onAuthStateChanged,
   type User as FirebaseUser,
 } from 'firebase/auth';
@@ -38,11 +37,9 @@ const defaultSettings: UserSettings = {
   reminderDefault: '30min',
 };
 
-// During signup, onAuthStateChanged fires before Firestore doc is ready.
-// We use this flag to tell initialize() to wait for signup to finish.
 let signupInProgress = false;
 
-export const useAuthStore = create<AuthState>((set, _get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   firebaseUser: null,
   user: null,
   loading: true,
@@ -50,7 +47,6 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
 
   initialize: () => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      // If signup is in progress, skip — signup() will set state itself
       if (signupInProgress) return;
 
       if (!firebaseUser) {
@@ -58,35 +54,34 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
         return;
       }
 
-      // User is logged in — try to read their Firestore profile
       try {
         const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
         if (userDoc.exists()) {
           const data = userDoc.data();
-          const user: User = {
-            id: firebaseUser.uid,
-            email: data.email,
-            name: data.name,
-            role: data.role as UserRole,
-            status: data.status as UserStatus,
-            profileColor: data.profileColor,
-            createdAt: data.createdAt?.toDate() || new Date(),
-            lastLogin: new Date(),
-            settings: { ...defaultSettings, ...data.settings },
-          };
-          // Update lastLogin (non-blocking)
+          set({
+            firebaseUser,
+            user: {
+              id: firebaseUser.uid,
+              email: data.email,
+              name: data.name,
+              role: data.role as UserRole,
+              status: data.status as UserStatus,
+              profileColor: data.profileColor,
+              createdAt: data.createdAt?.toDate() || new Date(),
+              lastLogin: new Date(),
+              settings: { ...defaultSettings, ...data.settings },
+            },
+            loading: false,
+            error: null,
+          });
           updateDoc(doc(db, 'users', firebaseUser.uid), {
             lastLogin: serverTimestamp(),
           }).catch(() => {});
-
-          set({ firebaseUser, user, loading: false, error: null });
         } else {
-          // Auth account exists but no Firestore profile — back to login
-          set({ firebaseUser, user: null, loading: false, error: null });
+          set({ firebaseUser, user: null, loading: false });
         }
       } catch {
-        // Firestore read failed
-        set({ firebaseUser, user: null, loading: false, error: null });
+        set({ firebaseUser, user: null, loading: false });
       }
     });
     return unsubscribe;
@@ -96,7 +91,6 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
     set({ loading: true, error: null });
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will handle the rest
     } catch (err: any) {
       set({ loading: false, error: getErrorMessage(err.code) });
     }
@@ -106,89 +100,68 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
     set({ loading: true, error: null });
     signupInProgress = true;
 
+    let role: UserRole = 'teacher';
+    let status: UserStatus = 'pending';
+
     try {
       // 1. Create Auth account
       const cred = await createUserWithEmailAndPassword(auth, email, password);
 
-      // 2. Force ID token to be ready for Firestore operations
-      await cred.user.getIdToken(true);
-
-      // 3. Check if this is the first user (app_meta/initialized doesn't exist)
-      let isFirstUser = false;
+      // 2. Check if first user — wrapped in try/catch, failure = not first user
       try {
+        await cred.user.getIdToken(true);
         const metaSnap = await getDoc(doc(db, 'app_meta', 'initialized'));
-        isFirstUser = !metaSnap.exists();
+        if (!metaSnap.exists()) {
+          role = 'super_admin';
+          status = 'active';
+        }
       } catch {
-        // Can't read → assume not first user (safe default)
+        // Can't determine → default teacher+pending (safe fallback)
       }
 
-      // 4. Create user document
-      let role: UserRole;
-      let status: UserStatus;
+      // 3. Create user document
+      await setDoc(doc(db, 'users', cred.user.uid), {
+        email,
+        name,
+        role,
+        status,
+        profileColor: role === 'super_admin' ? '#FF6B6B' : '#4A90E2',
+        createdAt: serverTimestamp(),
+        lastLogin: serverTimestamp(),
+        settings: defaultSettings,
+      });
 
-      if (isFirstUser) {
-        role = 'super_admin';
-        status = 'active';
-        await setDoc(doc(db, 'users', cred.user.uid), {
-          email,
-          name,
-          role,
-          status,
-          profileColor: '#FF6B6B',
-          createdAt: serverTimestamp(),
-          lastLogin: serverTimestamp(),
-          settings: defaultSettings,
-        });
-        // 5. Mark app as initialized so next user can't become admin
+      // 4. If first user, lock it down
+      if (role === 'super_admin') {
         await setDoc(doc(db, 'app_meta', 'initialized'), {
           createdAt: serverTimestamp(),
           adminUid: cred.user.uid,
         });
-      } else {
-        role = 'teacher';
-        status = 'pending';
-        await setDoc(doc(db, 'users', cred.user.uid), {
-          email,
-          name,
-          role,
-          status,
-          profileColor: '#4A90E2',
-          createdAt: serverTimestamp(),
-          lastLogin: serverTimestamp(),
-          settings: defaultSettings,
-        });
       }
 
-      // 4. Send verification email (non-blocking)
-      sendEmailVerification(cred.user).catch(() => {});
-
-      // 5. Set state directly (don't rely on onAuthStateChanged)
+      // 5. Set state directly
       const user: User = {
         id: cred.user.uid,
         email,
         name,
         role,
         status,
-        profileColor: isFirstUser ? '#FF6B6B' : '#4A90E2',
+        profileColor: role === 'super_admin' ? '#FF6B6B' : '#4A90E2',
         createdAt: new Date(),
         lastLogin: new Date(),
         settings: defaultSettings,
       };
 
-      signupInProgress = false;
       set({ firebaseUser: cred.user, user, loading: false, error: null });
     } catch (err: any) {
-      signupInProgress = false;
       set({ loading: false, error: getErrorMessage(err.code) });
+    } finally {
+      signupInProgress = false;
     }
   },
 
   logout: async () => {
-    try {
-      await signOut(auth);
-    } catch {
-      // force clear state even if signOut fails
-    }
+    try { await signOut(auth); } catch {}
     set({ firebaseUser: null, user: null, loading: false });
   },
 
