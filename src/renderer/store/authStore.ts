@@ -8,7 +8,7 @@ import {
   onAuthStateChanged,
   type User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, getDocs, limit, query } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../utils/firebase';
 import type { User, UserRole, UserStatus, UserSettings } from '@shared/types';
 
@@ -38,10 +38,11 @@ const defaultSettings: UserSettings = {
   reminderDefault: '30min',
 };
 
-// Flag: skip next onAuthStateChanged (signup handles its own flow)
-let skipNextAuthChange = false;
+// During signup, onAuthStateChanged fires before Firestore doc is ready.
+// We use this flag to tell initialize() to wait for signup to finish.
+let signupInProgress = false;
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set, _get) => ({
   firebaseUser: null,
   user: null,
   loading: true,
@@ -49,53 +50,43 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   initialize: () => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      // During signup, we handle state manually to avoid race conditions
-      if (skipNextAuthChange) {
-        skipNextAuthChange = false;
+      // If signup is in progress, skip — signup() will set state itself
+      if (signupInProgress) return;
+
+      if (!firebaseUser) {
+        set({ firebaseUser: null, user: null, loading: false });
         return;
       }
 
-      if (firebaseUser) {
-        // Retry reading user doc (may not exist immediately after signup)
-        let attempts = 0;
-        while (attempts < 3) {
-          try {
-            const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-            if (userDoc.exists()) {
-              const data = userDoc.data();
-              const user: User = {
-                id: firebaseUser.uid,
-                email: data.email,
-                name: data.name,
-                role: data.role as UserRole,
-                status: data.status as UserStatus,
-                profileColor: data.profileColor,
-                createdAt: data.createdAt?.toDate() || new Date(),
-                lastLogin: new Date(),
-                settings: { ...defaultSettings, ...data.settings },
-              };
-              try {
-                await updateDoc(doc(db, 'users', firebaseUser.uid), {
-                  lastLogin: serverTimestamp(),
-                });
-              } catch {
-                // Non-blocking
-              }
-              set({ firebaseUser, user, loading: false, error: null });
-              return;
-            }
-          } catch {
-            // Firestore read failed
-          }
-          attempts++;
-          if (attempts < 3) {
-            await new Promise((r) => setTimeout(r, 1000));
-          }
+      // User is logged in — try to read their Firestore profile
+      try {
+        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          const user: User = {
+            id: firebaseUser.uid,
+            email: data.email,
+            name: data.name,
+            role: data.role as UserRole,
+            status: data.status as UserStatus,
+            profileColor: data.profileColor,
+            createdAt: data.createdAt?.toDate() || new Date(),
+            lastLogin: new Date(),
+            settings: { ...defaultSettings, ...data.settings },
+          };
+          // Update lastLogin (non-blocking)
+          updateDoc(doc(db, 'users', firebaseUser.uid), {
+            lastLogin: serverTimestamp(),
+          }).catch(() => {});
+
+          set({ firebaseUser, user, loading: false, error: null });
+        } else {
+          // Auth account exists but no Firestore profile — back to login
+          set({ firebaseUser, user: null, loading: false, error: null });
         }
-        // After retries, still no doc
-        set({ firebaseUser, user: null, loading: false });
-      } else {
-        set({ firebaseUser: null, user: null, loading: false });
+      } catch {
+        // Firestore read failed
+        set({ firebaseUser, user: null, loading: false, error: null });
       }
     });
     return unsubscribe;
@@ -105,66 +96,72 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged will handle the rest
     } catch (err: any) {
-      const message = getErrorMessage(err.code);
-      set({ loading: false, error: message });
-      throw new Error(message);
+      set({ loading: false, error: getErrorMessage(err.code) });
     }
   },
 
   signup: async (email, password, name) => {
     set({ loading: true, error: null });
-    try {
-      // Prevent onAuthStateChanged race condition
-      skipNextAuthChange = true;
+    signupInProgress = true;
 
-      // 1) Create Firebase Auth account first (must be authenticated to read Firestore)
+    try {
+      // 1. Create Auth account
       const cred = await createUserWithEmailAndPassword(auth, email, password);
 
-      // 2) Now check if this is the first user (requires auth)
+      // 2. Try to create as super_admin first.
+      //    Firestore rules only allow this if app_meta/initialized doesn't exist.
+      //    If rules reject it, fall back to teacher+pending.
+      let role: UserRole = 'teacher';
+      let status: UserStatus = 'pending';
       let isFirstUser = false;
+
       try {
-        const metaDoc = await getDoc(doc(db, 'app_meta', 'initialized'));
-        isFirstUser = !metaDoc.exists();
+        await setDoc(doc(db, 'users', cred.user.uid), {
+          email,
+          name,
+          role: 'super_admin' as UserRole,
+          status: 'active' as UserStatus,
+          profileColor: '#FF6B6B',
+          createdAt: serverTimestamp(),
+          lastLogin: serverTimestamp(),
+          settings: defaultSettings,
+        });
+        // Success! This is the first user.
+        role = 'super_admin';
+        status = 'active';
+        isFirstUser = true;
       } catch {
-        // If we can't check, default to normal teacher
+        // Firestore rules rejected super_admin → create as teacher
+        await setDoc(doc(db, 'users', cred.user.uid), {
+          email,
+          name,
+          role: 'teacher' as UserRole,
+          status: 'pending' as UserStatus,
+          profileColor: '#4A90E2',
+          createdAt: serverTimestamp(),
+          lastLogin: serverTimestamp(),
+          settings: defaultSettings,
+        });
       }
 
-      const role: UserRole = isFirstUser ? 'super_admin' : 'teacher';
-      const status: UserStatus = isFirstUser ? 'active' : 'pending';
-
-      // Create user doc FIRST, before onAuthStateChanged can read it
-      await setDoc(doc(db, 'users', cred.user.uid), {
-        email,
-        name,
-        role,
-        status,
-        profileColor: isFirstUser ? '#FF6B6B' : '#4A90E2',
-        createdAt: serverTimestamp(),
-        lastLogin: serverTimestamp(),
-        settings: defaultSettings,
-      });
-
-      // Mark app as initialized (so next user won't become admin)
+      // 3. If first user, mark app as initialized (blocks future super_admin signups)
       if (isFirstUser) {
-        try {
-          await setDoc(doc(db, 'app_meta', 'initialized'), {
-            createdAt: serverTimestamp(),
-            adminUid: cred.user.uid,
-          });
-        } catch {
-          // Non-blocking
-        }
+        setDoc(doc(db, 'app_meta', 'initialized'), {
+          createdAt: serverTimestamp(),
+          adminUid: cred.user.uid,
+        }).catch(() => {});
       }
 
-      // Send verification email (non-blocking)
+      // 4. Send verification email (non-blocking)
       sendEmailVerification(cred.user).catch(() => {});
 
-      // Now manually set the user state (since we skipped onAuthStateChanged)
+      // 5. Set state directly (don't rely on onAuthStateChanged)
       const user: User = {
         id: cred.user.uid,
-        email: email,
-        name: name,
+        email,
+        name,
         role,
         status,
         profileColor: isFirstUser ? '#FF6B6B' : '#4A90E2',
@@ -172,18 +169,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         lastLogin: new Date(),
         settings: defaultSettings,
       };
+
+      signupInProgress = false;
       set({ firebaseUser: cred.user, user, loading: false, error: null });
     } catch (err: any) {
-      skipNextAuthChange = false;
-      const message = getErrorMessage(err.code);
-      set({ loading: false, error: message });
-      throw new Error(message);
+      signupInProgress = false;
+      set({ loading: false, error: getErrorMessage(err.code) });
     }
   },
 
   logout: async () => {
-    await signOut(auth);
-    set({ firebaseUser: null, user: null });
+    try {
+      await signOut(auth);
+    } catch {
+      // force clear state even if signOut fails
+    }
+    set({ firebaseUser: null, user: null, loading: false });
   },
 
   resetPassword: async (email) => {
@@ -200,9 +201,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 function getErrorMessage(code: string): string {
   switch (code) {
     case 'auth/user-not-found':
-      return '등록되지 않은 이메일입니다.';
     case 'auth/wrong-password':
-      return '비밀번호가 올바르지 않습니다.';
+    case 'auth/invalid-credential':
+      return '이메일 또는 비밀번호가 올바르지 않습니다.';
     case 'auth/email-already-in-use':
       return '이미 사용 중인 이메일입니다.';
     case 'auth/weak-password':
@@ -211,8 +212,6 @@ function getErrorMessage(code: string): string {
       return '유효하지 않은 이메일 형식입니다.';
     case 'auth/too-many-requests':
       return '너무 많은 시도입니다. 잠시 후 다시 시도해주세요.';
-    case 'auth/invalid-credential':
-      return '이메일 또는 비밀번호가 올바르지 않습니다.';
     case 'auth/network-request-failed':
       return '네트워크 연결을 확인해주세요.';
     default:

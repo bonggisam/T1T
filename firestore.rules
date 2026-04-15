@@ -2,17 +2,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper: check if user is authenticated
     function isAuth() {
       return request.auth != null;
     }
 
-    // Helper: get user document
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    // Helper: check roles
     function isAdmin() {
       return isAuth() && getUserData().role in ['admin', 'super_admin'];
     }
@@ -27,55 +24,48 @@ service cloud.firestore {
 
     // Users collection
     match /users/{userId} {
-      // Anyone authenticated can read their own profile
       allow read: if isAuth() && request.auth.uid == userId;
-      // Admins can read all users
       allow read: if isAdmin();
-      // Users can create their own profile during signup
-      // First user can self-register as super_admin+active; others must be teacher+pending
+
+      // Signup: first user → super_admin (only if app_meta/initialized doesn't exist yet)
+      // Subsequent users → teacher+pending only
       allow create: if isAuth() && request.auth.uid == userId
         && (
-          (request.resource.data.role == 'teacher' && request.resource.data.status == 'pending')
-          || (request.resource.data.role == 'super_admin' && request.resource.data.status == 'active')
+          (request.resource.data.role == 'super_admin'
+           && request.resource.data.status == 'active'
+           && !exists(/databases/$(database)/documents/app_meta/initialized))
+          ||
+          (request.resource.data.role == 'teacher'
+           && request.resource.data.status == 'pending')
         );
-      // Users can update their own settings
+
       allow update: if isAuth() && request.auth.uid == userId
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status']);
-      // Admins can update user status (approve/reject)
       allow update: if isAdmin();
-      // Only super_admin can delete users
       allow delete: if isSuperAdmin();
     }
 
-    // Shared events (admin-created)
+    // Shared events
     match /events/{eventId} {
-      // Active users can read all events
       allow read: if isActive();
-      // Only admins can create/update/delete events
-      allow create: if isAdmin() && isActive();
-      allow update: if isAdmin() && isActive();
-      allow delete: if isAdmin() && isActive();
+      allow create, update, delete: if isAdmin() && isActive();
     }
 
-    // Personal events (per-user)
+    // Personal events
     match /personal_events/{userId}/events/{eventId} {
-      // Only the owner can read/write their personal events
       allow read, write: if isAuth() && request.auth.uid == userId && isActive();
     }
 
-    // App metadata (first-user check)
+    // App metadata — anyone auth can read, create only if doc doesn't exist
     match /app_meta/{docId} {
       allow read: if isAuth();
       allow create: if isAuth();
     }
 
-    // Notifications (per-user)
+    // Notifications
     match /notifications/{userId}/items/{notificationId} {
-      // Users can read their own notifications
       allow read: if isAuth() && request.auth.uid == userId;
-      // Users can update their own notifications (mark as read)
       allow update: if isAuth() && request.auth.uid == userId;
-      // Admins can create notifications for any user
       allow create: if isAdmin();
     }
   }
