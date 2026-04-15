@@ -99,7 +99,7 @@ function createTray(): void {
     },
   ]);
 
-  tray.setToolTip('투명 캘린더');
+  tray.setToolTip('ToneT');
   tray.setContextMenu(contextMenu);
   tray.on('click', () => toggleWindow());
 }
@@ -155,7 +155,7 @@ function setupIPC(): void {
 
   ipcMain.handle('tray:set-badge', (_event, hasBadge: boolean) => {
     if (tray) {
-      tray.setToolTip(hasBadge ? '투명 캘린더 (새 알림)' : '투명 캘린더');
+      tray.setToolTip(hasBadge ? 'ToneT (새 알림)' : 'ToneT');
     }
   });
 

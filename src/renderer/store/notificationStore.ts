@@ -62,7 +62,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         const newest = notifications.find((n) => !n.read);
         if (newest) {
           playNotificationSound();
-          showDesktopNotification('투명 캘린더', newest.message);
+          showDesktopNotification('ToneT', newest.message);
         }
       }
       isFirstLoad = false;

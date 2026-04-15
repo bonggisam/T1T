@@ -17,7 +17,7 @@ export function TitleBar({ onToggleSettings, onToggleAdmin, showSettingsBtn, sho
     <div className="titlebar" style={styles.container}>
       <div style={styles.left}>
         <span style={styles.logo}>📅</span>
-        <span style={styles.title}>투명 캘린더</span>
+        <span style={styles.title}>ToneT</span>
       </div>
       <div style={styles.right}>
         {showSettingsBtn && user && (

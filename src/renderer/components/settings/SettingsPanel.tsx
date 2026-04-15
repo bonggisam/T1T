@@ -26,6 +26,8 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
   const [profileColor, setProfileColor] = useState(user?.profileColor || '#4A90E2');
   const [syncInterval, setSyncInterval] = useState(user?.settings.syncInterval ?? 15);
   const [appVersion, setAppVersion] = useState('1.0.0');
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState('');
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
@@ -50,19 +52,27 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
 
   async function handleSave() {
     if (!user) return;
-    const updates: any = {
-      'settings.transparency': transparency,
-      'settings.alwaysOnTop': alwaysOnTop,
-      'settings.clickThrough': clickThrough,
-      'settings.notificationSound': notifSound,
-      'settings.notificationBadge': notifBadge,
-      'settings.theme': theme,
-      'settings.syncInterval': syncInterval,
-    };
-    if (isAdmin) {
-      updates.profileColor = profileColor;
+    setSaving(true);
+    setSaveMsg('');
+    try {
+      const updates: any = {
+        'settings.transparency': transparency,
+        'settings.alwaysOnTop': alwaysOnTop,
+        'settings.clickThrough': clickThrough,
+        'settings.notificationSound': notifSound,
+        'settings.notificationBadge': notifBadge,
+        'settings.theme': theme,
+        'settings.syncInterval': syncInterval,
+        profileColor,
+      };
+      await updateDoc(doc(db, 'users', user.id), updates);
+      setSaveMsg('✓ 저장됨');
+      setTimeout(() => setSaveMsg(''), 2000);
+    } catch (err: any) {
+      setSaveMsg('저장 실패: ' + (err?.message || '알 수 없는 오류'));
+    } finally {
+      setSaving(false);
     }
-    await updateDoc(doc(db, 'users', user.id), updates);
   }
 
   return (
@@ -181,7 +191,10 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
       </div>
 
       <div style={styles.footer}>
-        <button onClick={handleSave} style={styles.saveBtn}>설정 저장</button>
+        <button onClick={handleSave} disabled={saving} style={styles.saveBtn}>
+          {saving ? '저장 중...' : '설정 저장'}
+        </button>
+        {saveMsg && <span style={{ fontSize: 11, color: saveMsg.startsWith('✓') ? '#10B981' : '#EF4444', alignSelf: 'center' }}>{saveMsg}</span>}
         <button onClick={logout} style={styles.logoutBtn}>로그아웃</button>
       </div>
     </div>

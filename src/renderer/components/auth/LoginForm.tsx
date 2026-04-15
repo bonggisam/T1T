@@ -61,7 +61,7 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
 
   return (
     <div className="animate-fade-in" style={styles.container}>
-      <h2 style={styles.title}>📅 투명 캘린더</h2>
+      <h2 style={styles.title}>📅 ToneT</h2>
       <p style={styles.subtitle}>학교 일정 공유 시스템</p>
 
       <form onSubmit={handleLogin} style={styles.form}>

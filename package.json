@@ -1,7 +1,7 @@
 {
-  "name": "transparent-calendar",
+  "name": "tonet",
   "version": "1.0.2",
-  "description": "투명 데스크톱 캘린더 - 학교 일정 공유 시스템",
+  "description": "ToneT - 학교 일정 공유 시스템",
   "main": "dist/main/main.js",
   "scripts": {
     "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:electron\"",
@@ -38,7 +38,7 @@
   },
   "build": {
     "appId": "com.school.transparent-calendar",
-    "productName": "투명 캘린더",
+    "productName": "ToneT",
     "directories": {
       "output": "release"
     },
