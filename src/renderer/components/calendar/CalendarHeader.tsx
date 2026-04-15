@@ -101,10 +101,11 @@ const styles: Record<string, React.CSSProperties> = {
   },
   monthLabel: {
     fontSize: 15,
-    fontWeight: 600,
+    fontWeight: 700,
     color: 'var(--text-primary)',
     minWidth: 100,
     textAlign: 'center' as const,
+    textShadow: '0 0 4px rgba(255,255,255,0.8)',
   },
   actions: {
     display: 'flex',

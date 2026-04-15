@@ -135,7 +135,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'grid',
     gridTemplateColumns: '40px repeat(7, 1fr)',
     gap: 1,
-    borderBottom: '1px solid var(--border-subtle)',
+    borderBottom: '1px solid var(--grid-line)',
     flexShrink: 0,
   },
   timeGutter: {
@@ -159,7 +159,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   dayNum: {
     fontSize: 14,
-    fontWeight: 600,
+    fontWeight: 700,
+    textShadow: '0 0 4px rgba(255,255,255,0.8)',
   },
   todayNum: {
     background: 'var(--accent)',
@@ -185,7 +186,7 @@ const styles: Record<string, React.CSSProperties> = {
     gridTemplateColumns: '40px repeat(7, 1fr)',
     gap: 1,
     minHeight: 40,
-    borderBottom: '1px solid var(--border-subtle)',
+    borderBottom: '1px solid var(--grid-line)',
   },
   timeLabel: {
     fontSize: 9,

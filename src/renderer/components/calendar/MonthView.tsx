@@ -169,24 +169,29 @@ const styles: Record<string, React.CSSProperties> = {
   weekdayCell: {
     textAlign: 'center',
     fontSize: 11,
-    fontWeight: 600,
+    fontWeight: 700,
     padding: '4px 0',
+    textShadow: '0 0 4px rgba(255,255,255,0.8)',
   },
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(7, 1fr)',
-    gap: 1,
+    gap: 0,
     flex: 1,
+    border: '1px solid var(--grid-line)',
+    borderRadius: 6,
+    overflow: 'hidden',
   },
   dayCell: {
     padding: '3px 4px',
     minHeight: 52,
-    borderRadius: 6,
     cursor: 'pointer',
     transition: 'background 0.12s',
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
+    borderRight: '1px solid var(--grid-line)',
+    borderBottom: '1px solid var(--grid-line)',
   },
   today: {
     background: 'var(--today-bg)',
@@ -203,8 +208,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   dayNumber: {
     fontSize: 12,
-    fontWeight: 500,
+    fontWeight: 700,
     lineHeight: 1,
+    textShadow: '0 0 4px rgba(255,255,255,0.8)',
   },
   newBadge: {
     fontSize: 7,
