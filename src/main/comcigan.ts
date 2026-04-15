@@ -40,7 +40,7 @@ function saveConfigToDisk(config: ComciganConfig | null): void {
   } catch {}
 }
 
-const WEEKDAY_STRINGS = ['', '월', '화', '수', '목', '금'];
+const WEEKDAY_STRINGS = ['월', '화', '수', '목', '금'];
 
 class ComciganService {
   private timetable: any = null;
@@ -128,6 +128,8 @@ class ComciganService {
   ): TeacherPeriod[] {
     const schedule: TeacherPeriod[] = [];
     const maxGrade = this.config?.maxGrade || 3;
+    // comcigan-parser truncates teacher names to 2 chars
+    const namePrefix = teacherName.substring(0, 2);
 
     for (let grade = 1; grade <= maxGrade; grade++) {
       if (!fullData[grade]) continue;
@@ -137,22 +139,28 @@ class ComciganService {
         const classData = fullData[grade][classNum];
         if (!classData) continue;
 
-        // weekday: 1=Mon ~ 5=Fri
-        for (let weekday = 1; weekday <= 5; weekday++) {
-          const dayData = classData[weekday];
+        // comcigan-parser weekday index: 0=Mon ~ 4=Fri
+        for (let dayIdx = 0; dayIdx <= 4; dayIdx++) {
+          const dayData = classData[dayIdx];
           if (!dayData || !Array.isArray(dayData)) continue;
 
-          for (let period = 0; period < dayData.length; period++) {
-            const cell = dayData[period];
+          for (const cell of dayData) {
             if (!cell) continue;
 
             const teacher = cell.teacher || '';
             const subject = cell.subject || '';
+            const periodNum = cell.classTime || 0;
 
-            if (teacher && teacher.includes(teacherName)) {
+            if (!teacher || !subject || periodNum === 0) continue;
+
+            // Match by first 2 chars (parser truncates names)
+            if (teacher === namePrefix || teacher.includes(namePrefix)) {
+              // weekday: store as 1=Mon~5=Fri for our internal use
+              const weekday = dayIdx + 1;
+
               // Parse start time from classTimes
               let startTime: string | undefined;
-              const ctEntry = classTimes[period];
+              const ctEntry = classTimes[periodNum - 1];
               if (ctEntry) {
                 const match = ctEntry.match(/\((\d{2}:\d{2})\)/);
                 if (match) startTime = match[1];
@@ -162,8 +170,8 @@ class ComciganService {
                 grade,
                 classNum,
                 weekday,
-                weekdayStr: WEEKDAY_STRINGS[weekday] || '',
-                period: period + 1,
+                weekdayStr: WEEKDAY_STRINGS[dayIdx] || '',
+                period: periodNum,
                 subject,
                 startTime,
               });
