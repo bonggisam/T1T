@@ -38,6 +38,9 @@ const defaultSettings: UserSettings = {
   reminderDefault: '30min',
 };
 
+// Flag: skip next onAuthStateChanged (signup handles its own flow)
+let skipNextAuthChange = false;
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   firebaseUser: null,
   user: null,
@@ -46,36 +49,51 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   initialize: () => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // During signup, we handle state manually to avoid race conditions
+      if (skipNextAuthChange) {
+        skipNextAuthChange = false;
+        return;
+      }
+
       if (firebaseUser) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            const user: User = {
-              id: firebaseUser.uid,
-              email: data.email,
-              name: data.name,
-              role: data.role as UserRole,
-              status: data.status as UserStatus,
-              profileColor: data.profileColor,
-              createdAt: data.createdAt?.toDate() || new Date(),
-              lastLogin: new Date(),
-              settings: { ...defaultSettings, ...data.settings },
-            };
-            try {
-              await updateDoc(doc(db, 'users', firebaseUser.uid), {
-                lastLogin: serverTimestamp(),
-              });
-            } catch {
-              // Non-blocking: lastLogin update may fail offline
+        // Retry reading user doc (may not exist immediately after signup)
+        let attempts = 0;
+        while (attempts < 3) {
+          try {
+            const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+            if (userDoc.exists()) {
+              const data = userDoc.data();
+              const user: User = {
+                id: firebaseUser.uid,
+                email: data.email,
+                name: data.name,
+                role: data.role as UserRole,
+                status: data.status as UserStatus,
+                profileColor: data.profileColor,
+                createdAt: data.createdAt?.toDate() || new Date(),
+                lastLogin: new Date(),
+                settings: { ...defaultSettings, ...data.settings },
+              };
+              try {
+                await updateDoc(doc(db, 'users', firebaseUser.uid), {
+                  lastLogin: serverTimestamp(),
+                });
+              } catch {
+                // Non-blocking
+              }
+              set({ firebaseUser, user, loading: false, error: null });
+              return;
             }
-            set({ firebaseUser, user, loading: false, error: null });
-          } else {
-            set({ firebaseUser, user: null, loading: false });
+          } catch {
+            // Firestore read failed
           }
-        } catch {
-          set({ firebaseUser, user: null, loading: false });
+          attempts++;
+          if (attempts < 3) {
+            await new Promise((r) => setTimeout(r, 1000));
+          }
         }
+        // After retries, still no doc
+        set({ firebaseUser, user: null, loading: false });
       } else {
         set({ firebaseUser: null, user: null, loading: false });
       }
@@ -97,33 +115,65 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signup: async (email, password, name) => {
     set({ loading: true, error: null });
     try {
-      // Check if this is the very first user (= becomes super_admin)
+      // Check if this is the very first user via app_meta doc
       let isFirstUser = false;
       try {
-        const usersSnap = await getDocs(query(collection(db, 'users'), limit(1)));
-        isFirstUser = usersSnap.empty;
+        const metaDoc = await getDoc(doc(db, 'app_meta', 'initialized'));
+        isFirstUser = !metaDoc.exists();
       } catch {
         // If we can't check, default to normal teacher
       }
 
+      // Prevent onAuthStateChanged race condition
+      skipNextAuthChange = true;
+
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-      await sendEmailVerification(cred.user);
 
       const role: UserRole = isFirstUser ? 'super_admin' : 'teacher';
       const status: UserStatus = isFirstUser ? 'active' : 'pending';
 
+      // Create user doc FIRST, before onAuthStateChanged can read it
       await setDoc(doc(db, 'users', cred.user.uid), {
         email,
         name,
         role,
         status,
-        profileColor: isFirstUser ? '#FF6B6B' : undefined,
+        profileColor: isFirstUser ? '#FF6B6B' : '#4A90E2',
         createdAt: serverTimestamp(),
         lastLogin: serverTimestamp(),
         settings: defaultSettings,
       });
-      set({ loading: false });
+
+      // Mark app as initialized (so next user won't become admin)
+      if (isFirstUser) {
+        try {
+          await setDoc(doc(db, 'app_meta', 'initialized'), {
+            createdAt: serverTimestamp(),
+            adminUid: cred.user.uid,
+          });
+        } catch {
+          // Non-blocking
+        }
+      }
+
+      // Send verification email (non-blocking)
+      sendEmailVerification(cred.user).catch(() => {});
+
+      // Now manually set the user state (since we skipped onAuthStateChanged)
+      const user: User = {
+        id: cred.user.uid,
+        email: email,
+        name: name,
+        role,
+        status,
+        profileColor: isFirstUser ? '#FF6B6B' : '#4A90E2',
+        createdAt: new Date(),
+        lastLogin: new Date(),
+        settings: defaultSettings,
+      };
+      set({ firebaseUser: cred.user, user, loading: false, error: null });
     } catch (err: any) {
+      skipNextAuthChange = false;
       const message = getErrorMessage(err.code);
       set({ loading: false, error: message });
       throw new Error(message);
@@ -160,7 +210,11 @@ function getErrorMessage(code: string): string {
       return '유효하지 않은 이메일 형식입니다.';
     case 'auth/too-many-requests':
       return '너무 많은 시도입니다. 잠시 후 다시 시도해주세요.';
+    case 'auth/invalid-credential':
+      return '이메일 또는 비밀번호가 올바르지 않습니다.';
+    case 'auth/network-request-failed':
+      return '네트워크 연결을 확인해주세요.';
     default:
-      return '오류가 발생했습니다. 다시 시도해주세요.';
+      return `오류가 발생했습니다 (${code || 'unknown'}). 다시 시도해주세요.`;
   }
 }
