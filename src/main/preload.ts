@@ -7,6 +7,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimize: () => ipcRenderer.invoke('window:minimize'),
   close: () => ipcRenderer.invoke('window:close'),
   setSize: (width: number, height: number) => ipcRenderer.invoke('window:set-size', width, height),
+  setWidgetMode: (enabled: boolean) => ipcRenderer.invoke('window:set-widget-mode', enabled),
+  getWidgetMode: () => ipcRenderer.invoke('window:get-widget-mode'),
+  getBounds: () => ipcRenderer.invoke('window:get-bounds'),
+  setBounds: (bounds: { x: number; y: number; width: number; height: number }) => ipcRenderer.invoke('window:set-bounds', bounds),
+  onWidgetModeChanged: (callback: (enabled: boolean) => void) => {
+    const listener = (_event: any, enabled: boolean) => callback(enabled);
+    ipcRenderer.on('widget-mode-changed', listener);
+    return () => ipcRenderer.removeListener('widget-mode-changed', listener);
+  },
   setTrayBadge: (hasBadge: boolean) => ipcRenderer.invoke('tray:set-badge', hasBadge),
 
   // Auto-updater

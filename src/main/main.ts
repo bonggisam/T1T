@@ -6,6 +6,7 @@ import { comciganService } from './comcigan';
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isClickThrough = false;
+let isWidgetMode = true; // Desktop widget mode (pinned behind windows)
 
 const isDev = !app.isPackaged;
 
@@ -126,6 +127,32 @@ function toggleWindow(): void {
   }
 }
 
+function applyWidgetMode(enabled: boolean): void {
+  if (!mainWindow) return;
+  isWidgetMode = enabled;
+  if (enabled) {
+    // Widget mode: behind all windows, not focusable, on desktop
+    mainWindow.setAlwaysOnTop(false);
+    mainWindow.setSkipTaskbar(true);
+    mainWindow.setResizable(false);
+    // Move to bottom of z-order (desktop level)
+    if (process.platform === 'win32') {
+      mainWindow.setAlwaysOnTop(true, 'pop-up-menu');
+      // Briefly set on top then move to bottom
+      setTimeout(() => {
+        mainWindow?.setAlwaysOnTop(false);
+      }, 50);
+    }
+    mainWindow.blur();
+  } else {
+    // Edit mode: interactive, on top, resizable
+    mainWindow.setAlwaysOnTop(true);
+    mainWindow.setSkipTaskbar(false);
+    mainWindow.setResizable(true);
+    mainWindow.focus();
+  }
+}
+
 // IPC Handlers
 function setupIPC(): void {
   ipcMain.handle('window:toggle-always-on-top', (_event, value: boolean) => {
@@ -152,6 +179,22 @@ function setupIPC(): void {
 
   ipcMain.handle('window:set-size', (_event, width: number, height: number) => {
     mainWindow?.setSize(width, height);
+  });
+
+  ipcMain.handle('window:set-widget-mode', (_event, enabled: boolean) => {
+    applyWidgetMode(enabled);
+  });
+
+  ipcMain.handle('window:get-widget-mode', () => {
+    return isWidgetMode;
+  });
+
+  ipcMain.handle('window:get-bounds', () => {
+    return mainWindow?.getBounds();
+  });
+
+  ipcMain.handle('window:set-bounds', (_event, bounds: { x: number; y: number; width: number; height: number }) => {
+    mainWindow?.setBounds(bounds);
   });
 
   ipcMain.handle('tray:set-badge', (_event, hasBadge: boolean) => {
@@ -340,9 +383,19 @@ app.whenReady().then(() => {
   if (mainWindow) comciganService.setMainWindow(mainWindow);
   comciganService.init().catch(() => {});
 
-  // Register global shortcut: Ctrl+Shift+C to toggle
+  // Start in widget mode after window loads
+  mainWindow?.webContents.on('did-finish-load', () => {
+    applyWidgetMode(true);
+  });
+
+  // Register global shortcut: Ctrl+Shift+C to toggle edit/widget mode
   globalShortcut.register('CommandOrControl+Shift+C', () => {
-    toggleWindow();
+    if (mainWindow?.isVisible()) {
+      applyWidgetMode(!isWidgetMode);
+      mainWindow?.webContents.send('widget-mode-changed', isWidgetMode);
+    } else {
+      mainWindow?.show();
+    }
   });
 });
 

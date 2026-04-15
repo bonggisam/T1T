@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/notificationStore';
 
@@ -12,6 +12,36 @@ interface TitleBarProps {
 export function TitleBar({ onToggleSettings, onToggleAdmin, showSettingsBtn, showAdminBtn }: TitleBarProps) {
   const { user, logout } = useAuthStore();
   const { unreadCount, setShowPanel, showPanel } = useNotificationStore();
+  const [widgetMode, setWidgetMode] = useState(true);
+
+  useEffect(() => {
+    window.electronAPI?.getWidgetMode().then((v) => setWidgetMode(v)).catch(() => {});
+    const unsub = window.electronAPI?.onWidgetModeChanged((enabled) => {
+      setWidgetMode(enabled);
+    });
+    return () => unsub?.();
+  }, []);
+
+  function handleToggleWidget() {
+    const next = !widgetMode;
+    setWidgetMode(next);
+    window.electronAPI?.setWidgetMode(next);
+  }
+
+  // Widget mode: minimal title bar (just edit button)
+  if (widgetMode) {
+    return (
+      <div className="titlebar" style={styles.widgetBar}>
+        <button
+          onClick={handleToggleWidget}
+          style={styles.editBtn}
+          title="편집 모드 (Ctrl+Shift+C)"
+        >
+          ✏️
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="titlebar" style={styles.container}>
@@ -43,6 +73,13 @@ export function TitleBar({ onToggleSettings, onToggleAdmin, showSettingsBtn, sho
           </>
         )}
         <button
+          onClick={handleToggleWidget}
+          style={styles.widgetBtn}
+          title="위젯 모드 (바탕 고정)"
+        >
+          📌
+        </button>
+        <button
           onClick={() => window.electronAPI?.minimize()}
           style={styles.btn}
           title="최소화"
@@ -69,6 +106,14 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '8px 12px',
     borderBottom: '1px solid var(--border-subtle)',
     flexShrink: 0,
+  },
+  widgetBar: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    padding: '2px 4px',
+    flexShrink: 0,
+    opacity: 0,
+    transition: 'opacity 0.3s',
   },
   left: {
     display: 'flex',
@@ -97,6 +142,25 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     color: 'var(--text-secondary)',
     position: 'relative' as const,
+    transition: 'background 0.15s',
+  },
+  editBtn: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '2px 6px',
+    borderRadius: 4,
+    fontSize: 11,
+    color: 'var(--text-muted)',
+  },
+  widgetBtn: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '4px 8px',
+    borderRadius: 6,
+    fontSize: 13,
+    color: 'var(--accent)',
     transition: 'background 0.15s',
   },
   closeBtn: {

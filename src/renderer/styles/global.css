@@ -102,6 +102,10 @@ html, body, #root {
 .titlebar button, .titlebar input, .titlebar select {
   -webkit-app-region: no-drag;
 }
+/* Widget mode: show edit button on hover */
+.glass:hover .titlebar {
+  opacity: 1 !important;
+}
 
 /* Animations */
 @keyframes fadeIn {

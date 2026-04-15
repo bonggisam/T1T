@@ -145,6 +145,11 @@ export interface ElectronAPI {
   minimize: () => Promise<void>;
   close: () => Promise<void>;
   setSize: (width: number, height: number) => Promise<void>;
+  setWidgetMode: (enabled: boolean) => Promise<void>;
+  getWidgetMode: () => Promise<boolean>;
+  getBounds: () => Promise<{ x: number; y: number; width: number; height: number }>;
+  setBounds: (bounds: { x: number; y: number; width: number; height: number }) => Promise<void>;
+  onWidgetModeChanged: (callback: (enabled: boolean) => void) => () => void;
   setTrayBadge: (hasBadge: boolean) => Promise<void>;
   // Auto-updater
   updaterDownload: () => Promise<void>;

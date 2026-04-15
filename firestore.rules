@@ -34,10 +34,12 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
-    // Shared events
+    // Shared events — all active users can create; edit/delete own only; admin can manage all
     match /events/{eventId} {
       allow read: if isActive();
-      allow create, update, delete: if isAdmin() && isActive();
+      allow create: if isActive();
+      allow update, delete: if isActive()
+        && (resource.data.createdBy == request.auth.uid || isAdmin());
     }
 
     // Personal events
