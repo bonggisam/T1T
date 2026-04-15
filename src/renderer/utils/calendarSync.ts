@@ -1,9 +1,5 @@
 /**
- * External calendar sync services.
- * Handles Google Calendar, Apple Calendar (CalDAV), Notion, and Outlook.
- *
- * Google Calendar uses OAuth 2.0 via popup flow.
- * Others follow similar patterns with their respective APIs.
+ * External calendar sync — Google Calendar via Electron OAuth
  */
 
 import type { PersonalEvent } from '@shared/types';
@@ -12,12 +8,8 @@ import type { PersonalEvent } from '@shared/types';
 // Google Calendar
 // ============================================================
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
-const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
-
 interface GoogleTokens {
   access_token: string;
-  refresh_token?: string;
   expires_at: number;
 }
 
@@ -28,56 +20,25 @@ export function isGoogleConnected(): boolean {
 }
 
 /**
- * Initiate Google OAuth 2.0 login via popup.
- * In Electron, this opens a BrowserWindow; in browser, uses popup.
+ * Google OAuth via Electron main process BrowserWindow.
+ * Opens a native window for login, captures token on redirect.
  */
 export async function connectGoogle(): Promise<boolean> {
-  if (!GOOGLE_CLIENT_ID) {
-    console.warn('[CalendarSync] VITE_GOOGLE_CLIENT_ID 환경변수가 설정되지 않았습니다.');
+  try {
+    const result = await window.electronAPI?.googleAuth();
+    if (result && result.access_token) {
+      googleTokens = {
+        access_token: result.access_token,
+        expires_at: Date.now() + result.expires_in * 1000,
+      };
+      saveTokensToStorage('google', googleTokens);
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.error('[CalendarSync] Google auth error:', err);
     return false;
   }
-
-  return new Promise((resolve) => {
-    const redirectUri = window.location.origin + '/auth/google/callback';
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}&` +
-      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-      `response_type=token&` +
-      `scope=${encodeURIComponent(GOOGLE_SCOPES)}&` +
-      `prompt=consent`;
-
-    const popup = window.open(authUrl, 'google-auth', 'width=500,height=600');
-
-    const interval = setInterval(() => {
-      try {
-        if (!popup || popup.closed) {
-          clearInterval(interval);
-          resolve(false);
-          return;
-        }
-        const url = popup.location.href;
-        if (url.includes('access_token=')) {
-          const hash = new URL(url).hash.substring(1);
-          const params = new URLSearchParams(hash);
-          const token = params.get('access_token');
-          const expiresIn = parseInt(params.get('expires_in') || '3600');
-
-          if (token) {
-            googleTokens = {
-              access_token: token,
-              expires_at: Date.now() + expiresIn * 1000,
-            };
-            saveTokensToStorage('google', googleTokens);
-            popup.close();
-            clearInterval(interval);
-            resolve(true);
-          }
-        }
-      } catch {
-        // Cross-origin error — popup is still on Google's domain
-      }
-    }, 500);
-  });
 }
 
 export function disconnectGoogle(): void {
@@ -127,8 +88,7 @@ export async function fetchGoogleCalendarEvents(
 }
 
 // ============================================================
-// Token storage helpers (using localStorage for now,
-// electron-store + safeStorage in production)
+// Token storage (localStorage)
 // ============================================================
 
 function saveTokensToStorage(provider: string, tokens: any): void {
@@ -152,7 +112,7 @@ function removeTokensFromStorage(provider: string): void {
   } catch {}
 }
 
-// Restore tokens on load
+/** Restore saved tokens on app load */
 export function restoreCalendarConnections(): void {
   const gTokens = loadTokensFromStorage('google');
   if (gTokens && gTokens.expires_at > Date.now()) {

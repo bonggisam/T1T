@@ -152,6 +152,8 @@ export interface ElectronAPI {
   updaterCheck: () => Promise<void>;
   getAppVersion: () => Promise<string>;
   onUpdaterEvent: (callback: (channel: string, data: any) => void) => () => void;
+  // Google Calendar
+  googleAuth: () => Promise<{ access_token: string; expires_in: number } | null>;
   // Comcigan
   comciganSearch: (name: string) => Promise<ComciganSchool[]>;
   comciganConfigure: (config: ComciganConfig) => Promise<void>;

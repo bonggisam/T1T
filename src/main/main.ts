@@ -226,6 +226,77 @@ function setupAutoUpdater(): void {
   }, 30 * 60 * 1000);
 }
 
+// Google Calendar OAuth IPC
+function setupGoogleAuthIPC(): void {
+  const GOOGLE_CLIENT_ID = '607193357118-cu3ldm1e22re43un4bhc6p5j2e221kpk.apps.googleusercontent.com';
+  const REDIRECT_URI = 'http://localhost/auth/google/callback';
+  const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
+
+  ipcMain.handle('google:auth', () => {
+    return new Promise<{ access_token: string; expires_in: number } | null>((resolve) => {
+      const authWindow = new BrowserWindow({
+        width: 500,
+        height: 650,
+        show: true,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+        },
+      });
+
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+        `client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}&` +
+        `redirect_uri=${encodeURIComponent(REDIRECT_URI)}&` +
+        `response_type=token&` +
+        `scope=${encodeURIComponent(SCOPES)}&` +
+        `prompt=consent`;
+
+      authWindow.loadURL(authUrl);
+
+      authWindow.webContents.on('will-redirect', (_event, url) => {
+        try {
+          if (url.startsWith(REDIRECT_URI)) {
+            const hash = new URL(url).hash.substring(1);
+            const params = new URLSearchParams(hash);
+            const token = params.get('access_token');
+            const expiresIn = parseInt(params.get('expires_in') || '3600');
+            if (token) {
+              resolve({ access_token: token, expires_in: expiresIn });
+            } else {
+              resolve(null);
+            }
+            authWindow.close();
+          }
+        } catch {
+          resolve(null);
+          authWindow.close();
+        }
+      });
+
+      authWindow.webContents.on('will-navigate', (_event, url) => {
+        try {
+          if (url.startsWith(REDIRECT_URI)) {
+            const hash = new URL(url).hash.substring(1);
+            const params = new URLSearchParams(hash);
+            const token = params.get('access_token');
+            const expiresIn = parseInt(params.get('expires_in') || '3600');
+            if (token) {
+              resolve({ access_token: token, expires_in: expiresIn });
+            } else {
+              resolve(null);
+            }
+            authWindow.close();
+          }
+        } catch {}
+      });
+
+      authWindow.on('closed', () => {
+        resolve(null);
+      });
+    });
+  });
+}
+
 // Comcigan IPC
 function setupComciganIPC(): void {
   ipcMain.handle('comcigan:search', async (_event, name: string) => {
@@ -261,6 +332,7 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   setupIPC();
+  setupGoogleAuthIPC();
   setupComciganIPC();
   setupAutoUpdater();
 

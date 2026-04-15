@@ -26,6 +26,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     };
   },
 
+  // Google Calendar OAuth
+  googleAuth: () => ipcRenderer.invoke('google:auth'),
+
   // Comcigan
   comciganSearch: (name: string) => ipcRenderer.invoke('comcigan:search', name),
   comciganConfigure: (config: any) => ipcRenderer.invoke('comcigan:configure', config),
