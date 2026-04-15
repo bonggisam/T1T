@@ -32,6 +32,11 @@ export function isGoogleConnected(): boolean {
  * In Electron, this opens a BrowserWindow; in browser, uses popup.
  */
 export async function connectGoogle(): Promise<boolean> {
+  if (!GOOGLE_CLIENT_ID) {
+    console.warn('[CalendarSync] VITE_GOOGLE_CLIENT_ID 환경변수가 설정되지 않았습니다.');
+    return false;
+  }
+
   return new Promise((resolve) => {
     const redirectUri = window.location.origin + '/auth/google/callback';
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
@@ -119,58 +124,6 @@ export async function fetchGoogleCalendarEvents(
     console.error('Google Calendar fetch error:', err);
     return [];
   }
-}
-
-// ============================================================
-// Apple Calendar (CalDAV) — placeholder
-// ============================================================
-
-export async function connectApple(_username: string, _appPassword: string): Promise<boolean> {
-  // CalDAV implementation requires server-side proxy for CORS
-  // In Electron, this can be done directly via Node.js http module
-  console.log('Apple Calendar: CalDAV integration requires Electron main process');
-  return false;
-}
-
-export async function fetchAppleCalendarEvents(
-  _timeMin: Date,
-  _timeMax: Date,
-): Promise<PersonalEvent[]> {
-  return [];
-}
-
-// ============================================================
-// Notion Calendar — placeholder
-// ============================================================
-
-export async function connectNotion(): Promise<boolean> {
-  // Notion OAuth 2.0 flow, similar to Google
-  console.log('Notion Calendar: OAuth integration placeholder');
-  return false;
-}
-
-export async function fetchNotionCalendarEvents(
-  _timeMin: Date,
-  _timeMax: Date,
-): Promise<PersonalEvent[]> {
-  return [];
-}
-
-// ============================================================
-// Outlook Calendar (Microsoft Graph) — placeholder
-// ============================================================
-
-export async function connectOutlook(): Promise<boolean> {
-  // Microsoft OAuth 2.0 flow
-  console.log('Outlook Calendar: OAuth integration placeholder');
-  return false;
-}
-
-export async function fetchOutlookCalendarEvents(
-  _timeMin: Date,
-  _timeMax: Date,
-): Promise<PersonalEvent[]> {
-  return [];
 }
 
 // ============================================================

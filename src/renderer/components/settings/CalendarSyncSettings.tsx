@@ -18,98 +18,71 @@ const SYNC_INTERVALS = [
   { value: 30, label: '30분' },
 ];
 
-interface ProviderConfig {
-  key: string;
-  name: string;
-  icon: string;
-  connected: boolean;
-  onConnect: () => Promise<void>;
-  onDisconnect: () => void;
-  available: boolean;
-}
-
 export function CalendarSyncSettings({ syncInterval, onSyncIntervalChange }: CalendarSyncSettingsProps) {
   const [googleConnected, setGoogleConnected] = useState(isGoogleConnected());
-  const [connecting, setConnecting] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
+  const [error, setError] = useState('');
   const { syncExternalCalendars } = usePersonalEventStore();
 
-  const providers: ProviderConfig[] = [
-    {
-      key: 'google',
-      name: 'Google Calendar',
-      icon: '📅',
-      connected: googleConnected,
-      onConnect: async () => {
-        setConnecting('google');
-        const ok = await connectGoogle();
-        setGoogleConnected(ok);
-        if (ok) syncExternalCalendars();
-        setConnecting(null);
-      },
-      onDisconnect: () => {
-        disconnectGoogle();
-        setGoogleConnected(false);
-      },
-      available: true,
-    },
-    {
-      key: 'apple',
-      name: 'Apple Calendar',
-      icon: '🍎',
-      connected: false,
-      onConnect: async () => {},
-      onDisconnect: () => {},
-      available: false,
-    },
-    {
-      key: 'notion',
-      name: 'Notion Calendar',
-      icon: '📝',
-      connected: false,
-      onConnect: async () => {},
-      onDisconnect: () => {},
-      available: false,
-    },
-    {
-      key: 'outlook',
-      name: 'Outlook Calendar',
-      icon: '📧',
-      connected: false,
-      onConnect: async () => {},
-      onDisconnect: () => {},
-      available: false,
-    },
-  ];
+  async function handleGoogleConnect() {
+    setConnecting(true);
+    setError('');
+    try {
+      const ok = await connectGoogle();
+      setGoogleConnected(ok);
+      if (ok) {
+        syncExternalCalendars();
+      } else {
+        setError('Google 연동 실패. Client ID가 설정되지 않았을 수 있습니다.');
+      }
+    } catch (err: any) {
+      setError(err?.message || '연동 중 오류 발생');
+    }
+    setConnecting(false);
+  }
+
+  function handleGoogleDisconnect() {
+    disconnectGoogle();
+    setGoogleConnected(false);
+  }
 
   return (
     <div style={styles.container}>
-      {providers.map((p) => (
-        <div key={p.key} style={styles.providerRow}>
+      {/* Google Calendar */}
+      <div style={styles.providerRow}>
+        <div style={styles.providerInfo}>
+          <span style={styles.providerIcon}>📅</span>
+          <span style={styles.providerName}>Google Calendar</span>
+        </div>
+        <div style={styles.providerActions}>
+          {googleConnected ? (
+            <>
+              <span style={styles.connectedBadge}>연동됨</span>
+              <button onClick={handleGoogleDisconnect} style={styles.disconnectBtn}>해제</button>
+            </>
+          ) : (
+            <button
+              onClick={handleGoogleConnect}
+              disabled={connecting}
+              style={styles.connectBtn}
+            >
+              {connecting ? '연결 중...' : '연동'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Upcoming providers */}
+      {['🍎 Apple Calendar', '📧 Outlook'].map((name) => (
+        <div key={name} style={styles.providerRow}>
           <div style={styles.providerInfo}>
-            <span style={styles.providerIcon}>{p.icon}</span>
-            <span style={styles.providerName}>{p.name}</span>
+            <span style={styles.providerName}>{name}</span>
           </div>
-          <div style={styles.providerActions}>
-            {p.connected ? (
-              <>
-                <span style={styles.connectedBadge}>연동됨</span>
-                <button onClick={p.onDisconnect} style={styles.disconnectBtn}>해제</button>
-              </>
-            ) : (
-              <button
-                onClick={p.onConnect}
-                disabled={!p.available || connecting === p.key}
-                style={{
-                  ...styles.connectBtn,
-                  opacity: p.available ? 1 : 0.5,
-                }}
-              >
-                {connecting === p.key ? '연결 중...' : p.available ? '연동' : '준비 중'}
-              </button>
-            )}
-          </div>
+          <span style={styles.comingSoon}>준비 중</span>
         </div>
       ))}
+
+      {error && <p style={styles.error}>{error}</p>}
 
       {/* Sync interval */}
       <div style={styles.syncRow}>
@@ -183,6 +156,16 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'transparent',
     color: 'var(--danger)',
     cursor: 'pointer',
+  },
+  comingSoon: {
+    fontSize: 10,
+    color: 'var(--text-muted)',
+    fontStyle: 'italic',
+  },
+  error: {
+    fontSize: 10,
+    color: 'var(--danger)',
+    margin: 0,
   },
   syncRow: {
     display: 'flex',
