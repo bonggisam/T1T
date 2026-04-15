@@ -97,10 +97,10 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
           <div style={styles.infoRow}>
             <span style={styles.label}>역할</span>
             <span style={styles.value}>
-              {user?.role === 'super_admin' ? '슈퍼관리자' : user?.role === 'admin' ? '관리자' : '교사'}
+              {user?.role === 'super_admin' ? '슈퍼관리자' : user?.role === 'admin' ? '관리자' : user?.role === 'head_teacher' ? '부장교사' : '교사'}
             </span>
           </div>
-          {isAdmin && (
+          {user && (
             <div>
               <span style={styles.label}>프로필 색상</span>
               <div style={styles.colorGrid}>

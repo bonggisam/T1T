@@ -38,13 +38,18 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
     setLoading(false);
   }
 
-  async function handleApprove(userId: string) {
-    await updateDoc(doc(db, 'users', userId), { status: 'active' });
+  async function handleApprove(userId: string, role: 'teacher' | 'head_teacher' = 'teacher') {
+    await updateDoc(doc(db, 'users', userId), { status: 'active', role });
     fetchUsers();
   }
 
   async function handleReject(userId: string) {
     await updateDoc(doc(db, 'users', userId), { status: 'rejected' });
+    fetchUsers();
+  }
+
+  async function handleChangeRole(userId: string, role: 'teacher' | 'head_teacher') {
+    await updateDoc(doc(db, 'users', userId), { role });
     fetchUsers();
   }
 
@@ -91,7 +96,8 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                   <span style={styles.userEmail}>{u.email}</span>
                 </div>
                 <div style={styles.userActions}>
-                  <button onClick={() => handleApprove(u.id)} style={styles.approveBtn}>승인</button>
+                  <button onClick={() => handleApprove(u.id, 'teacher')} style={styles.approveBtn}>교사</button>
+                  <button onClick={() => handleApprove(u.id, 'head_teacher')} style={styles.approveHeadBtn}>부장</button>
                   <button onClick={() => handleReject(u.id)} style={styles.rejectBtn}>거절</button>
                 </div>
               </div>
@@ -106,13 +112,26 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                 <div style={styles.userInfo}>
                   <span style={styles.userName}>
                     {u.name}
-                    <span style={styles.roleBadge}>{u.role === 'super_admin' ? '슈퍼관리자' : u.role === 'admin' ? '관리자' : '교사'}</span>
+                    <span style={{
+                      ...styles.roleBadge,
+                      background: u.role === 'head_teacher' ? '#F59E0B' : 'var(--accent)',
+                    }}>
+                      {u.role === 'super_admin' ? '슈퍼관리자' : u.role === 'admin' ? '관리자' : u.role === 'head_teacher' ? '부장교사' : '교사'}
+                    </span>
                   </span>
                   <span style={styles.userEmail}>{u.email}</span>
                 </div>
-                {u.role === 'teacher' && (
-                  <button onClick={() => handleDeactivate(u.id)} style={styles.deactivateBtn}>비활성화</button>
-                )}
+                <div style={styles.userActions}>
+                  {u.role === 'teacher' && (
+                    <button onClick={() => handleChangeRole(u.id, 'head_teacher')} style={styles.promoteBtn}>부장 승격</button>
+                  )}
+                  {u.role === 'head_teacher' && (
+                    <button onClick={() => handleChangeRole(u.id, 'teacher')} style={styles.demoteBtn}>교사 변경</button>
+                  )}
+                  {(u.role === 'teacher' || u.role === 'head_teacher') && (
+                    <button onClick={() => handleDeactivate(u.id)} style={styles.deactivateBtn}>비활성화</button>
+                  )}
+                </div>
               </div>
             ))
           )
@@ -236,6 +255,34 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 6,
     background: 'var(--danger)',
     color: '#fff',
+    cursor: 'pointer',
+  },
+  approveHeadBtn: {
+    padding: '4px 12px',
+    fontSize: 11,
+    fontWeight: 600,
+    border: 'none',
+    borderRadius: 6,
+    background: '#F59E0B',
+    color: '#fff',
+    cursor: 'pointer',
+  },
+  promoteBtn: {
+    padding: '4px 10px',
+    fontSize: 11,
+    border: '1px solid #F59E0B',
+    borderRadius: 6,
+    background: 'transparent',
+    color: '#F59E0B',
+    cursor: 'pointer',
+  },
+  demoteBtn: {
+    padding: '4px 10px',
+    fontSize: 11,
+    border: '1px solid var(--text-muted)',
+    borderRadius: 6,
+    background: 'transparent',
+    color: 'var(--text-muted)',
     cursor: 'pointer',
   },
   deactivateBtn: {

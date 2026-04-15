@@ -1,6 +1,6 @@
 {
   "name": "tonet",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "ToneT - 학교 일정 공유 시스템",
   "main": "dist/main/main.js",
   "scripts": {
@@ -9,7 +9,7 @@
     "dev:electron": "wait-on http://localhost:5173 && tsc -p tsconfig.main.json && electron .",
     "build:renderer": "tsc -p tsconfig.json && vite build",
     "build:main": "tsc -p tsconfig.main.json",
-    "build": "npm run build:renderer && npm run build:main",
+    "build": "npm run build:main && npm run build:renderer",
     "build:win": "npm run build && electron-builder --win --x64",
     "build:mac": "npm run build && electron-builder --mac",
     "lint": "eslint src --ext .ts,.tsx"
@@ -46,7 +46,8 @@
     "files": [
       "dist/**/*",
       "public/**/*",
-      "assets/**/*"
+      "assets/**/*",
+      "node_modules/comcigan-parser/**/*"
     ],
     "mac": {
       "target": [

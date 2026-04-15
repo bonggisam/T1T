@@ -12,7 +12,7 @@ interface CalendarHeaderProps {
 export function CalendarHeader({ onAddPersonalEvent }: CalendarHeaderProps = {}) {
   const { currentMonth, view, setView, navigateMonth, setShowEventModal, setCurrentMonth, setSelectedDate } = useCalendarStore();
   const { user } = useAuthStore();
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const isLoggedIn = !!user;
 
   const viewButtons: { key: CalendarView; label: string }[] = [
     { key: 'month', label: '월' },
@@ -55,7 +55,7 @@ export function CalendarHeader({ onAddPersonalEvent }: CalendarHeaderProps = {})
             + 개인
           </button>
         )}
-        {isAdmin && (
+        {isLoggedIn && (
           <button onClick={() => setShowEventModal(true)} style={styles.addBtn}>
             + 일정
           </button>

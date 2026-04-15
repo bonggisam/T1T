@@ -20,9 +20,8 @@ export function EventDetail() {
 
   if (!selectedEvent) return null;
 
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
   const isCreator = user?.id === selectedEvent.createdBy;
-  const canEdit = isAdmin && isCreator;
+  const canEdit = isCreator;
 
   const checkedCount = selectedEvent.checklist.filter((i) => i.checked).length;
   const totalCount = selectedEvent.checklist.length;

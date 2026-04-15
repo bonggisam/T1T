@@ -1,5 +1,5 @@
 // User roles
-export type UserRole = 'super_admin' | 'admin' | 'teacher';
+export type UserRole = 'super_admin' | 'admin' | 'head_teacher' | 'teacher';
 export type UserStatus = 'pending' | 'active' | 'rejected' | 'deactivated';
 
 export interface User {

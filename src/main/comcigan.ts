@@ -4,7 +4,12 @@
  */
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const Timetable = require('comcigan-parser');
+let Timetable: any;
+try {
+  Timetable = require('comcigan-parser');
+} catch {
+  console.warn('[Comcigan] comcigan-parser module not found');
+}
 
 import type { ComciganConfig, ComciganSchool, ComciganTimetableData, TeacherPeriod } from '../shared/types';
 import { BrowserWindow } from 'electron';
@@ -50,7 +55,7 @@ class ComciganService {
 
   async init(): Promise<void> {
     this.config = loadConfigFromDisk();
-    if (this.config) {
+    if (this.config && Timetable) {
       try {
         this.timetable = new Timetable();
         await this.timetable.init({ maxGrade: this.config.maxGrade || 3 });
@@ -65,6 +70,7 @@ class ComciganService {
   }
 
   async searchSchool(name: string): Promise<ComciganSchool[]> {
+    if (!Timetable) throw new Error('comcigan-parser 모듈을 찾을 수 없습니다');
     const t = new Timetable();
     await t.init({ maxGrade: 3 });
     const results = await t.search(name);
@@ -76,6 +82,7 @@ class ComciganService {
   }
 
   async configure(config: ComciganConfig): Promise<void> {
+    if (!Timetable) throw new Error('comcigan-parser 모듈을 찾을 수 없습니다');
     this.config = config;
     saveConfigToDisk(config);
 
