@@ -1,6 +1,6 @@
 {
   "name": "transparent-calendar",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "투명 데스크톱 캘린더 - 학교 일정 공유 시스템",
   "main": "dist/main/main.js",
   "scripts": {
