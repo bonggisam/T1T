@@ -1,0 +1,250 @@
+import React, { useEffect, useState } from 'react';
+import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { db } from '../../utils/firebase';
+import type { User, UserStatus } from '@shared/types';
+
+interface AdminPanelProps {
+  onClose: () => void;
+}
+
+export function AdminPanel({ onClose }: AdminPanelProps) {
+  const [pendingUsers, setPendingUsers] = useState<User[]>([]);
+  const [activeUsers, setActiveUsers] = useState<User[]>([]);
+  const [tab, setTab] = useState<'pending' | 'active'>('pending');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  async function fetchUsers() {
+    setLoading(true);
+    try {
+      // Fetch pending users
+      const pendingQ = query(collection(db, 'users'), where('status', '==', 'pending'));
+      const pendingSnap = await getDocs(pendingQ);
+      const pending = pendingSnap.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as User));
+
+      // Fetch active users
+      const activeQ = query(collection(db, 'users'), where('status', '==', 'active'));
+      const activeSnap = await getDocs(activeQ);
+      const active = activeSnap.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as User));
+
+      setPendingUsers(pending);
+      setActiveUsers(active);
+    } catch (err) {
+      console.error('Failed to fetch users:', err);
+    }
+    setLoading(false);
+  }
+
+  async function handleApprove(userId: string) {
+    await updateDoc(doc(db, 'users', userId), { status: 'active' });
+    fetchUsers();
+  }
+
+  async function handleReject(userId: string) {
+    await updateDoc(doc(db, 'users', userId), { status: 'rejected' });
+    fetchUsers();
+  }
+
+  async function handleDeactivate(userId: string) {
+    await updateDoc(doc(db, 'users', userId), { status: 'deactivated' });
+    fetchUsers();
+  }
+
+  return (
+    <div className="animate-fade-in" style={styles.container}>
+      <div style={styles.header}>
+        <h3 style={styles.title}>👥 사용자 관리</h3>
+        <button onClick={onClose} style={styles.closeBtn}>✕</button>
+      </div>
+
+      {/* Tab buttons */}
+      <div style={styles.tabs}>
+        <button
+          onClick={() => setTab('pending')}
+          style={{ ...styles.tab, ...(tab === 'pending' ? styles.tabActive : {}) }}
+        >
+          승인 대기 ({pendingUsers.length})
+        </button>
+        <button
+          onClick={() => setTab('active')}
+          style={{ ...styles.tab, ...(tab === 'active' ? styles.tabActive : {}) }}
+        >
+          활성 사용자 ({activeUsers.length})
+        </button>
+      </div>
+
+      {/* Content */}
+      <div style={styles.list}>
+        {loading ? (
+          <p style={styles.emptyMsg}>로딩 중...</p>
+        ) : tab === 'pending' ? (
+          pendingUsers.length === 0 ? (
+            <p style={styles.emptyMsg}>대기 중인 요청이 없습니다.</p>
+          ) : (
+            pendingUsers.map((u) => (
+              <div key={u.id} style={styles.userCard}>
+                <div style={styles.userInfo}>
+                  <span style={styles.userName}>{u.name}</span>
+                  <span style={styles.userEmail}>{u.email}</span>
+                </div>
+                <div style={styles.userActions}>
+                  <button onClick={() => handleApprove(u.id)} style={styles.approveBtn}>승인</button>
+                  <button onClick={() => handleReject(u.id)} style={styles.rejectBtn}>거절</button>
+                </div>
+              </div>
+            ))
+          )
+        ) : (
+          activeUsers.length === 0 ? (
+            <p style={styles.emptyMsg}>활성 사용자가 없습니다.</p>
+          ) : (
+            activeUsers.map((u) => (
+              <div key={u.id} style={styles.userCard}>
+                <div style={styles.userInfo}>
+                  <span style={styles.userName}>
+                    {u.name}
+                    <span style={styles.roleBadge}>{u.role === 'super_admin' ? '슈퍼관리자' : u.role === 'admin' ? '관리자' : '교사'}</span>
+                  </span>
+                  <span style={styles.userEmail}>{u.email}</span>
+                </div>
+                {u.role === 'teacher' && (
+                  <button onClick={() => handleDeactivate(u.id)} style={styles.deactivateBtn}>비활성화</button>
+                )}
+              </div>
+            ))
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+const styles: Record<string, React.CSSProperties> = {
+  container: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    padding: '0 12px 12px',
+  },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '10px 0',
+  },
+  title: {
+    fontSize: 15,
+    fontWeight: 700,
+    color: 'var(--text-primary)',
+  },
+  closeBtn: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: 14,
+    color: 'var(--text-muted)',
+  },
+  tabs: {
+    display: 'flex',
+    gap: 4,
+    marginBottom: 10,
+  },
+  tab: {
+    flex: 1,
+    padding: '6px 0',
+    fontSize: 12,
+    fontWeight: 500,
+    border: 'none',
+    borderRadius: 8,
+    background: 'var(--bg-secondary)',
+    color: 'var(--text-secondary)',
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+  },
+  tabActive: {
+    background: 'var(--accent)',
+    color: '#fff',
+  },
+  list: {
+    flex: 1,
+    overflow: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+  },
+  emptyMsg: {
+    textAlign: 'center',
+    fontSize: 13,
+    color: 'var(--text-muted)',
+    marginTop: 40,
+  },
+  userCard: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '8px 10px',
+    background: 'var(--bg-secondary)',
+    borderRadius: 8,
+  },
+  userInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+  },
+  userName: {
+    fontSize: 13,
+    fontWeight: 600,
+    color: 'var(--text-primary)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+  },
+  userEmail: {
+    fontSize: 11,
+    color: 'var(--text-muted)',
+  },
+  roleBadge: {
+    fontSize: 9,
+    padding: '1px 6px',
+    borderRadius: 4,
+    background: 'var(--accent)',
+    color: '#fff',
+    fontWeight: 500,
+  },
+  userActions: {
+    display: 'flex',
+    gap: 4,
+  },
+  approveBtn: {
+    padding: '4px 12px',
+    fontSize: 11,
+    fontWeight: 600,
+    border: 'none',
+    borderRadius: 6,
+    background: 'var(--success)',
+    color: '#fff',
+    cursor: 'pointer',
+  },
+  rejectBtn: {
+    padding: '4px 12px',
+    fontSize: 11,
+    fontWeight: 600,
+    border: 'none',
+    borderRadius: 6,
+    background: 'var(--danger)',
+    color: '#fff',
+    cursor: 'pointer',
+  },
+  deactivateBtn: {
+    padding: '4px 10px',
+    fontSize: 11,
+    border: '1px solid var(--danger)',
+    borderRadius: 6,
+    background: 'transparent',
+    color: 'var(--danger)',
+    cursor: 'pointer',
+  },
+};

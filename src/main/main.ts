@@ -1,0 +1,252 @@
+import { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, screen } from 'electron';
+import { autoUpdater } from 'electron-updater';
+import * as path from 'path';
+
+let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
+let isClickThrough = false;
+
+const isDev = !app.isPackaged;
+
+function createWindow(): void {
+  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+
+  mainWindow = new BrowserWindow({
+    width: 420,
+    height: 520,
+    x: screenWidth - 440,
+    y: 20,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    hasShadow: false,
+    resizable: true,
+    minimizable: true,
+    skipTaskbar: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
+    },
+  });
+
+  // Windows 11 acrylic effect (falls back gracefully on Win10/macOS)
+  try {
+    (mainWindow as any).setBackgroundMaterial?.('acrylic');
+  } catch {
+    // Not supported on this platform
+  }
+
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+  }
+
+  mainWindow.on('close', (e) => {
+    e.preventDefault();
+    mainWindow?.hide();
+  });
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+}
+
+function createTray(): void {
+  // Use a simple 16x16 icon for tray
+  const iconPath = isDev
+    ? path.join(__dirname, '../../assets/tray-icon.png')
+    : path.join(process.resourcesPath, 'assets/tray-icon.png');
+
+  let trayIcon: nativeImage;
+  try {
+    trayIcon = nativeImage.createFromPath(iconPath);
+  } catch {
+    // Fallback: create a simple colored icon
+    trayIcon = nativeImage.createEmpty();
+  }
+
+  tray = new Tray(trayIcon.isEmpty() ? createDefaultTrayIcon() : trayIcon);
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: '캘린더 표시/숨김',
+      click: () => toggleWindow(),
+    },
+    {
+      label: '항상 위',
+      type: 'checkbox',
+      checked: true,
+      click: (menuItem) => {
+        mainWindow?.setAlwaysOnTop(menuItem.checked);
+      },
+    },
+    { type: 'separator' },
+    {
+      label: '종료',
+      click: () => {
+        mainWindow?.destroy();
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setToolTip('투명 캘린더');
+  tray.setContextMenu(contextMenu);
+  tray.on('click', () => toggleWindow());
+}
+
+function createDefaultTrayIcon(): nativeImage {
+  const size = 16;
+  const canvas = Buffer.alloc(size * size * 4);
+  for (let i = 0; i < size * size; i++) {
+    canvas[i * 4] = 74;      // R
+    canvas[i * 4 + 1] = 144;  // G
+    canvas[i * 4 + 2] = 226;  // B
+    canvas[i * 4 + 3] = 255;  // A
+  }
+  return nativeImage.createFromBuffer(canvas, { width: size, height: size });
+}
+
+function toggleWindow(): void {
+  if (mainWindow?.isVisible()) {
+    mainWindow.hide();
+  } else {
+    mainWindow?.show();
+    mainWindow?.focus();
+  }
+}
+
+// IPC Handlers
+function setupIPC(): void {
+  ipcMain.handle('window:toggle-always-on-top', (_event, value: boolean) => {
+    mainWindow?.setAlwaysOnTop(value);
+  });
+
+  ipcMain.handle('window:set-opacity', (_event, opacity: number) => {
+    mainWindow?.setOpacity(opacity);
+  });
+
+  ipcMain.handle('window:toggle-click-through', (_event, enabled: boolean) => {
+    isClickThrough = enabled;
+    mainWindow?.setIgnoreMouseEvents(enabled, { forward: true });
+  });
+
+  ipcMain.handle('window:minimize', () => {
+    mainWindow?.hide();
+  });
+
+  ipcMain.handle('window:close', () => {
+    mainWindow?.destroy();
+    app.quit();
+  });
+
+  ipcMain.handle('window:set-size', (_event, width: number, height: number) => {
+    mainWindow?.setSize(width, height);
+  });
+
+  ipcMain.handle('tray:set-badge', (_event, hasBadge: boolean) => {
+    if (tray) {
+      tray.setToolTip(hasBadge ? '투명 캘린더 (새 알림)' : '투명 캘린더');
+    }
+  });
+
+  // Auto-updater IPC
+  ipcMain.handle('updater:download', () => {
+    autoUpdater.downloadUpdate().catch(() => {});
+  });
+
+  ipcMain.handle('updater:install', () => {
+    autoUpdater.quitAndInstall(false, true);
+  });
+
+  ipcMain.handle('updater:check', () => {
+    autoUpdater.checkForUpdates().catch(() => {});
+  });
+
+  ipcMain.handle('app:get-version', () => {
+    return app.getVersion();
+  });
+}
+
+// ============================================================
+// Auto-updater
+// ============================================================
+
+function setupAutoUpdater(): void {
+  if (isDev) return; // Skip in development
+
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => {
+    sendToRenderer('updater:checking');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    sendToRenderer('updater:available', {
+      version: info.version,
+      releaseNotes: info.releaseNotes,
+    });
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    sendToRenderer('updater:not-available');
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    sendToRenderer('updater:progress', {
+      percent: Math.round(progress.percent),
+      transferred: progress.transferred,
+      total: progress.total,
+    });
+  });
+
+  autoUpdater.on('update-downloaded', () => {
+    sendToRenderer('updater:downloaded');
+  });
+
+  autoUpdater.on('error', (err) => {
+    sendToRenderer('updater:error', err?.message || 'Update error');
+  });
+
+  // Check for updates every 30 minutes
+  autoUpdater.checkForUpdates().catch(() => {});
+  setInterval(() => {
+    autoUpdater.checkForUpdates().catch(() => {});
+  }, 30 * 60 * 1000);
+}
+
+function sendToRenderer(channel: string, data?: any): void {
+  mainWindow?.webContents.send(channel, data);
+}
+
+app.whenReady().then(() => {
+  createWindow();
+  createTray();
+  setupIPC();
+  setupAutoUpdater();
+
+  // Register global shortcut: Ctrl+Shift+C to toggle
+  globalShortcut.register('CommandOrControl+Shift+C', () => {
+    toggleWindow();
+  });
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+app.on('activate', () => {
+  if (mainWindow === null) {
+    createWindow();
+  }
+});

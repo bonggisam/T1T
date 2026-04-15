@@ -1,0 +1,185 @@
+import React, { useEffect, useState } from 'react';
+import { useAuthStore } from './store/authStore';
+import { useCalendarStore } from './store/calendarStore';
+import { useNotificationStore } from './store/notificationStore';
+import { usePersonalEventStore } from './store/personalEventStore';
+import { TitleBar } from './components/common/TitleBar';
+import { Calendar } from './components/calendar/Calendar';
+import { LoginForm } from './components/auth/LoginForm';
+import { SignupForm } from './components/auth/SignupForm';
+import { PendingApproval } from './components/auth/PendingApproval';
+import { EventModal } from './components/calendar/EventModal';
+import { EventDetail } from './components/calendar/EventDetail';
+import { NotificationPanel } from './components/notifications/NotificationPanel';
+import { SettingsPanel } from './components/settings/SettingsPanel';
+import { AdminPanel } from './components/admin/AdminPanel';
+import { PersonalEventModal } from './components/calendar/PersonalEventModal';
+import { UpdateBanner } from './components/common/UpdateBanner';
+
+type AuthScreen = 'login' | 'signup';
+
+export function App() {
+  const { user, loading, initialize } = useAuthStore();
+  const { subscribeToEvents, cleanup: cleanupEvents, showEventModal, showEventDetail } = useCalendarStore();
+  const { subscribeToNotifications, cleanup: cleanupNotifications, showPanel: showNotifications } = useNotificationStore();
+  const { subscribeToPersonalEvents, startAutoSync, stopAutoSync, cleanup: cleanupPersonal } = usePersonalEventStore();
+  const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
+  const [showSettings, setShowSettings] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [showPersonalModal, setShowPersonalModal] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const unsub = initialize();
+    return unsub;
+  }, [initialize]);
+
+  useEffect(() => {
+    const goOffline = () => setIsOffline(true);
+    const goOnline = () => setIsOffline(false);
+    window.addEventListener('offline', goOffline);
+    window.addEventListener('online', goOnline);
+    return () => {
+      window.removeEventListener('offline', goOffline);
+      window.removeEventListener('online', goOnline);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (user?.status === 'active') {
+      subscribeToEvents();
+      subscribeToNotifications(user.id);
+      subscribeToPersonalEvents(user.id);
+      startAutoSync(user.settings?.syncInterval ?? 15);
+      return () => {
+        cleanupEvents();
+        cleanupNotifications();
+        stopAutoSync();
+        cleanupPersonal();
+      };
+    }
+  }, [user?.id, user?.status]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    if (user?.settings?.theme) {
+      if (user.settings.theme === 'system') {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        setTheme(prefersDark ? 'dark' : 'light');
+      } else {
+        setTheme(user.settings.theme);
+      }
+    }
+  }, [user?.settings?.theme]);
+
+  if (loading) {
+    return (
+      <div className="glass" style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
+          <div className="spinner" />
+          <p style={{ marginTop: 12, fontSize: 14 }}>로딩 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Not logged in
+  if (!user) {
+    return (
+      <div className="glass" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <TitleBar
+          onToggleSettings={() => {}}
+          onToggleAdmin={() => {}}
+          showSettingsBtn={false}
+          showAdminBtn={false}
+        />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          {authScreen === 'login' ? (
+            <LoginForm onSwitchToSignup={() => setAuthScreen('signup')} />
+          ) : (
+            <SignupForm onSwitchToLogin={() => setAuthScreen('login')} />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Pending approval
+  if (user.status === 'pending') {
+    return (
+      <div className="glass" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <TitleBar
+          onToggleSettings={() => {}}
+          onToggleAdmin={() => {}}
+          showSettingsBtn={false}
+          showAdminBtn={false}
+        />
+        <PendingApproval />
+      </div>
+    );
+  }
+
+  if (user.status === 'rejected') {
+    return (
+      <div className="glass" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <TitleBar
+          onToggleSettings={() => {}}
+          onToggleAdmin={() => {}}
+          showSettingsBtn={false}
+          showAdminBtn={false}
+        />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, textAlign: 'center' }}>
+          <div>
+            <p style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>가입이 거절되었습니다</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>관리자에게 문의해주세요.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+
+  return (
+    <div className="glass" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <TitleBar
+        onToggleSettings={() => { setShowSettings(!showSettings); setShowAdmin(false); }}
+        onToggleAdmin={() => { setShowAdmin(!showAdmin); setShowSettings(false); }}
+        showSettingsBtn={true}
+        showAdminBtn={isAdmin}
+      />
+      <UpdateBanner />
+      {isOffline && (
+        <div style={{
+          background: 'var(--warning)',
+          color: '#fff',
+          textAlign: 'center',
+          fontSize: 11,
+          fontWeight: 600,
+          padding: '3px 0',
+          flexShrink: 0,
+        }}>
+          오프라인 모드 — 캐시된 일정을 표시 중
+        </div>
+      )}
+      <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+        {showSettings ? (
+          <SettingsPanel onClose={() => setShowSettings(false)} theme={theme} setTheme={setTheme} />
+        ) : showAdmin ? (
+          <AdminPanel onClose={() => setShowAdmin(false)} />
+        ) : (
+          <Calendar onAddPersonalEvent={() => setShowPersonalModal(true)} />
+        )}
+
+        {showEventModal && <EventModal />}
+        {showEventDetail && <EventDetail />}
+        {showNotifications && <NotificationPanel />}
+        {showPersonalModal && <PersonalEventModal onClose={() => setShowPersonalModal(false)} />}
+      </div>
+    </div>
+  );
+}
