@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, screen } from 'electron';
+import { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, screen, type NativeImage } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import * as path from 'path';
 
@@ -60,7 +60,7 @@ function createTray(): void {
     ? path.join(__dirname, '../../assets/tray-icon.png')
     : path.join(process.resourcesPath, 'assets/tray-icon.png');
 
-  let trayIcon: nativeImage;
+  let trayIcon: NativeImage;
   try {
     trayIcon = nativeImage.createFromPath(iconPath);
   } catch {
@@ -98,7 +98,7 @@ function createTray(): void {
   tray.on('click', () => toggleWindow());
 }
 
-function createDefaultTrayIcon(): nativeImage {
+function createDefaultTrayIcon(): NativeImage {
   const size = 16;
   const canvas = Buffer.alloc(size * size * 4);
   for (let i = 0; i < size * size; i++) {
