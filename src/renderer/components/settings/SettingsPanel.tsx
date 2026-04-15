@@ -11,9 +11,10 @@ interface SettingsPanelProps {
 }
 
 const COLOR_PRESETS = [
-  '#FF6B6B', '#4ECDC4', '#FFE66D', '#A78BFA',
-  '#F97316', '#EC4899', '#14B8A6', '#6366F1',
-  '#EF4444', '#3B82F6', '#10B981', '#8B5CF6',
+  '#FF6B6B', '#EF4444', '#F97316', '#F59E0B', '#EAB308',
+  '#84CC16', '#22C55E', '#10B981', '#14B8A6', '#06B6D4',
+  '#0EA5E9', '#3B82F6', '#6366F1', '#8B5CF6', '#A78BFA',
+  '#D946EF', '#EC4899', '#F43F5E', '#78716C', '#475569',
 ];
 
 export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) {
@@ -66,8 +67,7 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
         profileColor,
       };
       await updateDoc(doc(db, 'users', user.id), updates);
-      setSaveMsg('✓ 저장됨');
-      setTimeout(() => setSaveMsg(''), 2000);
+      onClose();
     } catch (err: any) {
       setSaveMsg('저장 실패: ' + (err?.message || '알 수 없는 오류'));
     } finally {
@@ -194,7 +194,7 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
         <button onClick={handleSave} disabled={saving} style={styles.saveBtn}>
           {saving ? '저장 중...' : '설정 저장'}
         </button>
-        {saveMsg && <span style={{ fontSize: 11, color: saveMsg.startsWith('✓') ? '#10B981' : '#EF4444', alignSelf: 'center' }}>{saveMsg}</span>}
+        {saveMsg && <span style={{ fontSize: 11, color: '#EF4444', alignSelf: 'center' }}>{saveMsg}</span>}
         <button onClick={logout} style={styles.logoutBtn}>로그아웃</button>
       </div>
     </div>
