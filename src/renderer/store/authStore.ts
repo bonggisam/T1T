@@ -115,7 +115,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signup: async (email, password, name) => {
     set({ loading: true, error: null });
     try {
-      // Check if this is the very first user via app_meta doc
+      // Prevent onAuthStateChanged race condition
+      skipNextAuthChange = true;
+
+      // 1) Create Firebase Auth account first (must be authenticated to read Firestore)
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+
+      // 2) Now check if this is the first user (requires auth)
       let isFirstUser = false;
       try {
         const metaDoc = await getDoc(doc(db, 'app_meta', 'initialized'));
@@ -123,11 +129,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } catch {
         // If we can't check, default to normal teacher
       }
-
-      // Prevent onAuthStateChanged race condition
-      skipNextAuthChange = true;
-
-      const cred = await createUserWithEmailAndPassword(auth, email, password);
 
       const role: UserRole = isFirstUser ? 'super_admin' : 'teacher';
       const status: UserStatus = isFirstUser ? 'active' : 'pending';
