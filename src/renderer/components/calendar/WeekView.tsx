@@ -6,7 +6,8 @@ import {
 import { ko } from 'date-fns/locale';
 import { useCalendarStore } from '../../store/calendarStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
-import type { CalendarEvent, PersonalEvent } from '@shared/types';
+import { useComciganStore } from '../../store/comciganStore';
+import type { CalendarEvent, PersonalEvent, TeacherPeriod } from '@shared/types';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
@@ -14,6 +15,28 @@ export function WeekView() {
   const { selectedDate, events, setSelectedEvent, setShowEventDetail } = useCalendarStore();
   const { allPersonalEvents } = usePersonalEventStore();
   const personalEvents = allPersonalEvents();
+  const { getPeriodsForWeekday, timetableData, config: comciganConfig } = useComciganStore();
+
+  // Build a map of comcigan periods by weekday+hour for quick lookup
+  const comciganByDayHour = React.useMemo(() => {
+    if (!comciganConfig || !timetableData) return new Map<string, TeacherPeriod[]>();
+    const map = new Map<string, TeacherPeriod[]>();
+    const classTimes = timetableData.classTimes || [];
+    for (const period of timetableData.teacherSchedule) {
+      // Parse hour from startTime (HH:MM) or classTimes
+      let hour = -1;
+      if (period.startTime) {
+        hour = parseInt(period.startTime.split(':')[0], 10);
+      } else {
+        // Estimate: period 1 ≈ 9h, period 2 ≈ 10h, etc.
+        hour = 8 + period.period;
+      }
+      const key = `${period.weekday}-${hour}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(period);
+    }
+    return map;
+  }, [comciganConfig, timetableData]);
 
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 0 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 0 });
@@ -85,6 +108,11 @@ export function WeekView() {
                   const h = new Date(e.startDate).getHours();
                   return h === hour;
                 });
+                // Comcigan periods for this day+hour
+                const jsDay = day.getDay(); // 0=Sun~6=Sat
+                const comciganKey = `${jsDay}-${hour}`;
+                const comciganPeriods = comciganByDayHour.get(comciganKey) || [];
+
                 return (
                   <div key={day.toISOString()} style={styles.hourCell}>
                     {dayEvents.map((event) => (
@@ -112,6 +140,15 @@ export function WeekView() {
                         title={`${pe.title} (${pe.source === 'local' ? '개인' : pe.source})`}
                       >
                         <span style={styles.eventText}>{pe.title}</span>
+                      </div>
+                    ))}
+                    {comciganPeriods.map((cp) => (
+                      <div
+                        key={`cc-${cp.weekday}-${cp.period}`}
+                        style={styles.comciganBlock}
+                        title={`${cp.period}교시 ${cp.grade}-${cp.classNum}`}
+                      >
+                        <span style={styles.comciganText}>📚{cp.period} {cp.subject} {cp.grade}-{cp.classNum}</span>
                       </div>
                     ))}
                   </div>
@@ -210,5 +247,22 @@ const styles: Record<string, React.CSSProperties> = {
     textOverflow: 'ellipsis',
     display: 'block',
     textShadow: '0 0 2px rgba(0,0,0,0.3)',
+  },
+  comciganBlock: {
+    borderRadius: 3,
+    padding: '1px 4px',
+    marginBottom: 1,
+    background: 'rgba(14,165,233,0.15)',
+    cursor: 'default',
+  },
+  comciganText: {
+    fontSize: 8,
+    fontWeight: 500,
+    color: '#0284C7',
+    lineHeight: '12px',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    display: 'block',
   },
 };

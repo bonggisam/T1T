@@ -3,6 +3,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../utils/firebase';
 import { useAuthStore } from '../../store/authStore';
 import { CalendarSyncSettings } from './CalendarSyncSettings';
+import { ComciganSettings } from './ComciganSettings';
 
 interface SettingsPanelProps {
   onClose: () => void;
@@ -162,6 +163,11 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
             syncInterval={syncInterval}
             onSyncIntervalChange={setSyncInterval}
           />
+        </Section>
+
+        {/* Comcigan timetable */}
+        <Section title="🏫 컴시간 시간표">
+          <ComciganSettings />
         </Section>
 
         {/* Info */}

@@ -106,6 +106,37 @@ export interface AppNotification {
   createdBy: string;
 }
 
+// Comcigan (school timetable)
+export interface ComciganSchool {
+  code: number;
+  name: string;
+  region: string;
+}
+
+export interface ComciganConfig {
+  schoolCode: number;
+  schoolName: string;
+  teacherName: string;
+  maxGrade: number;
+}
+
+export interface TeacherPeriod {
+  grade: number;
+  classNum: number;
+  weekday: number; // 1=Mon, 5=Fri
+  weekdayStr: string;
+  period: number;
+  subject: string;
+  startTime?: string; // e.g. '09:10'
+}
+
+export interface ComciganTimetableData {
+  teacherSchedule: TeacherPeriod[];
+  classTimes: string[];
+  lastUpdated: string;
+  schoolName: string;
+}
+
 // Electron API bridge
 export interface ElectronAPI {
   toggleAlwaysOnTop: (value: boolean) => Promise<void>;
@@ -121,6 +152,14 @@ export interface ElectronAPI {
   updaterCheck: () => Promise<void>;
   getAppVersion: () => Promise<string>;
   onUpdaterEvent: (callback: (channel: string, data: any) => void) => () => void;
+  // Comcigan
+  comciganSearch: (name: string) => Promise<ComciganSchool[]>;
+  comciganConfigure: (config: ComciganConfig) => Promise<void>;
+  comciganGetConfig: () => Promise<ComciganConfig | null>;
+  comciganFetch: () => Promise<ComciganTimetableData | null>;
+  comciganGetCached: () => Promise<ComciganTimetableData | null>;
+  comciganClear: () => Promise<void>;
+  onComciganUpdate: (callback: (data: ComciganTimetableData) => void) => () => void;
 }
 
 declare global {

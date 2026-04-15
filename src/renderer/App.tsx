@@ -15,6 +15,7 @@ import { SettingsPanel } from './components/settings/SettingsPanel';
 import { AdminPanel } from './components/admin/AdminPanel';
 import { PersonalEventModal } from './components/calendar/PersonalEventModal';
 import { UpdateBanner } from './components/common/UpdateBanner';
+import { useComciganStore } from './store/comciganStore';
 
 type AuthScreen = 'login' | 'signup';
 
@@ -23,6 +24,7 @@ export function App() {
   const { subscribeToEvents, cleanup: cleanupEvents, showEventModal, showEventDetail } = useCalendarStore();
   const { subscribeToNotifications, cleanup: cleanupNotifications, showPanel: showNotifications } = useNotificationStore();
   const { subscribeToPersonalEvents, startAutoSync, stopAutoSync, cleanup: cleanupPersonal } = usePersonalEventStore();
+  const { loadConfig: loadComcigan, cleanup: cleanupComcigan } = useComciganStore();
   const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
   const [showSettings, setShowSettings] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
@@ -52,11 +54,13 @@ export function App() {
       subscribeToNotifications(user.id);
       subscribeToPersonalEvents(user.id);
       startAutoSync(user.settings?.syncInterval ?? 15);
+      loadComcigan();
       return () => {
         cleanupEvents();
         cleanupNotifications();
         stopAutoSync();
         cleanupPersonal();
+        cleanupComcigan();
       };
     }
   }, [user?.id, user?.status]);

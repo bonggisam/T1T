@@ -7,6 +7,7 @@ import { ko } from 'date-fns/locale';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useNotificationStore } from '../../store/notificationStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
+import { useComciganStore } from '../../store/comciganStore';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -16,6 +17,7 @@ export function MonthView() {
   const { notifications } = useNotificationStore();
   const { allPersonalEvents } = usePersonalEventStore();
   const personalEvents = allPersonalEvents();
+  const { getPeriodsForWeekday, config: comciganConfig } = useComciganStore();
 
   // Track which event IDs have unread notifications
   const unreadEventIds = new Set(
@@ -80,11 +82,15 @@ export function MonthView() {
         {days.map((day) => {
           const dayEvents = getEventsForDay(day);
           const dayPersonal = getPersonalEventsForDay(day);
+          const dayOfWeek = day.getDay();
+          // Comcigan: weekday 1=Mon~5=Fri, JS getDay() 0=Sun~6=Sat
+          const comciganPeriods = (dayOfWeek >= 1 && dayOfWeek <= 5 && comciganConfig)
+            ? getPeriodsForWeekday(dayOfWeek)
+            : [];
           const allDayEvents = [...dayEvents, ...dayPersonal];
           const inMonth = isSameMonth(day, currentMonth);
           const today = isToday(day);
           const selected = isSameDay(day, selectedDate);
-          const dayOfWeek = day.getDay();
 
           return (
             <div
@@ -142,8 +148,21 @@ export function MonthView() {
                     </span>
                   </div>
                 ))}
-                {allDayEvents.length > 3 && (
-                  <span style={styles.moreCount}>+{allDayEvents.length - 3}</span>
+                {comciganPeriods.length > 0 && allDayEvents.length < 3 && (
+                  comciganPeriods.slice(0, 3 - allDayEvents.length).map((cp) => (
+                    <div
+                      key={`cc-${cp.period}`}
+                      style={styles.comciganDot}
+                      title={`${cp.period}교시 ${cp.subject} ${cp.grade}-${cp.classNum}`}
+                    >
+                      <span style={styles.comciganText}>
+                        📚{cp.period} {cp.subject} {cp.grade}-{cp.classNum}
+                      </span>
+                    </div>
+                  ))
+                )}
+                {(allDayEvents.length + comciganPeriods.length) > 3 && (
+                  <span style={styles.moreCount}>+{allDayEvents.length + comciganPeriods.length - 3}</span>
                 )}
               </div>
             </div>
@@ -245,6 +264,22 @@ const styles: Record<string, React.CSSProperties> = {
     textOverflow: 'ellipsis',
     display: 'block',
     textShadow: '0 0 2px rgba(0,0,0,0.3)',
+  },
+  comciganDot: {
+    borderRadius: 3,
+    padding: '1px 4px',
+    background: 'rgba(14,165,233,0.15)',
+    cursor: 'default',
+  },
+  comciganText: {
+    fontSize: 8,
+    fontWeight: 500,
+    color: '#0284C7',
+    lineHeight: '12px',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    display: 'block',
   },
   moreCount: {
     fontSize: 9,

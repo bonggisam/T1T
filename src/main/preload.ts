@@ -21,9 +21,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on(ch, listener);
       return { ch, listener };
     });
-    // Return cleanup function
     return () => {
       listeners.forEach(({ ch, listener }) => ipcRenderer.removeListener(ch, listener));
     };
+  },
+
+  // Comcigan
+  comciganSearch: (name: string) => ipcRenderer.invoke('comcigan:search', name),
+  comciganConfigure: (config: any) => ipcRenderer.invoke('comcigan:configure', config),
+  comciganGetConfig: () => ipcRenderer.invoke('comcigan:get-config'),
+  comciganFetch: () => ipcRenderer.invoke('comcigan:fetch'),
+  comciganGetCached: () => ipcRenderer.invoke('comcigan:get-cached'),
+  comciganClear: () => ipcRenderer.invoke('comcigan:clear'),
+  onComciganUpdate: (callback: (data: any) => void) => {
+    const listener = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('comcigan:updated', listener);
+    return () => ipcRenderer.removeListener('comcigan:updated', listener);
   },
 });

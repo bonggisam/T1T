@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, screen, type NativeImage } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import * as path from 'path';
+import { comciganService } from './comcigan';
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -225,6 +226,33 @@ function setupAutoUpdater(): void {
   }, 30 * 60 * 1000);
 }
 
+// Comcigan IPC
+function setupComciganIPC(): void {
+  ipcMain.handle('comcigan:search', async (_event, name: string) => {
+    return comciganService.searchSchool(name);
+  });
+
+  ipcMain.handle('comcigan:configure', async (_event, config) => {
+    await comciganService.configure(config);
+  });
+
+  ipcMain.handle('comcigan:get-config', () => {
+    return comciganService.getConfig();
+  });
+
+  ipcMain.handle('comcigan:fetch', async () => {
+    return comciganService.fetchTimetable();
+  });
+
+  ipcMain.handle('comcigan:get-cached', () => {
+    return comciganService.getCachedData();
+  });
+
+  ipcMain.handle('comcigan:clear', () => {
+    comciganService.clearConfig();
+  });
+}
+
 function sendToRenderer(channel: string, data?: any): void {
   mainWindow?.webContents.send(channel, data);
 }
@@ -233,7 +261,12 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   setupIPC();
+  setupComciganIPC();
   setupAutoUpdater();
+
+  // Initialize comcigan service
+  if (mainWindow) comciganService.setMainWindow(mainWindow);
+  comciganService.init().catch(() => {});
 
   // Register global shortcut: Ctrl+Shift+C to toggle
   globalShortcut.register('CommandOrControl+Shift+C', () => {

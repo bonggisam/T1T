@@ -1,6 +1,6 @@
 {
   "name": "tonet",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "ToneT - 학교 일정 공유 시스템",
   "main": "dist/main/main.js",
   "scripts": {
@@ -15,6 +15,7 @@
     "lint": "eslint src --ext .ts,.tsx"
   },
   "dependencies": {
+    "comcigan-parser": "^1.0.0",
     "date-fns": "^3.3.1",
     "electron-store": "^8.2.0",
     "electron-updater": "^6.1.8",
@@ -48,7 +49,10 @@
       "assets/**/*"
     ],
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "type": "development"
