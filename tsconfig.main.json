@@ -10,8 +10,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "declaration": true,
-    "composite": true,
+    "declaration": false,
     "sourceMap": true
   },
   "include": ["src/main", "src/shared"]
