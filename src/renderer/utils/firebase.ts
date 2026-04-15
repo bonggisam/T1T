@@ -2,14 +2,14 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// TODO: Replace with your actual Firebase config
+// Firebase client config (safe to expose — protected by Firestore security rules)
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'YOUR_API_KEY',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'YOUR_PROJECT.firebaseapp.com',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'YOUR_PROJECT_ID',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'YOUR_PROJECT.appspot.com',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '000000000000',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:000000000000:web:0000000000000000',
+  apiKey: 'AIzaSyAKi1354TZ92-qMUD-QNAklFSfGmcRHgmA',
+  authDomain: 'tonet-4813d.firebaseapp.com',
+  projectId: 'tonet-4813d',
+  storageBucket: 'tonet-4813d.firebasestorage.app',
+  messagingSenderId: '607193357118',
+  appId: '1:607193357118:web:03d0f1027ba31f3fa36a6f',
 };
 
 const app = initializeApp(firebaseConfig);
