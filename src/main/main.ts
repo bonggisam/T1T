@@ -8,6 +8,12 @@ let isClickThrough = false;
 
 const isDev = !app.isPackaged;
 
+// macOS 26 (Tahoe) beta workaround: disable sandbox to prevent V8 crash
+if (process.platform === 'darwin') {
+  app.commandLine.appendSwitch('no-sandbox');
+  app.commandLine.appendSwitch('disable-gpu');
+}
+
 function createWindow(): void {
   const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
 

@@ -15,23 +15,23 @@
     "lint": "eslint src --ext .ts,.tsx"
   },
   "dependencies": {
+    "date-fns": "^3.3.1",
     "electron-store": "^8.2.0",
     "electron-updater": "^6.1.8",
     "firebase": "^10.8.0",
+    "framer-motion": "^11.0.0",
+    "lucide-react": "^0.330.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "zustand": "^4.5.0",
-    "date-fns": "^3.3.1",
-    "framer-motion": "^11.0.0",
-    "lucide-react": "^0.330.0"
+    "zustand": "^4.5.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "@vitejs/plugin-react": "^4.2.1",
     "concurrently": "^8.2.2",
-    "electron": "^28.2.0",
-    "electron-builder": "^24.9.1",
+    "electron": "^41.2.0",
+    "electron-builder": "^26.8.1",
     "typescript": "^5.3.3",
     "vite": "^5.0.12",
     "wait-on": "^7.2.0"
@@ -47,14 +47,25 @@
       "public/**/*",
       "assets/**/*"
     ],
+    "mac": {
+      "target": ["dmg", "zip"],
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "type": "development"
+    },
     "win": {
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "installerLanguages": ["ko"],
+      "installerLanguages": [
+        "ko"
+      ],
       "language": "1042"
     },
     "publish": {

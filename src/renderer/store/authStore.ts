@@ -8,7 +8,7 @@ import {
   onAuthStateChanged,
   type User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, getDocs, limit, query } from 'firebase/firestore';
 import { auth, db } from '../utils/firebase';
 import type { User, UserRole, UserStatus, UserSettings } from '@shared/types';
 
@@ -97,13 +97,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signup: async (email, password, name) => {
     set({ loading: true, error: null });
     try {
+      // Check if this is the very first user (= becomes super_admin)
+      let isFirstUser = false;
+      try {
+        const usersSnap = await getDocs(query(collection(db, 'users'), limit(1)));
+        isFirstUser = usersSnap.empty;
+      } catch {
+        // If we can't check, default to normal teacher
+      }
+
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       await sendEmailVerification(cred.user);
+
+      const role: UserRole = isFirstUser ? 'super_admin' : 'teacher';
+      const status: UserStatus = isFirstUser ? 'active' : 'pending';
+
       await setDoc(doc(db, 'users', cred.user.uid), {
         email,
         name,
-        role: 'teacher' as UserRole,
-        status: 'pending' as UserStatus,
+        role,
+        status,
+        profileColor: isFirstUser ? '#FF6B6B' : undefined,
         createdAt: serverTimestamp(),
         lastLogin: serverTimestamp(),
         settings: defaultSettings,
