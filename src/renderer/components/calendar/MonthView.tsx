@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   eachDayOfInterval, isSameMonth, isSameDay, isToday, format,
@@ -11,6 +11,7 @@ import { useComciganStore } from '../../store/comciganStore';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
+const DRAG_THRESHOLD = 8; // px — must move this far before drag activates
 
 export function MonthView() {
   const { currentMonth, events, selectedDate, setSelectedDate, setSelectedEvent, setShowEventDetail, updateEvent } = useCalendarStore();
@@ -19,11 +20,15 @@ export function MonthView() {
   const personalEvents = allPersonalEvents();
   const { getPeriodsForWeekday, config: comciganConfig } = useComciganStore();
 
-  // Mouse-based drag state
-  const [dragEventId, setDragEventId] = useState<string | null>(null);
-  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
-  const dragStartPos = useRef<{ x: number; y: number } | null>(null);
-  const isDragging = useRef(false);
+  // Drag state — all refs to avoid async setState issues
+  const dragRef = useRef<{
+    eventId: string;
+    startX: number;
+    startY: number;
+    activated: boolean;
+  } | null>(null);
+  const [dragVisual, setDragVisual] = useState<{ eventId: string; overDayStr: string } | null>(null);
+  const cellDateMap = useRef<Map<Element, Date>>(new Map());
 
   const unreadEventIds = new Set(
     notifications.filter((n) => !n.read && n.eventId).map((n) => n.eventId)
@@ -61,42 +66,67 @@ export function MonthView() {
 
   function handleEventClick(e: React.MouseEvent, event: CalendarEvent) {
     e.stopPropagation();
-    if (isDragging.current) return;
+    // If drag was activated, don't open detail
+    if (dragRef.current?.activated) return;
     setSelectedEvent(event);
     setShowEventDetail(true);
   }
 
-  // Mouse-based drag handlers (works on transparent windows)
-  function handleMouseDown(e: React.MouseEvent, eventId: string) {
+  function handleEventMouseDown(e: React.MouseEvent, eventId: string) {
+    e.preventDefault();
     e.stopPropagation();
-    dragStartPos.current = { x: e.clientX, y: e.clientY };
-    setDragEventId(eventId);
-    isDragging.current = false;
+    dragRef.current = {
+      eventId,
+      startX: e.clientX,
+      startY: e.clientY,
+      activated: false,
+    };
   }
 
-  function handleMouseMoveOnCell(dayStr: string) {
-    if (!dragEventId) return;
-    if (dragStartPos.current) {
-      isDragging.current = true;
+  // Global mouse move/up via window listeners
+  const handleWindowMouseMove = useCallback((e: MouseEvent) => {
+    if (!dragRef.current) return;
+
+    // Check threshold
+    if (!dragRef.current.activated) {
+      const dx = e.clientX - dragRef.current.startX;
+      const dy = e.clientY - dragRef.current.startY;
+      if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+      dragRef.current.activated = true;
     }
-    if (dragOverDate !== dayStr) setDragOverDate(dayStr);
-  }
 
-  async function handleMouseUpOnCell(targetDay: Date) {
-    if (!dragEventId || !isDragging.current) {
-      setDragEventId(null);
-      setDragOverDate(null);
-      dragStartPos.current = null;
-      isDragging.current = false;
+    // Find which cell the mouse is over
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    if (!el) return;
+    // Walk up to find [data-day-str]
+    const cell = el.closest('[data-day-str]');
+    if (cell) {
+      const dayStr = cell.getAttribute('data-day-str') || '';
+      setDragVisual({ eventId: dragRef.current.eventId, overDayStr: dayStr });
+    }
+  }, []);
+
+  const handleWindowMouseUp = useCallback(async (e: MouseEvent) => {
+    const drag = dragRef.current;
+    dragRef.current = null;
+
+    if (!drag || !drag.activated) {
+      setDragVisual(null);
       return;
     }
 
-    const event = events.find((ev) => ev.id === dragEventId);
-    setDragEventId(null);
-    setDragOverDate(null);
-    dragStartPos.current = null;
+    // Find target cell
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const cell = el?.closest('[data-day-str]');
+    setDragVisual(null);
 
-    if (!event) { isDragging.current = false; return; }
+    if (!cell) return;
+    const dayStr = cell.getAttribute('data-day-str');
+    if (!dayStr) return;
+
+    const targetDay = new Date(dayStr);
+    const event = events.find((ev) => ev.id === drag.eventId);
+    if (!event) return;
 
     const oldStart = new Date(event.startDate);
     const daysDiff = differenceInDays(
@@ -113,21 +143,19 @@ export function MonthView() {
         console.error('Failed to move event:', err);
       }
     }
-    // Reset after a tick so click handler doesn't fire
-    setTimeout(() => { isDragging.current = false; }, 50);
-  }
+  }, [events, updateEvent]);
 
-  function handleGlobalMouseUp() {
-    if (dragEventId) {
-      setDragEventId(null);
-      setDragOverDate(null);
-      dragStartPos.current = null;
-      setTimeout(() => { isDragging.current = false; }, 50);
-    }
-  }
+  useEffect(() => {
+    window.addEventListener('mousemove', handleWindowMouseMove);
+    window.addEventListener('mouseup', handleWindowMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleWindowMouseMove);
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+    };
+  }, [handleWindowMouseMove, handleWindowMouseUp]);
 
   return (
-    <div style={styles.container} onMouseUp={handleGlobalMouseUp} onMouseLeave={handleGlobalMouseUp}>
+    <div style={styles.container}>
       {/* Weekday headers */}
       <div style={styles.weekdayRow}>
         {WEEKDAY_LABELS.map((label, i) => (
@@ -149,7 +177,6 @@ export function MonthView() {
           const dayEvents = getEventsForDay(day);
           const dayPersonal = getPersonalEventsForDay(day);
           const dayOfWeek = day.getDay();
-          // 시간표는 이번 주 평일에 표시
           const isCurrentWeek = isSameWeek(day, new Date(), { weekStartsOn: 0 });
           const comciganPeriods = (isCurrentWeek && dayOfWeek >= 1 && dayOfWeek <= 5 && comciganConfig)
             ? getPeriodsForWeekday(dayOfWeek)
@@ -159,14 +186,13 @@ export function MonthView() {
           const today = isToday(day);
           const selected = isSameDay(day, selectedDate);
           const dayStr = day.toISOString();
-          const isDropTarget = dragOverDate === dayStr && dragEventId;
+          const isDropTarget = dragVisual?.overDayStr === dayStr;
 
           return (
             <div
               key={dayStr}
-              onClick={() => { if (!isDragging.current) setSelectedDate(day); }}
-              onMouseMove={() => handleMouseMoveOnCell(dayStr)}
-              onMouseUp={() => handleMouseUpOnCell(day)}
+              data-day-str={dayStr}
+              onClick={() => { if (!dragRef.current?.activated) setSelectedDate(day); }}
               style={{
                 ...styles.dayCell,
                 ...(today ? styles.today : {}),
@@ -189,7 +215,7 @@ export function MonthView() {
                 )}
               </div>
               <div style={styles.eventList}>
-                {/* 시간표 최우선 표시 (오늘만) */}
+                {/* 시간표 최우선 표시 */}
                 {comciganPeriods.map((cp) => (
                   <div
                     key={`cc-${cp.period}`}
@@ -201,19 +227,19 @@ export function MonthView() {
                     </span>
                   </div>
                 ))}
-                {/* 학교 일정 */}
+                {/* 학교 일정 — 드래그 가능 */}
                 {dayEvents.slice(0, comciganPeriods.length > 0 ? 2 : 3).map((event) => (
                   <div
                     key={event.id}
-                    onMouseDown={(e) => handleMouseDown(e, event.id)}
+                    onMouseDown={(e) => handleEventMouseDown(e, event.id)}
                     onClick={(e) => handleEventClick(e, event)}
                     style={{
                       ...styles.eventDot,
                       background: event.adminColor,
-                      opacity: dragEventId === event.id ? 0.5 : 1,
-                      cursor: dragEventId ? 'grabbing' : 'grab',
+                      opacity: dragVisual?.eventId === event.id ? 0.5 : 1,
+                      cursor: dragVisual ? 'grabbing' : 'grab',
                     }}
-                    title={`${event.title} (${event.adminName})`}
+                    title={`${event.title} (${event.adminName}) — 드래그로 날짜 이동`}
                   >
                     <span style={styles.eventDotText}>
                       {event.title.length > 6 ? event.title.slice(0, 6) + '..' : event.title}
@@ -237,8 +263,8 @@ export function MonthView() {
                     </span>
                   </div>
                 ))}
-                {(allDayEvents.length + comciganPeriods.length) > (comciganPeriods.length + 2) && (
-                  <span style={styles.moreCount}>+{allDayEvents.length - 2}</span>
+                {allDayEvents.length > (comciganPeriods.length > 0 ? 2 : 3) && (
+                  <span style={styles.moreCount}>+{allDayEvents.length - (comciganPeriods.length > 0 ? 2 : 3)}</span>
                 )}
               </div>
             </div>
