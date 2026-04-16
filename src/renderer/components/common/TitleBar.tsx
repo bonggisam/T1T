@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/notificationStore';
+import { useComciganStore } from '../../store/comciganStore';
 
 interface TitleBarProps {
   onToggleSettings: () => void;
@@ -12,6 +13,7 @@ interface TitleBarProps {
 export function TitleBar({ onToggleSettings, onToggleAdmin, showSettingsBtn, showAdminBtn }: TitleBarProps) {
   const { user, logout } = useAuthStore();
   const { unreadCount, setShowPanel, showPanel } = useNotificationStore();
+  const { showTimetable, toggleTimetable, config: comciganConfig } = useComciganStore();
   const [widgetMode, setWidgetMode] = useState(true);
 
   useEffect(() => {
@@ -68,6 +70,18 @@ export function TitleBar({ onToggleSettings, onToggleAdmin, showSettingsBtn, sho
                 <span style={styles.badge}>{unreadCount > 9 ? '9+' : unreadCount}</span>
               )}
             </button>
+            {comciganConfig && (
+              <button
+                onClick={toggleTimetable}
+                style={{
+                  ...styles.btn,
+                  opacity: showTimetable ? 1 : 0.4,
+                }}
+                title={showTimetable ? '시간표 숨기기' : '시간표 보기'}
+              >
+                📚
+              </button>
+            )}
             <button onClick={onToggleSettings} style={styles.btn} title="설정">
               ⚙️
             </button>

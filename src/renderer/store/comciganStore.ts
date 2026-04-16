@@ -9,6 +9,7 @@ interface ComciganState {
   searching: boolean;
   error: string | null;
   unsubscribe: (() => void) | null;
+  showTimetable: boolean;
 
   loadConfig: () => Promise<void>;
   searchSchool: (name: string) => Promise<void>;
@@ -17,6 +18,7 @@ interface ComciganState {
   clearConfig: () => Promise<void>;
   cleanup: () => void;
   getPeriodsForWeekday: (weekday: number) => TeacherPeriod[];
+  toggleTimetable: () => void;
 }
 
 export const useComciganStore = create<ComciganState>((set, get) => ({
@@ -27,6 +29,7 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
   searching: false,
   error: null,
   unsubscribe: null,
+  showTimetable: localStorage.getItem('tonet-show-timetable') !== 'false',
 
   loadConfig: async () => {
     try {
@@ -86,8 +89,14 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
 
   // Get teacher's periods for a specific weekday (1=Mon, 5=Fri)
   getPeriodsForWeekday: (weekday: number): TeacherPeriod[] => {
-    const { timetableData } = get();
-    if (!timetableData) return [];
+    const { timetableData, showTimetable } = get();
+    if (!showTimetable || !timetableData) return [];
     return timetableData.teacherSchedule.filter((p) => p.weekday === weekday);
+  },
+
+  toggleTimetable: () => {
+    const next = !get().showTimetable;
+    localStorage.setItem('tonet-show-timetable', String(next));
+    set({ showTimetable: next });
   },
 }));
