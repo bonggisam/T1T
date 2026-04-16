@@ -149,7 +149,8 @@ export function MonthView() {
           const dayEvents = getEventsForDay(day);
           const dayPersonal = getPersonalEventsForDay(day);
           const dayOfWeek = day.getDay();
-          const comciganPeriods = (dayOfWeek >= 1 && dayOfWeek <= 5 && comciganConfig)
+          // 시간표는 오늘 날짜에만 표시
+          const comciganPeriods = (isToday(day) && dayOfWeek >= 1 && dayOfWeek <= 5 && comciganConfig)
             ? getPeriodsForWeekday(dayOfWeek)
             : [];
           const allDayEvents = [...dayEvents, ...dayPersonal];
