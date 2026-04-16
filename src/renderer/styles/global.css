@@ -1,19 +1,23 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* Light theme */
-  --bg-primary: rgba(255, 255, 255, 0.15);
-  --bg-secondary: rgba(255, 255, 255, 0.25);
-  --bg-hover: rgba(255, 255, 255, 0.35);
-  --bg-active: rgba(255, 255, 255, 0.45);
-  --bg-modal: rgba(255, 255, 255, 0.85);
+  /* Light theme — fully transparent background */
+  --bg-primary: transparent;
+  --bg-secondary: rgba(255, 255, 255, 0.15);
+  --bg-hover: rgba(255, 255, 255, 0.25);
+  --bg-active: rgba(255, 255, 255, 0.35);
+  --bg-modal: rgba(255, 255, 255, 0.92);
   --text-primary: rgba(20, 20, 20, 1);
   --text-secondary: rgba(30, 30, 30, 0.85);
   --text-muted: rgba(30, 30, 30, 0.6);
   --border-color: rgba(0, 0, 0, 0.15);
   --border-subtle: rgba(0, 0, 0, 0.12);
-  --grid-line: rgba(0, 0, 0, 0.18);
+  --grid-line: rgba(0, 0, 0, 0.25);
   --shadow-color: rgba(0, 0, 0, 0.1);
+  --schedule-font-size: 9px;
+  --comcigan-text: #ffffff;
+  --comcigan-bg: rgba(59, 130, 246, 0.5);
+  --comcigan-shadow: 0 1px 3px rgba(0,0,0,0.6);
   --accent: #4A90E2;
   --accent-hover: #357ABD;
   --danger: #E74C3C;
@@ -28,20 +32,23 @@
 }
 
 [data-theme='dark'] {
-  --bg-primary: rgba(30, 30, 30, 0.25);
-  --bg-secondary: rgba(40, 40, 40, 0.35);
-  --bg-hover: rgba(60, 60, 60, 0.45);
-  --bg-active: rgba(80, 80, 80, 0.55);
-  --bg-modal: rgba(30, 30, 30, 0.92);
+  --bg-primary: transparent;
+  --bg-secondary: rgba(40, 40, 40, 0.25);
+  --bg-hover: rgba(60, 60, 60, 0.35);
+  --bg-active: rgba(80, 80, 80, 0.45);
+  --bg-modal: rgba(30, 30, 30, 0.95);
   --text-primary: rgba(255, 255, 255, 1);
   --text-secondary: rgba(255, 255, 255, 0.85);
   --text-muted: rgba(255, 255, 255, 0.55);
   --border-color: rgba(255, 255, 255, 0.2);
   --border-subtle: rgba(255, 255, 255, 0.1);
-  --grid-line: rgba(255, 255, 255, 0.25);
+  --grid-line: rgba(255, 255, 255, 0.3);
   --shadow-color: rgba(0, 0, 0, 0.3);
-  --today-bg: rgba(74, 144, 226, 0.25);
+  --today-bg: rgba(74, 144, 226, 0.2);
   --weekend-text: #FF6B6B;
+  --comcigan-text: #ffffff;
+  --comcigan-bg: rgba(59, 130, 246, 0.45);
+  --comcigan-shadow: 0 1px 3px rgba(0,0,0,0.7);
 }
 
 * {
@@ -76,14 +83,12 @@ html, body, #root {
   background: rgba(128, 128, 128, 0.5);
 }
 
-/* Glassmorphism base */
+/* Glassmorphism base — transparent, grid lines only */
 .glass {
-  background: var(--bg-primary);
-  backdrop-filter: blur(var(--blur-amount));
-  -webkit-backdrop-filter: blur(var(--blur-amount));
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 8px 32px var(--shadow-color);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .glass-solid {

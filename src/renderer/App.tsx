@@ -69,6 +69,14 @@ export function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
+  // Apply saved schedule font size on startup
+  useEffect(() => {
+    const savedFontSize = localStorage.getItem('tonet-schedule-font-size');
+    if (savedFontSize) {
+      document.documentElement.style.setProperty('--schedule-font-size', `${savedFontSize}px`);
+    }
+  }, []);
+
   useEffect(() => {
     if (user?.settings?.theme) {
       if (user.settings.theme === 'system') {

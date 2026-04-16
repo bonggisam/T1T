@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../utils/firebase';
 import { useAuthStore } from '../../store/authStore';
@@ -18,6 +18,9 @@ const COLOR_PRESETS = [
   '#D946EF', '#EC4899', '#F43F5E', '#78716C', '#475569',
 ];
 
+const SETTINGS_WIDTH = 360;
+const SETTINGS_HEIGHT = 620;
+
 export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) {
   const { user, logout } = useAuthStore();
   const [transparency, setTransparency] = useState(user?.settings.transparency ?? 80);
@@ -27,15 +30,50 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
   const [notifBadge, setNotifBadge] = useState(user?.settings.notificationBadge ?? true);
   const [profileColor, setProfileColor] = useState(user?.profileColor || '#4A90E2');
   const [syncInterval, setSyncInterval] = useState(user?.settings.syncInterval ?? 15);
+  const [scheduleFontSize, setScheduleFontSize] = useState(() => {
+    const saved = localStorage.getItem('tonet-schedule-font-size');
+    return saved ? Number(saved) : 9;
+  });
   const [appVersion, setAppVersion] = useState('1.0.0');
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
 
+  const originalBoundsRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
-  React.useEffect(() => {
+  useEffect(() => {
     window.electronAPI?.getAppVersion().then((v) => setAppVersion(v)).catch(() => {});
   }, []);
+
+  // Resize window to narrow+tall on mount, restore on unmount
+  useEffect(() => {
+    let mounted = true;
+    async function resizeForSettings() {
+      try {
+        const bounds = await window.electronAPI?.getBounds();
+        if (bounds && mounted) {
+          originalBoundsRef.current = bounds;
+          // Center the settings panel at the same position
+          const newX = bounds.x + Math.round((bounds.width - SETTINGS_WIDTH) / 2);
+          const newY = bounds.y + Math.round((bounds.height - SETTINGS_HEIGHT) / 2);
+          await window.electronAPI?.setBounds({
+            x: Math.max(0, newX),
+            y: Math.max(0, newY),
+            width: SETTINGS_WIDTH,
+            height: SETTINGS_HEIGHT,
+          });
+        }
+      } catch {}
+    }
+    resizeForSettings();
+    return () => { mounted = false; };
+  }, []);
+
+  // Apply font size CSS variable in real-time
+  useEffect(() => {
+    document.documentElement.style.setProperty('--schedule-font-size', `${scheduleFontSize}px`);
+  }, [scheduleFontSize]);
 
   function handleTransparency(value: number) {
     setTransparency(value);
@@ -50,6 +88,14 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
   function handleClickThrough(value: boolean) {
     setClickThrough(value);
     window.electronAPI?.toggleClickThrough(value);
+  }
+
+  async function restoreOriginalBounds() {
+    if (originalBoundsRef.current) {
+      try {
+        await window.electronAPI?.setBounds(originalBoundsRef.current);
+      } catch {}
+    }
   }
 
   async function handleSave() {
@@ -68,6 +114,10 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
         profileColor,
       };
       await updateDoc(doc(db, 'users', user.id), updates);
+      // Save font size locally
+      localStorage.setItem('tonet-schedule-font-size', String(scheduleFontSize));
+      // Restore window size before closing
+      await restoreOriginalBounds();
       onClose();
     } catch (err: any) {
       setSaveMsg('저장 실패: ' + (err?.message || '알 수 없는 오류'));
@@ -76,11 +126,21 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
     }
   }
 
+  async function handleClose() {
+    // Restore font size to saved value when cancelling
+    const saved = localStorage.getItem('tonet-schedule-font-size');
+    if (saved) {
+      document.documentElement.style.setProperty('--schedule-font-size', `${saved}px`);
+    }
+    await restoreOriginalBounds();
+    onClose();
+  }
+
   return (
     <div className="animate-fade-in" style={styles.container}>
       <div style={styles.header}>
         <h3 style={styles.title}>⚙️ 설정</h3>
-        <button onClick={onClose} style={styles.closeBtn}>✕</button>
+        <button onClick={handleClose} style={styles.closeBtn}>✕</button>
       </div>
 
       <div style={styles.sections}>
@@ -131,6 +191,17 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
               max={100}
               value={transparency}
               onChange={(e) => handleTransparency(Number(e.target.value))}
+              style={styles.slider}
+            />
+          </div>
+          <div style={styles.settingRow}>
+            <span style={styles.label}>일정 글자 크기: {scheduleFontSize}px</span>
+            <input
+              type="range"
+              min={7}
+              max={16}
+              value={scheduleFontSize}
+              onChange={(e) => setScheduleFontSize(Number(e.target.value))}
               style={styles.slider}
             />
           </div>
@@ -260,6 +331,8 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     height: '100%',
     padding: '0 12px',
+    background: 'var(--bg-modal)',
+    borderRadius: 'var(--radius-lg)',
   },
   header: {
     display: 'flex',

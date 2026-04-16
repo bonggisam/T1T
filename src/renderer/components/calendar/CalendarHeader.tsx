@@ -105,7 +105,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-primary)',
     minWidth: 100,
     textAlign: 'center' as const,
-    textShadow: '0 0 4px rgba(255,255,255,0.8)',
+    textShadow: '0 1px 3px rgba(255,255,255,0.9), 0 0 6px rgba(255,255,255,0.7)',
   },
   actions: {
     display: 'flex',

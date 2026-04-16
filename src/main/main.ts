@@ -31,19 +31,13 @@ function createWindow(): void {
     resizable: true,
     minimizable: true,
     skipTaskbar: false,
+    backgroundColor: '#00000000',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
     },
   });
-
-  // Windows 11 acrylic effect (falls back gracefully on Win10/macOS)
-  try {
-    (mainWindow as any).setBackgroundMaterial?.('acrylic');
-  } catch {
-    // Not supported on this platform
-  }
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
@@ -194,7 +188,13 @@ function setupIPC(): void {
   });
 
   ipcMain.handle('window:set-bounds', (_event, bounds: { x: number; y: number; width: number; height: number }) => {
-    mainWindow?.setBounds(bounds);
+    if (mainWindow) {
+      // Temporarily allow resize so setBounds works even in widget mode
+      const wasResizable = mainWindow.isResizable();
+      if (!wasResizable) mainWindow.setResizable(true);
+      mainWindow.setBounds(bounds);
+      if (!wasResizable) mainWindow.setResizable(false);
+    }
   });
 
   ipcMain.handle('tray:set-badge', (_event, hasBadge: boolean) => {

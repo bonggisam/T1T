@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
-  eachDayOfInterval, isSameMonth, isSameDay, isToday, format, isWeekend,
+  eachDayOfInterval, isSameMonth, isSameDay, isToday, format,
+  differenceInDays, addDays,
 } from 'date-fns';
-import { ko } from 'date-fns/locale';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useNotificationStore } from '../../store/notificationStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
@@ -13,13 +13,18 @@ import type { CalendarEvent, PersonalEvent } from '@shared/types';
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
 export function MonthView() {
-  const { currentMonth, events, selectedDate, setSelectedDate, setSelectedEvent, setShowEventDetail } = useCalendarStore();
+  const { currentMonth, events, selectedDate, setSelectedDate, setSelectedEvent, setShowEventDetail, updateEvent } = useCalendarStore();
   const { notifications } = useNotificationStore();
   const { allPersonalEvents } = usePersonalEventStore();
   const personalEvents = allPersonalEvents();
   const { getPeriodsForWeekday, config: comciganConfig } = useComciganStore();
 
-  // Track which event IDs have unread notifications
+  // Mouse-based drag state
+  const [dragEventId, setDragEventId] = useState<string | null>(null);
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+  const dragStartPos = useRef<{ x: number; y: number } | null>(null);
+  const isDragging = useRef(false);
+
   const unreadEventIds = new Set(
     notifications.filter((n) => !n.read && n.eventId).map((n) => n.eventId)
   );
@@ -56,12 +61,73 @@ export function MonthView() {
 
   function handleEventClick(e: React.MouseEvent, event: CalendarEvent) {
     e.stopPropagation();
+    if (isDragging.current) return;
     setSelectedEvent(event);
     setShowEventDetail(true);
   }
 
+  // Mouse-based drag handlers (works on transparent windows)
+  function handleMouseDown(e: React.MouseEvent, eventId: string) {
+    e.stopPropagation();
+    dragStartPos.current = { x: e.clientX, y: e.clientY };
+    setDragEventId(eventId);
+    isDragging.current = false;
+  }
+
+  function handleMouseMoveOnCell(dayStr: string) {
+    if (!dragEventId) return;
+    if (dragStartPos.current) {
+      isDragging.current = true;
+    }
+    if (dragOverDate !== dayStr) setDragOverDate(dayStr);
+  }
+
+  async function handleMouseUpOnCell(targetDay: Date) {
+    if (!dragEventId || !isDragging.current) {
+      setDragEventId(null);
+      setDragOverDate(null);
+      dragStartPos.current = null;
+      isDragging.current = false;
+      return;
+    }
+
+    const event = events.find((ev) => ev.id === dragEventId);
+    setDragEventId(null);
+    setDragOverDate(null);
+    dragStartPos.current = null;
+
+    if (!event) { isDragging.current = false; return; }
+
+    const oldStart = new Date(event.startDate);
+    const daysDiff = differenceInDays(
+      targetDay,
+      new Date(oldStart.getFullYear(), oldStart.getMonth(), oldStart.getDate())
+    );
+
+    if (daysDiff !== 0) {
+      const newStart = addDays(oldStart, daysDiff);
+      const newEnd = addDays(new Date(event.endDate), daysDiff);
+      try {
+        await updateEvent(event.id, { startDate: newStart, endDate: newEnd });
+      } catch (err) {
+        console.error('Failed to move event:', err);
+      }
+    }
+    // Reset after a tick so click handler doesn't fire
+    setTimeout(() => { isDragging.current = false; }, 50);
+  }
+
+  function handleGlobalMouseUp() {
+    if (dragEventId) {
+      setDragEventId(null);
+      setDragOverDate(null);
+      dragStartPos.current = null;
+      setTimeout(() => { isDragging.current = false; }, 50);
+    }
+  }
+
   return (
-    <div style={styles.container}>
+    <div style={styles.container} onMouseUp={handleGlobalMouseUp} onMouseLeave={handleGlobalMouseUp}>
       {/* Weekday headers */}
       <div style={styles.weekdayRow}>
         {WEEKDAY_LABELS.map((label, i) => (
@@ -83,7 +149,6 @@ export function MonthView() {
           const dayEvents = getEventsForDay(day);
           const dayPersonal = getPersonalEventsForDay(day);
           const dayOfWeek = day.getDay();
-          // Comcigan: weekday 1=Mon~5=Fri, JS getDay() 0=Sun~6=Sat
           const comciganPeriods = (dayOfWeek >= 1 && dayOfWeek <= 5 && comciganConfig)
             ? getPeriodsForWeekday(dayOfWeek)
             : [];
@@ -91,15 +156,20 @@ export function MonthView() {
           const inMonth = isSameMonth(day, currentMonth);
           const today = isToday(day);
           const selected = isSameDay(day, selectedDate);
+          const dayStr = day.toISOString();
+          const isDropTarget = dragOverDate === dayStr && dragEventId;
 
           return (
             <div
-              key={day.toISOString()}
-              onClick={() => setSelectedDate(day)}
+              key={dayStr}
+              onClick={() => { if (!isDragging.current) setSelectedDate(day); }}
+              onMouseMove={() => handleMouseMoveOnCell(dayStr)}
+              onMouseUp={() => handleMouseUpOnCell(day)}
               style={{
                 ...styles.dayCell,
                 ...(today ? styles.today : {}),
                 ...(selected ? styles.selected : {}),
+                ...(isDropTarget ? styles.dragOver : {}),
                 opacity: inMonth ? 1 : 0.35,
               }}
             >
@@ -120,10 +190,13 @@ export function MonthView() {
                 {dayEvents.slice(0, 3).map((event) => (
                   <div
                     key={event.id}
+                    onMouseDown={(e) => handleMouseDown(e, event.id)}
                     onClick={(e) => handleEventClick(e, event)}
                     style={{
                       ...styles.eventDot,
                       background: event.adminColor,
+                      opacity: dragEventId === event.id ? 0.5 : 1,
+                      cursor: dragEventId ? 'grabbing' : 'grab',
                     }}
                     title={`${event.title} (${event.adminName})`}
                   >
@@ -190,7 +263,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 11,
     fontWeight: 700,
     padding: '4px 0',
-    textShadow: '0 0 4px rgba(255,255,255,0.8)',
+    textShadow: '0 1px 3px rgba(0,0,0,0.3), 0 0 8px rgba(255,255,255,0.6)',
   },
   grid: {
     display: 'grid',
@@ -219,6 +292,11 @@ const styles: Record<string, React.CSSProperties> = {
     outline: '2px solid var(--accent)',
     outlineOffset: -2,
   },
+  dragOver: {
+    background: 'rgba(74, 144, 226, 0.2)',
+    outline: '2px dashed var(--accent)',
+    outlineOffset: -2,
+  },
   dayHeader: {
     display: 'flex',
     alignItems: 'center',
@@ -229,7 +307,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     fontWeight: 700,
     lineHeight: 1,
-    textShadow: '0 0 4px rgba(255,255,255,0.8)',
+    textShadow: '0 1px 3px rgba(0,0,0,0.3), 0 0 8px rgba(255,255,255,0.6)',
   },
   newBadge: {
     fontSize: 7,
@@ -251,11 +329,11 @@ const styles: Record<string, React.CSSProperties> = {
   eventDot: {
     borderRadius: 3,
     padding: '1px 4px',
-    cursor: 'pointer',
-    transition: 'filter 0.12s',
+    cursor: 'grab',
+    transition: 'filter 0.12s, opacity 0.15s',
   },
   eventDotText: {
-    fontSize: 9,
+    fontSize: 'var(--schedule-font-size, 9px)' as any,
     fontWeight: 500,
     color: '#fff',
     lineHeight: '14px',
@@ -263,26 +341,27 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     display: 'block',
-    textShadow: '0 0 2px rgba(0,0,0,0.3)',
+    textShadow: '0 1px 2px rgba(0,0,0,0.4)',
   },
   comciganDot: {
     borderRadius: 3,
     padding: '1px 4px',
-    background: 'rgba(14,165,233,0.15)',
+    background: 'var(--comcigan-bg)',
     cursor: 'default',
   },
   comciganText: {
-    fontSize: 8,
-    fontWeight: 500,
-    color: '#0284C7',
-    lineHeight: '12px',
+    fontSize: 'var(--schedule-font-size, 9px)' as any,
+    fontWeight: 600,
+    color: 'var(--comcigan-text)',
+    lineHeight: '13px',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     display: 'block',
+    textShadow: 'var(--comcigan-shadow)',
   },
   moreCount: {
-    fontSize: 9,
+    fontSize: 'var(--schedule-font-size, 9px)' as any,
     color: 'var(--text-muted)',
     textAlign: 'center',
   },
