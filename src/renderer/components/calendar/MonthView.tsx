@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   eachDayOfInterval, isSameMonth, isSameDay, isToday, format,
-  differenceInDays, addDays,
+  differenceInDays, addDays, isSameWeek,
 } from 'date-fns';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useNotificationStore } from '../../store/notificationStore';
@@ -149,8 +149,9 @@ export function MonthView() {
           const dayEvents = getEventsForDay(day);
           const dayPersonal = getPersonalEventsForDay(day);
           const dayOfWeek = day.getDay();
-          // 시간표는 오늘 날짜에만 표시
-          const comciganPeriods = (isToday(day) && dayOfWeek >= 1 && dayOfWeek <= 5 && comciganConfig)
+          // 시간표는 이번 주 평일에 표시
+          const isCurrentWeek = isSameWeek(day, new Date(), { weekStartsOn: 0 });
+          const comciganPeriods = (isCurrentWeek && dayOfWeek >= 1 && dayOfWeek <= 5 && comciganConfig)
             ? getPeriodsForWeekday(dayOfWeek)
             : [];
           const allDayEvents = [...dayEvents, ...dayPersonal];
@@ -188,7 +189,20 @@ export function MonthView() {
                 )}
               </div>
               <div style={styles.eventList}>
-                {dayEvents.slice(0, 3).map((event) => (
+                {/* 시간표 최우선 표시 (오늘만) */}
+                {comciganPeriods.map((cp) => (
+                  <div
+                    key={`cc-${cp.period}`}
+                    style={styles.comciganDot}
+                    title={`${cp.period}교시 ${cp.subject} ${cp.grade}-${cp.classNum}`}
+                  >
+                    <span style={styles.comciganText}>
+                      📚{cp.period} {cp.subject} {cp.grade}-{cp.classNum}
+                    </span>
+                  </div>
+                ))}
+                {/* 학교 일정 */}
+                {dayEvents.slice(0, comciganPeriods.length > 0 ? 2 : 3).map((event) => (
                   <div
                     key={event.id}
                     onMouseDown={(e) => handleMouseDown(e, event.id)}
@@ -206,7 +220,8 @@ export function MonthView() {
                     </span>
                   </div>
                 ))}
-                {dayEvents.length <= 3 && dayPersonal.slice(0, 3 - dayEvents.length).map((pe) => (
+                {/* 개인 일정 */}
+                {dayPersonal.slice(0, Math.max(0, (comciganPeriods.length > 0 ? 2 : 3) - dayEvents.length)).map((pe) => (
                   <div
                     key={pe.id}
                     style={{
@@ -222,21 +237,8 @@ export function MonthView() {
                     </span>
                   </div>
                 ))}
-                {comciganPeriods.length > 0 && allDayEvents.length < 3 && (
-                  comciganPeriods.slice(0, 3 - allDayEvents.length).map((cp) => (
-                    <div
-                      key={`cc-${cp.period}`}
-                      style={styles.comciganDot}
-                      title={`${cp.period}교시 ${cp.subject} ${cp.grade}-${cp.classNum}`}
-                    >
-                      <span style={styles.comciganText}>
-                        📚{cp.period} {cp.subject} {cp.grade}-{cp.classNum}
-                      </span>
-                    </div>
-                  ))
-                )}
-                {(allDayEvents.length + comciganPeriods.length) > 3 && (
-                  <span style={styles.moreCount}>+{allDayEvents.length + comciganPeriods.length - 3}</span>
+                {(allDayEvents.length + comciganPeriods.length) > (comciganPeriods.length + 2) && (
+                  <span style={styles.moreCount}>+{allDayEvents.length - 2}</span>
                 )}
               </div>
             </div>
