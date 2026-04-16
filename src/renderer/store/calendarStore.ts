@@ -142,8 +142,16 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
 
   updateEvent: async (id, updates) => {
     const updateData: any = { ...updates, updatedAt: serverTimestamp() };
-    if (updates.startDate) updateData.startDate = Timestamp.fromDate(updates.startDate);
-    if (updates.endDate) updateData.endDate = Timestamp.fromDate(updates.endDate);
+    if (updates.startDate) {
+      const d = updates.startDate instanceof Date ? updates.startDate : new Date(updates.startDate);
+      if (isNaN(d.getTime())) throw new Error('Invalid startDate');
+      updateData.startDate = Timestamp.fromDate(d);
+    }
+    if (updates.endDate) {
+      const d = updates.endDate instanceof Date ? updates.endDate : new Date(updates.endDate);
+      if (isNaN(d.getTime())) throw new Error('Invalid endDate');
+      updateData.endDate = Timestamp.fromDate(d);
+    }
     await updateDoc(doc(db, 'events', id), updateData);
     // Notify all users
     const event = get().events.find((e) => e.id === id);

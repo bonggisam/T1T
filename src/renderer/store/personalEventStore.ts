@@ -131,8 +131,16 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
 
   updatePersonalEvent: async (userId, eventId, updates) => {
     const updateData: any = { ...updates };
-    if (updates.startDate) updateData.startDate = Timestamp.fromDate(updates.startDate);
-    if (updates.endDate) updateData.endDate = Timestamp.fromDate(updates.endDate);
+    if (updates.startDate) {
+      const d = updates.startDate instanceof Date ? updates.startDate : new Date(updates.startDate as any);
+      if (isNaN(d.getTime())) throw new Error('Invalid startDate');
+      updateData.startDate = Timestamp.fromDate(d);
+    }
+    if (updates.endDate) {
+      const d = updates.endDate instanceof Date ? updates.endDate : new Date(updates.endDate as any);
+      if (isNaN(d.getTime())) throw new Error('Invalid endDate');
+      updateData.endDate = Timestamp.fromDate(d);
+    }
     await updateDoc(doc(db, 'personal_events', userId, 'events', eventId), updateData);
   },
 

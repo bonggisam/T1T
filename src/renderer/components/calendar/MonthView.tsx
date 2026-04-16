@@ -133,16 +133,22 @@ export function MonthView() {
     const dayStr = cell.getAttribute('data-day-str');
     if (!dayStr) return;
 
-    const targetDay = new Date(dayStr);
+    // Parse yyyy-MM-dd as local date (avoid UTC timezone issues)
+    const [y, m, d] = dayStr.split('-').map(Number);
+    const targetDay = new Date(y, m - 1, d);
 
     if (drag.type === 'shared') {
       const event = events.find((ev) => ev.id === drag.eventId);
       if (!event) return;
       const oldStart = new Date(event.startDate);
-      const daysDiff = differenceInDays(targetDay, new Date(oldStart.getFullYear(), oldStart.getMonth(), oldStart.getDate()));
+      const oldStartDay = new Date(oldStart.getFullYear(), oldStart.getMonth(), oldStart.getDate());
+      const daysDiff = differenceInDays(targetDay, oldStartDay);
       if (daysDiff !== 0) {
+        const newStart = addDays(oldStart, daysDiff);
+        const newEnd = addDays(new Date(event.endDate), daysDiff);
+        console.log('[Drag] Moving shared event:', event.title, 'by', daysDiff, 'days →', newStart, newEnd);
         try {
-          await updateEvent(event.id, { startDate: addDays(oldStart, daysDiff), endDate: addDays(new Date(event.endDate), daysDiff) });
+          await updateEvent(event.id, { startDate: newStart, endDate: newEnd });
         } catch (err) {
           console.error('Failed to move shared event:', err);
         }
@@ -151,10 +157,14 @@ export function MonthView() {
       const pe = personalEvents.find((p) => p.id === drag.eventId);
       if (!pe || !user) return;
       const oldStart = new Date(pe.startDate);
-      const daysDiff = differenceInDays(targetDay, new Date(oldStart.getFullYear(), oldStart.getMonth(), oldStart.getDate()));
+      const oldStartDay = new Date(oldStart.getFullYear(), oldStart.getMonth(), oldStart.getDate());
+      const daysDiff = differenceInDays(targetDay, oldStartDay);
       if (daysDiff !== 0) {
+        const newStart = addDays(oldStart, daysDiff);
+        const newEnd = addDays(new Date(pe.endDate), daysDiff);
+        console.log('[Drag] Moving personal event:', pe.title, 'by', daysDiff, 'days →', newStart, newEnd);
         try {
-          await updatePersonalEvent(user.id, pe.id, { startDate: addDays(oldStart, daysDiff), endDate: addDays(new Date(pe.endDate), daysDiff) });
+          await updatePersonalEvent(user.id, pe.id, { startDate: newStart, endDate: newEnd });
         } catch (err) {
           console.error('Failed to move personal event:', err);
         }
@@ -200,7 +210,7 @@ export function MonthView() {
           const inMonth = isSameMonth(day, currentMonth);
           const today = isToday(day);
           const selected = isSameDay(day, selectedDate);
-          const dayStr = day.toISOString();
+          const dayStr = format(day, 'yyyy-MM-dd');
           const isDropTarget = dragVisual?.overDayStr === dayStr;
 
           return (
