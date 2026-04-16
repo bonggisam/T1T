@@ -33,6 +33,7 @@ interface PersonalEventState {
   startAutoSync: (intervalMinutes: number) => void;
   stopAutoSync: () => void;
   addPersonalEvent: (userId: string, event: Omit<PersonalEvent, 'id'>) => Promise<string>;
+  updatePersonalEvent: (userId: string, eventId: string, updates: Partial<PersonalEvent>) => Promise<void>;
   deletePersonalEvent: (userId: string, eventId: string) => Promise<void>;
   cleanup: () => void;
   allPersonalEvents: () => PersonalEvent[];
@@ -126,6 +127,13 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
       endDate: Timestamp.fromDate(event.endDate),
     });
     return docRef.id;
+  },
+
+  updatePersonalEvent: async (userId, eventId, updates) => {
+    const updateData: any = { ...updates };
+    if (updates.startDate) updateData.startDate = Timestamp.fromDate(updates.startDate);
+    if (updates.endDate) updateData.endDate = Timestamp.fromDate(updates.endDate);
+    await updateDoc(doc(db, 'personal_events', userId, 'events', eventId), updateData);
   },
 
   deletePersonalEvent: async (userId, eventId) => {
