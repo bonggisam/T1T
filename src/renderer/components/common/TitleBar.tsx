@@ -28,16 +28,17 @@ export function TitleBar({ onToggleSettings, onToggleAdmin, showSettingsBtn, sho
     window.electronAPI?.setWidgetMode(next);
   }
 
-  // Widget mode: minimal title bar (just edit button)
+  // Widget mode: top border frame + edit button
   if (widgetMode) {
     return (
       <div className="titlebar" style={styles.widgetBar}>
+        <span style={styles.widgetTitle}>ToneT</span>
         <button
           onClick={handleToggleWidget}
           style={styles.editBtn}
           title="편집 모드 (Ctrl+Shift+C)"
         >
-          ✏️
+          ✏️ 편집
         </button>
       </div>
     );
@@ -109,11 +110,20 @@ const styles: Record<string, React.CSSProperties> = {
   },
   widgetBar: {
     display: 'flex',
-    justifyContent: 'flex-end',
-    padding: '2px 4px',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '6px 12px',
     flexShrink: 0,
     opacity: 0,
     transition: 'opacity 0.3s',
+    borderBottom: '1px solid var(--grid-line)',
+    background: 'rgba(128,128,128,0.08)',
+  },
+  widgetTitle: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: 'var(--text-muted)',
+    letterSpacing: 1,
   },
   left: {
     display: 'flex',
@@ -145,13 +155,14 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'background 0.15s',
   },
   editBtn: {
-    background: 'none',
-    border: 'none',
+    background: 'rgba(74, 144, 226, 0.15)',
+    border: '1px solid rgba(74, 144, 226, 0.3)',
     cursor: 'pointer',
-    padding: '2px 6px',
-    borderRadius: 4,
-    fontSize: 11,
-    color: 'var(--text-muted)',
+    padding: '4px 12px',
+    borderRadius: 6,
+    fontSize: 13,
+    fontWeight: 600,
+    color: 'var(--accent)',
   },
   widgetBtn: {
     background: 'none',
