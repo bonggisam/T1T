@@ -17,10 +17,12 @@ export function PersonalEventModal({ onClose }: PersonalEventModalProps) {
   const { user } = useAuthStore();
   const { selectedDate } = useCalendarStore();
 
+  const clickedHour = selectedDate.getHours();
+  const startHour = clickedHour > 0 ? clickedHour : 9;
   const defaultStart = new Date(selectedDate);
-  defaultStart.setHours(9, 0, 0, 0);
+  defaultStart.setHours(startHour, 0, 0, 0);
   const defaultEnd = new Date(selectedDate);
-  defaultEnd.setHours(10, 0, 0, 0);
+  defaultEnd.setHours(startHour + 1, 0, 0, 0);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');

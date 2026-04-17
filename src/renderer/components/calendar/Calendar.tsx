@@ -18,8 +18,8 @@ export function Calendar({ onAddPersonalEvent }: CalendarProps = {}) {
       <CalendarHeader onAddPersonalEvent={onAddPersonalEvent} />
       <div style={styles.viewContainer}>
         {view === 'month' && <MonthView onAddPersonalEvent={onAddPersonalEvent} />}
-        {view === 'week' && <WeekView />}
-        {view === 'day' && <DayView />}
+        {view === 'week' && <WeekView onAddPersonalEvent={onAddPersonalEvent} />}
+        {view === 'day' && <DayView onAddPersonalEvent={onAddPersonalEvent} />}
       </div>
       <EventLegend />
     </div>

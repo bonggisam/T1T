@@ -8,6 +8,16 @@ import type { CalendarEvent, PersonalEvent } from '@shared/types';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
+interface QuickAdd {
+  hour: number;
+  x: number;
+  y: number;
+}
+
+interface DayViewProps {
+  onAddPersonalEvent?: () => void;
+}
+
 interface DragInfo {
   eventId: string;
   type: 'shared' | 'personal';
@@ -17,8 +27,8 @@ interface DragInfo {
   originHour: number;
 }
 
-export function DayView() {
-  const { selectedDate, events, setSelectedEvent, setShowEventDetail, updateEvent } = useCalendarStore();
+export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
+  const { selectedDate, events, setSelectedDate, setSelectedEvent, setShowEventDetail, setShowEventModal, updateEvent } = useCalendarStore();
   const { user } = useAuthStore();
   const { allPersonalEvents, updatePersonalEvent } = usePersonalEventStore();
   const personalEvents = allPersonalEvents();
@@ -28,9 +38,38 @@ export function DayView() {
   const eventsRef = useRef(events);
   const personalEventsRef = useRef(personalEvents);
   const [dragOverHour, setDragOverHour] = useState<number | null>(null);
+  const [quickAdd, setQuickAdd] = useState<QuickAdd | null>(null);
 
   useEffect(() => { eventsRef.current = events; }, [events]);
   useEffect(() => { personalEventsRef.current = personalEvents; }, [personalEvents]);
+
+  // 퀵 추가 팝업 외부 클릭 닫기
+  useEffect(() => {
+    if (!quickAdd) return;
+    const close = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest('[data-quick-add]')) setQuickAdd(null);
+    };
+    window.addEventListener('mousedown', close, true);
+    return () => window.removeEventListener('mousedown', close, true);
+  }, [quickAdd]);
+
+  function handleQuickAddShared() {
+    if (!quickAdd) return;
+    const d = new Date(selectedDate);
+    d.setHours(quickAdd.hour, 0, 0, 0);
+    setSelectedDate(d);
+    setQuickAdd(null);
+    setTimeout(() => setShowEventModal(true), 0);
+  }
+
+  function handleQuickAddPersonal() {
+    if (!quickAdd) return;
+    const d = new Date(selectedDate);
+    d.setHours(quickAdd.hour, 0, 0, 0);
+    setSelectedDate(d);
+    setQuickAdd(null);
+    setTimeout(() => { if (onAddPersonalEvent) onAddPersonalEvent(); }, 0);
+  }
 
   const dayEvents = events.filter((e) => {
     const start = new Date(e.startDate); start.setHours(0, 0, 0, 0);
@@ -155,11 +194,20 @@ export function DayView() {
           const isDropTarget = dragOverHour === hour;
 
           return (
-            <div key={hour} style={{
+            <div key={hour}
+              onClick={(e) => {
+                if (dragRef.current?.activated) return;
+                if (user) {
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  setQuickAdd({ hour, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+                }
+              }}
+              style={{
               ...styles.hourRow,
               background: isDropTarget ? 'rgba(74,144,226,0.2)' : 'rgba(128,128,128,0.02)',
               outline: isDropTarget ? '2px dashed var(--accent)' : 'none',
               outlineOffset: -1,
+              cursor: 'pointer',
             }}>
               <div style={styles.timeLabel}>{hour.toString().padStart(2, '0')}:00</div>
               <div style={styles.hourContent}>
@@ -207,9 +255,32 @@ export function DayView() {
           );
         })}
       </div>
+
+      {/* 퀵 추가 팝업 */}
+      {quickAdd && (
+        <div data-quick-add style={{
+          position: 'fixed', zIndex: 200, display: 'flex', flexDirection: 'column', gap: 2,
+          padding: 4, borderRadius: 8, background: 'var(--bg-modal, #fff)',
+          border: '1px solid var(--border-color)', boxShadow: '0 4px 16px rgba(0,0,0,0.25)', minWidth: 140,
+          left: Math.min(quickAdd.x - 70, window.innerWidth - 155),
+          top: Math.min(quickAdd.y, window.innerHeight - 80),
+        }}>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', padding: '2px 10px', fontWeight: 600 }}>
+            {format(selectedDate, 'M/d')} {quickAdd.hour.toString().padStart(2, '0')}:00
+          </div>
+          <button onClick={handleQuickAddShared} style={quickAddBtnStyle}>📅 공유 일정 추가</button>
+          <button onClick={handleQuickAddPersonal} style={quickAddBtnStyle}>🔒 개인 일정 추가</button>
+        </div>
+      )}
     </div>
   );
 }
+
+const quickAddBtnStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px',
+  fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', background: 'transparent',
+  border: 'none', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap',
+};
 
 const styles: Record<string, React.CSSProperties> = {
   container: { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' },

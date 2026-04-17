@@ -15,10 +15,13 @@ export function EventModal() {
   const { addEvent, setShowEventModal, selectedDate } = useCalendarStore();
   const { user } = useAuthStore();
 
+  // selectedDate에 시간 정보가 있으면 사용, 없으면(0시=월뷰) 9시 기본
+  const clickedHour = selectedDate.getHours();
+  const startHour = clickedHour > 0 ? clickedHour : 9;
   const defaultStart = new Date(selectedDate);
-  defaultStart.setHours(9, 0, 0, 0);
+  defaultStart.setHours(startHour, 0, 0, 0);
   const defaultEnd = new Date(selectedDate);
-  defaultEnd.setHours(10, 0, 0, 0);
+  defaultEnd.setHours(startHour + 1, 0, 0, 0);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
