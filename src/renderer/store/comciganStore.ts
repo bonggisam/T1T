@@ -34,15 +34,27 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
   loadConfig: async () => {
     try {
       const config = await window.electronAPI?.comciganGetConfig() ?? null;
-      const cached = await window.electronAPI?.comciganGetCached() ?? null;
+      let cached = await window.electronAPI?.comciganGetCached() ?? null;
+      console.log('[ComciganStore] config:', config ? config.schoolName : 'null', 'cached:', cached ? `${cached.teacherSchedule.length} periods` : 'null');
+
+      // If config exists but no cached data, trigger a fresh fetch
+      if (config && !cached) {
+        console.log('[ComciganStore] No cached data, triggering fetch...');
+        cached = await window.electronAPI?.comciganFetch() ?? null;
+        console.log('[ComciganStore] Fetch result:', cached ? `${cached.teacherSchedule.length} periods` : 'null');
+      }
+
       set({ config, timetableData: cached });
 
       // Subscribe to auto-refresh updates from main process
       const unsub = window.electronAPI?.onComciganUpdate((data) => {
+        console.log('[ComciganStore] Received update:', data ? `${data.teacherSchedule.length} periods` : 'null');
         set({ timetableData: data });
       });
       set({ unsubscribe: unsub ?? null });
-    } catch {}
+    } catch (err) {
+      console.error('[ComciganStore] loadConfig error:', err);
+    }
   },
 
   searchSchool: async (name: string) => {

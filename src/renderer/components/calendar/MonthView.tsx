@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   eachDayOfInterval, isSameMonth, isSameDay, isToday, format,
-  differenceInCalendarDays, addDays, isSameWeek,
+  differenceInCalendarDays, addDays,
 } from 'date-fns';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
@@ -275,8 +275,7 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
           const dayEvents = getEventsForDay(day);
           const dayPersonal = getPersonalEventsForDay(day);
           const dayOfWeek = day.getDay();
-          const isCurrentWeek = isSameWeek(day, new Date(), { weekStartsOn: 0 });
-          const comciganPeriods = (isCurrentWeek && dayOfWeek >= 1 && dayOfWeek <= 5 && comciganConfig)
+          const comciganPeriods = (dayOfWeek >= 1 && dayOfWeek <= 5 && comciganConfig)
             ? getPeriodsForWeekday(dayOfWeek) : [];
           const inMonth = isSameMonth(day, currentMonth);
           const today = isToday(day);
