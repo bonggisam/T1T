@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 const TPASS_URL = 'https://script.google.com/macros/s/AKfycbzAkY37jTDVAeUfmPtA9uMjyle0pAH3_vFyqTal7RbF0dX_-ATYuALGEWH0O1NWdjT3/exec';
 
@@ -8,7 +8,37 @@ interface TPassViewProps {
 
 export function TPassView({ onBack }: TPassViewProps) {
   const [loading, setLoading] = useState(true);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const webviewContainerRef = useRef<HTMLDivElement>(null);
+  const webviewRef = useRef<any>(null);
+
+  useEffect(() => {
+    const container = webviewContainerRef.current;
+    if (!container) return;
+
+    // Create webview element
+    const webview = document.createElement('webview');
+    webview.setAttribute('src', TPASS_URL);
+    webview.setAttribute('style', 'width: 100%; height: 100%;');
+    webview.setAttribute('allowpopups', '');
+    webview.addEventListener('did-start-loading', () => setLoading(true));
+    webview.addEventListener('did-stop-loading', () => setLoading(false));
+    webview.addEventListener('did-fail-load', () => setLoading(false));
+
+    container.appendChild(webview);
+    webviewRef.current = webview;
+
+    return () => {
+      container.innerHTML = '';
+      webviewRef.current = null;
+    };
+  }, []);
+
+  function handleRefresh() {
+    if (webviewRef.current) {
+      webviewRef.current.reload();
+      setLoading(true);
+    }
+  }
 
   return (
     <div style={styles.container}>
@@ -18,12 +48,7 @@ export function TPassView({ onBack }: TPassViewProps) {
         </button>
         <span style={styles.label}>TPass</span>
         <button
-          onClick={() => {
-            if (iframeRef.current) {
-              iframeRef.current.src = TPASS_URL;
-              setLoading(true);
-            }
-          }}
+          onClick={handleRefresh}
           style={styles.refreshBtn}
           title="새로고침"
         >
@@ -35,14 +60,7 @@ export function TPassView({ onBack }: TPassViewProps) {
           <div style={styles.loadingProgress} />
         </div>
       )}
-      <iframe
-        ref={iframeRef}
-        src={TPASS_URL}
-        style={styles.iframe}
-        onLoad={() => setLoading(false)}
-        title="TPass"
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-      />
+      <div ref={webviewContainerRef} style={styles.webviewContainer} />
     </div>
   );
 }
@@ -101,10 +119,8 @@ const styles: Record<string, React.CSSProperties> = {
     animation: 'tpass-loading 1.2s ease-in-out infinite',
     borderRadius: 2,
   },
-  iframe: {
+  webviewContainer: {
     flex: 1,
-    border: 'none',
-    width: '100%',
-    background: '#fff',
+    overflow: 'hidden',
   },
 };
