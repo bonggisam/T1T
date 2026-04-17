@@ -17,7 +17,7 @@ export function Calendar({ onAddPersonalEvent }: CalendarProps = {}) {
     <div style={styles.container}>
       <CalendarHeader onAddPersonalEvent={onAddPersonalEvent} />
       <div style={styles.viewContainer}>
-        {view === 'month' && <MonthView />}
+        {view === 'month' && <MonthView onAddPersonalEvent={onAddPersonalEvent} />}
         {view === 'week' && <WeekView />}
         {view === 'day' && <DayView />}
       </div>

@@ -141,6 +141,11 @@ button:hover:not(:disabled) {
   filter: brightness(1.1);
 }
 
+/* Quick-add popup button hover */
+[data-quick-add] button:hover {
+  background: var(--bg-secondary, rgba(0,0,0,0.05)) !important;
+}
+
 button:active:not(:disabled) {
   transform: scale(0.97);
 }
