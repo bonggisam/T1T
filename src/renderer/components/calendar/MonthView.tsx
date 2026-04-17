@@ -13,7 +13,7 @@ import type { CalendarEvent, PersonalEvent } from '@shared/types';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 const DRAG_THRESHOLD = 5;
-const MAX_VISIBLE_EVENTS = 20;
+const MAX_VISIBLE = 20;
 
 interface DragInfo {
   eventId: string;
@@ -46,10 +46,11 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
   const { getPeriodsForWeekday, config: comciganConfig } = useComciganStore();
 
   const dragRef = useRef<DragInfo | null>(null);
-  const [dragVisual, setDragVisual] = useState<{ eventId: string; overDayStr: string } | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [dragOverDayStr, setDragOverDayStr] = useState<string | null>(null);
   const [quickAdd, setQuickAdd] = useState<QuickAddPopup | null>(null);
 
-  // 최신 events/personalEvents를 ref에 저장 (드래그 콜백에서 stale closure 방지)
+  // 최신 데이터를 ref로 유지 (드래그 콜백 stale closure 방지)
   const eventsRef = useRef(events);
   const personalEventsRef = useRef(personalEvents);
   useEffect(() => { eventsRef.current = events; }, [events]);
@@ -65,8 +66,25 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
   const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
   const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
   const numWeeks = Math.ceil(days.length / 7);
+  const dayStrings = days.map((d) => format(d, 'yyyy-MM-dd'));
 
-  // 날짜별 일정 필터 (WeekView와 동일한 로직)
+  // ─── 그리드 좌표 → 날짜 변환 (elementFromPoint 대신 사용) ───
+  function getDayStrFromMousePos(clientX: number, clientY: number): string | null {
+    const grid = gridRef.current;
+    if (!grid) return null;
+    const rect = grid.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top + grid.scrollTop;
+    if (x < 0 || x > rect.width || y < 0) return null;
+    const col = Math.floor((x / rect.width) * 7);
+    const rowHeight = grid.scrollHeight / numWeeks;
+    const row = Math.floor(y / rowHeight);
+    const idx = row * 7 + col;
+    if (idx < 0 || idx >= dayStrings.length) return null;
+    return dayStrings[idx];
+  }
+
+  // ─── 이벤트 필터링 ───
   function getEventsForDay(date: Date): CalendarEvent[] {
     const d = new Date(date);
     d.setHours(12, 0, 0, 0);
@@ -91,6 +109,7 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
     });
   }
 
+  // ─── 클릭 핸들러 ───
   function handleEventClick(e: React.MouseEvent, event: CalendarEvent) {
     e.stopPropagation();
     if (dragRef.current?.activated) return;
@@ -98,17 +117,12 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
     setShowEventDetail(true);
   }
 
-  // 날짜 셀 클릭 → 선택 + 빠른 추가 팝업
   function handleDayCellClick(e: React.MouseEvent, day: Date, dayStr: string) {
     if (dragRef.current?.activated) return;
     setSelectedDate(day);
     if (user) {
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      setQuickAdd({
-        dayStr,
-        x: rect.left + rect.width / 2,
-        y: rect.bottom,
-      });
+      setQuickAdd({ dayStr, x: rect.left + rect.width / 2, y: rect.bottom });
     }
   }
 
@@ -130,12 +144,11 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
     setTimeout(() => { if (onAddPersonalEvent) onAddPersonalEvent(); }, 0);
   }
 
-  // 팝업 외부 클릭 → 닫기
+  // 팝업 외부 클릭 닫기
   useEffect(() => {
     if (!quickAdd) return;
     const close = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('[data-quick-add]')) setQuickAdd(null);
+      if (!(e.target as HTMLElement).closest('[data-quick-add]')) setQuickAdd(null);
     };
     window.addEventListener('mousedown', close, true);
     return () => window.removeEventListener('mousedown', close, true);
@@ -156,7 +169,6 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
     dragRef.current = { eventId: pe.id, type: 'personal', startX: e.clientX, startY: e.clientY, activated: false, originDayStr: dayStr };
   }
 
-  // mousemove: 드래그 활성화 + 시각 피드백
   useEffect(() => {
     function onMouseMove(e: MouseEvent) {
       const drag = dragRef.current;
@@ -166,72 +178,56 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
         drag.activated = true;
         setQuickAdd(null);
       }
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      if (!el) return;
-      const cell = el.closest('[data-day-str]') as HTMLElement | null;
-      if (cell) {
-        setDragVisual({ eventId: drag.eventId, overDayStr: cell.getAttribute('data-day-str') || '' });
-      }
+      // 그리드 좌표로 날짜 계산 (elementFromPoint 대신)
+      const dayStr = getDayStrFromMousePos(e.clientX, e.clientY);
+      setDragOverDayStr(dayStr);
     }
 
     async function onMouseUp(e: MouseEvent) {
       const drag = dragRef.current;
       dragRef.current = null;
+      if (!drag || !drag.activated) { setDragOverDayStr(null); return; }
 
-      if (!drag || !drag.activated) {
-        setDragVisual(null);
-        return;
-      }
+      // 그리드 좌표로 타겟 날짜 계산
+      const targetDayStr = getDayStrFromMousePos(e.clientX, e.clientY);
+      setDragOverDayStr(null);
 
-      setDragVisual(null);
+      if (!targetDayStr || targetDayStr === drag.originDayStr) return;
 
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      const cell = el?.closest('[data-day-str]') as HTMLElement | null;
-      if (!cell) { console.log('[Drag] No target cell found'); return; }
-      const dayStr = cell.getAttribute('data-day-str');
-      if (!dayStr) { console.log('[Drag] No data-day-str attribute'); return; }
-      if (dayStr === drag.originDayStr) { console.log('[Drag] Same day, skip'); return; }
-
-      // 로컬 날짜로 파싱 (UTC 문제 방지)
-      const [ty, tm, td] = dayStr.split('-').map(Number);
+      const [ty, tm, td] = targetDayStr.split('-').map(Number);
       const [oy, om, od] = drag.originDayStr.split('-').map(Number);
       const targetDay = new Date(ty, tm - 1, td, 12, 0, 0);
       const originDay = new Date(oy, om - 1, od, 12, 0, 0);
       const daysDiff = differenceInCalendarDays(targetDay, originDay);
 
-      console.log('[Drag] Target:', dayStr, 'Origin:', drag.originDayStr, 'Diff:', daysDiff);
-
       if (daysDiff === 0) return;
+
+      console.log('[Drag]', drag.type, 'event', drag.eventId, ':', drag.originDayStr, '→', targetDayStr, '(', daysDiff, 'days)');
 
       if (drag.type === 'shared') {
         const event = eventsRef.current.find((ev) => ev.id === drag.eventId);
-        if (!event) { console.log('[Drag] Shared event not found:', drag.eventId); return; }
-
-        const newStart = addDays(new Date(event.startDate), daysDiff);
-        const newEnd = addDays(new Date(event.endDate), daysDiff);
-        console.log('[Drag] Moving shared:', event.title, '→', format(newStart, 'yyyy-MM-dd'), '~', format(newEnd, 'yyyy-MM-dd'));
-
+        if (!event) { console.log('[Drag] Event not found'); return; }
         try {
-          await updateEvent(event.id, { startDate: newStart, endDate: newEnd });
-          console.log('[Drag] ✅ Shared event update success');
+          await updateEvent(event.id, {
+            startDate: addDays(new Date(event.startDate), daysDiff),
+            endDate: addDays(new Date(event.endDate), daysDiff),
+          });
+          console.log('[Drag] ✅ Success');
         } catch (err) {
-          console.error('[Drag] ❌ Shared event update failed:', err);
+          console.error('[Drag] ❌ Failed:', err);
           alert('일정 이동 실패: ' + (err instanceof Error ? err.message : String(err)));
         }
-      } else if (drag.type === 'personal') {
-        if (!user) return;
+      } else if (drag.type === 'personal' && user) {
         const pe = personalEventsRef.current.find((p) => p.id === drag.eventId);
-        if (!pe) { console.log('[Drag] Personal event not found:', drag.eventId); return; }
-
-        const newStart = addDays(new Date(pe.startDate), daysDiff);
-        const newEnd = addDays(new Date(pe.endDate), daysDiff);
-        console.log('[Drag] Moving personal:', pe.title, '→', format(newStart, 'yyyy-MM-dd'), '~', format(newEnd, 'yyyy-MM-dd'));
-
+        if (!pe) { console.log('[Drag] Personal event not found'); return; }
         try {
-          await updatePersonalEvent(user.id, pe.id, { startDate: newStart, endDate: newEnd });
-          console.log('[Drag] ✅ Personal event update success');
+          await updatePersonalEvent(user.id, pe.id, {
+            startDate: addDays(new Date(pe.startDate), daysDiff),
+            endDate: addDays(new Date(pe.endDate), daysDiff),
+          });
+          console.log('[Drag] ✅ Success');
         } catch (err) {
-          console.error('[Drag] ❌ Personal event update failed:', err);
+          console.error('[Drag] ❌ Failed:', err);
           alert('일정 이동 실패: ' + (err instanceof Error ? err.message : String(err)));
         }
       }
@@ -243,24 +239,39 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
-  }, [user, updateEvent, updatePersonalEvent]);
+  }, [user, updateEvent, updatePersonalEvent, numWeeks, dayStrings]);
 
   // ─── 렌더링 ───
   return (
-    <div style={styles.container}>
-      <div style={styles.weekdayRow}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
+      {/* 요일 헤더 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 2 }}>
         {WEEKDAY_LABELS.map((label, i) => (
           <div key={label} style={{
-            ...styles.weekdayCell,
+            textAlign: 'center', fontSize: 11, fontWeight: 700, padding: '3px 0',
             color: i === 0 ? 'var(--weekend-text)' : i === 6 ? 'var(--accent)' : 'var(--text-secondary)',
+            textShadow: '0 1px 3px rgba(0,0,0,0.3), 0 0 8px rgba(255,255,255,0.6)',
           }}>
             {label}
           </div>
         ))}
       </div>
 
-      <div style={{ ...styles.grid, gridTemplateRows: `repeat(${numWeeks}, 1fr)` }}>
-        {days.map((day) => {
+      {/* 캘린더 그리드 */}
+      <div
+        ref={gridRef}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(7, 1fr)',
+          gridTemplateRows: `repeat(${numWeeks}, minmax(50px, 1fr))`,
+          flex: 1,
+          border: '1px solid var(--grid-line)',
+          borderRadius: 6,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+        }}
+      >
+        {days.map((day, dayIdx) => {
           const dayEvents = getEventsForDay(day);
           const dayPersonal = getPersonalEventsForDay(day);
           const dayOfWeek = day.getDay();
@@ -270,8 +281,8 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
           const inMonth = isSameMonth(day, currentMonth);
           const today = isToday(day);
           const selected = isSameDay(day, selectedDate);
-          const dayStr = format(day, 'yyyy-MM-dd');
-          const isDropTarget = dragVisual?.overDayStr === dayStr;
+          const dayStr = dayStrings[dayIdx];
+          const isDropTarget = dragOverDayStr === dayStr;
 
           return (
             <div
@@ -279,30 +290,36 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
               data-day-str={dayStr}
               onClick={(e) => handleDayCellClick(e, day, dayStr)}
               style={{
-                ...styles.dayCell,
-                ...(today ? styles.today : {}),
-                ...(selected ? styles.selected : {}),
-                ...(isDropTarget ? styles.dragOver : {}),
+                padding: '2px 3px',
+                cursor: 'pointer',
+                borderRight: '1px solid var(--grid-line)',
+                borderBottom: '1px solid var(--grid-line)',
+                // 셀 배경: 투명 윈도우에서 마우스 이벤트 캡처 보장
+                background: today ? 'var(--today-bg)' : 'rgba(128,128,128,0.02)',
                 opacity: inMonth ? 1 : 0.35,
+                outline: selected ? '2px solid var(--accent)' : isDropTarget ? '2px dashed var(--accent)' : 'none',
+                outlineOffset: -2,
+                ...(isDropTarget ? { background: 'rgba(74,144,226,0.2)' } : {}),
               }}
             >
-              {/* 날짜 헤더 */}
-              <div style={styles.dayHeader}>
+              {/* 날짜 번호 */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 1 }}>
                 <span style={{
-                  ...styles.dayNumber,
+                  fontSize: 11, fontWeight: 700,
                   color: dayOfWeek === 0 ? 'var(--weekend-text)' : dayOfWeek === 6 ? 'var(--accent)' : 'var(--text-primary)',
+                  textShadow: '0 1px 3px rgba(0,0,0,0.3), 0 0 8px rgba(255,255,255,0.6)',
                 }}>
                   {format(day, 'd')}
                 </span>
                 {dayEvents.some((e) => unreadEventIds.has(e.id)) && (
-                  <span style={styles.newBadge}>N</span>
+                  <span style={{ fontSize: 7, fontWeight: 700, color: '#fff', background: '#E74C3C', borderRadius: 3, padding: '0 3px' }}>N</span>
                 )}
               </div>
 
-              {/* 이벤트 목록 (스크롤 가능) */}
-              <div style={styles.eventList}>
+              {/* 일정 + 시간표 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {/* 공유 일정 */}
-                {dayEvents.slice(0, MAX_VISIBLE_EVENTS).map((event) => {
+                {dayEvents.slice(0, MAX_VISIBLE).map((event) => {
                   const isOwner = event.createdBy === user?.id;
                   return (
                     <div
@@ -310,38 +327,46 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
                       onMouseDown={(e) => handleSharedMouseDown(e, event, dayStr)}
                       onClick={(e) => handleEventClick(e, event)}
                       style={{
-                        ...styles.eventDot,
-                        background: event.adminColor,
-                        opacity: dragVisual?.eventId === event.id ? 0.4 : 1,
+                        borderRadius: 3, padding: '1px 4px',
+                        background: event.adminColor || '#4A90E2',
+                        opacity: dragRef.current?.eventId === event.id ? 0.4 : 1,
                         cursor: isOwner ? 'grab' : 'pointer',
                       }}
                       title={`${event.title} (${event.adminName})${isOwner ? ' — 드래그로 이동' : ''}`}
                     >
-                      <span style={styles.eventDotText}>
-                        {event.title.length > 8 ? event.title.slice(0, 8) + '..' : event.title}
+                      <span style={{
+                        fontSize: 9, fontWeight: 600, color: '#fff', lineHeight: '14px',
+                        display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                      }}>
+                        {event.title}
                       </span>
                     </div>
                   );
                 })}
 
                 {/* 개인 일정 */}
-                {dayPersonal.slice(0, MAX_VISIBLE_EVENTS).map((pe) => {
+                {dayPersonal.slice(0, MAX_VISIBLE).map((pe) => {
                   const canDrag = pe.source === 'local';
                   return (
                     <div
                       key={pe.id}
                       onMouseDown={(e) => handlePersonalMouseDown(e, pe, dayStr)}
                       style={{
-                        ...styles.eventDot,
-                        background: pe.color,
-                        opacity: dragVisual?.eventId === pe.id ? 0.4 : 0.85,
+                        borderRadius: 3, padding: '1px 4px',
+                        background: pe.color || '#2ECC71',
+                        opacity: dragRef.current?.eventId === pe.id ? 0.4 : 0.85,
                         borderLeft: '2px solid rgba(255,255,255,0.5)',
                         cursor: canDrag ? 'grab' : 'default',
                       }}
                       title={`${pe.title} (개인)${canDrag ? ' — 드래그로 이동' : ''}`}
                     >
-                      <span style={styles.eventDotText}>
-                        {pe.title.length > 8 ? pe.title.slice(0, 8) + '..' : pe.title}
+                      <span style={{
+                        fontSize: 9, fontWeight: 600, color: '#fff', lineHeight: '14px',
+                        display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                      }}>
+                        {pe.title}
                       </span>
                     </div>
                   );
@@ -349,9 +374,14 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
 
                 {/* 시간표: 각 교시 한줄 */}
                 {comciganPeriods.map((cp) => (
-                  <div key={`cc-${cp.period}`} style={styles.comciganDot}
+                  <div key={`cc-${cp.period}`}
+                    style={{ borderRadius: 2, padding: '0px 3px', background: 'var(--comcigan-bg)' }}
                     title={`${cp.period}교시 ${cp.subject} ${cp.grade}-${cp.classNum}`}>
-                    <span style={styles.comciganText}>
+                    <span style={{
+                      fontSize: 8, fontWeight: 600, color: 'var(--comcigan-text)', lineHeight: '12px',
+                      display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      textShadow: 'var(--comcigan-shadow)',
+                    }}>
                       {cp.period} {cp.subject}
                     </span>
                   </div>
@@ -365,61 +395,22 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
       {/* 퀵 추가 팝업 */}
       {quickAdd && (
         <div data-quick-add style={{
-          ...styles.quickAddPopup,
+          position: 'fixed', zIndex: 200, display: 'flex', flexDirection: 'column', gap: 2,
+          padding: 4, borderRadius: 8, background: 'var(--bg-modal, #fff)',
+          border: '1px solid var(--border-color)', boxShadow: '0 4px 16px rgba(0,0,0,0.25)', minWidth: 140,
           left: Math.min(quickAdd.x - 70, window.innerWidth - 155),
           top: Math.min(quickAdd.y + 2, window.innerHeight - 80),
         }}>
-          <button onClick={handleQuickAddShared} style={styles.quickAddBtn}>📅 공유 일정 추가</button>
-          <button onClick={handleQuickAddPersonal} style={styles.quickAddBtn}>🔒 개인 일정 추가</button>
+          <button onClick={handleQuickAddShared} style={quickAddBtnStyle}>📅 공유 일정 추가</button>
+          <button onClick={handleQuickAddPersonal} style={quickAddBtnStyle}>🔒 개인 일정 추가</button>
         </div>
       )}
     </div>
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  container: { display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' },
-  weekdayRow: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1, marginBottom: 2 },
-  weekdayCell: { textAlign: 'center', fontSize: 11, fontWeight: 700, padding: '3px 0', textShadow: '0 1px 3px rgba(0,0,0,0.3), 0 0 8px rgba(255,255,255,0.6)' },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(7, 1fr)',
-    gap: 0,
-    flex: 1,
-    border: '1px solid var(--grid-line)',
-    borderRadius: 6,
-    overflow: 'auto',
-  },
-  dayCell: {
-    padding: '2px 3px',
-    minHeight: 48,
-    cursor: 'pointer',
-    transition: 'background 0.12s',
-    display: 'flex',
-    flexDirection: 'column',
-    borderRight: '1px solid var(--grid-line)',
-    borderBottom: '1px solid var(--grid-line)',
-    overflow: 'visible',
-  },
-  today: { background: 'var(--today-bg)' },
-  selected: { outline: '2px solid var(--accent)', outlineOffset: -2, zIndex: 1 },
-  dragOver: { background: 'rgba(74, 144, 226, 0.25)', outline: '2px dashed var(--accent)', outlineOffset: -2, zIndex: 1 },
-  dayHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 1, flexShrink: 0 },
-  dayNumber: { fontSize: 11, fontWeight: 700, lineHeight: 1, textShadow: '0 1px 3px rgba(0,0,0,0.3), 0 0 8px rgba(255,255,255,0.6)' },
-  newBadge: { fontSize: 7, fontWeight: 700, color: '#fff', background: '#E74C3C', borderRadius: 3, padding: '0px 3px', lineHeight: 1.3 },
-  eventList: { display: 'flex', flexDirection: 'column', gap: 1, flex: 1, minHeight: 0 },
-  eventDot: { borderRadius: 3, padding: '0px 3px', flexShrink: 0 },
-  eventDotText: { fontSize: 'var(--schedule-font-size, 9px)' as any, fontWeight: 500, color: '#fff', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', textShadow: '0 1px 2px rgba(0,0,0,0.4)' },
-  comciganDot: { borderRadius: 2, padding: '0px 3px', background: 'var(--comcigan-bg)', flexShrink: 0 },
-  comciganText: { fontSize: 'var(--schedule-font-size, 9px)' as any, fontWeight: 600, color: 'var(--comcigan-text)', lineHeight: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', textShadow: 'var(--comcigan-shadow)' },
-  quickAddPopup: {
-    position: 'fixed', zIndex: 200, display: 'flex', flexDirection: 'column', gap: 2,
-    padding: 4, borderRadius: 8, background: 'var(--bg-modal, #fff)',
-    border: '1px solid var(--border-color)', boxShadow: '0 4px 16px rgba(0,0,0,0.25)', minWidth: 140,
-  },
-  quickAddBtn: {
-    display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px',
-    fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', background: 'transparent',
-    border: 'none', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap',
-  },
+const quickAddBtnStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px',
+  fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', background: 'transparent',
+  border: 'none', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap',
 };
