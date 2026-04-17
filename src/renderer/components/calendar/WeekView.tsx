@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
-  startOfWeek, endOfWeek, eachDayOfInterval, format, isSameDay, isToday,
+  startOfWeek, endOfWeek, eachDayOfInterval, format, isSameDay, isToday, isSameWeek,
   addHours, differenceInHours, differenceInCalendarDays, addDays,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -110,17 +110,19 @@ export function WeekView({ onAddPersonalEvent }: WeekViewProps) {
     setTimeout(() => { if (onAddPersonalEvent) onAddPersonalEvent(); }, 0);
   }
 
+  const isCurrentWeek = isSameWeek(selectedDate, new Date(), { weekStartsOn: 0 });
+
   const comciganByDayHour = React.useMemo(() => {
-    if (!comciganConfig || !timetableData) return new Map<string, TeacherPeriod[]>();
+    if (!isCurrentWeek || !comciganConfig || !timetableData) return new Map<string, TeacherPeriod[]>();
     const map = new Map<string, TeacherPeriod[]>();
     for (const period of timetableData.teacherSchedule) {
-      let hour = period.startTime ? parseInt(period.startTime.split(':')[0], 10) : 8 + period.period;
+      const hour = period.startTime ? parseInt(period.startTime.split(':')[0], 10) : 8 + period.period;
       const key = `${period.weekday}-${hour}`;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(period);
     }
     return map;
-  }, [comciganConfig, timetableData]);
+  }, [isCurrentWeek, comciganConfig, timetableData]);
 
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 0 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 0 });
@@ -372,7 +374,7 @@ const styles: Record<string, React.CSSProperties> = {
   container: { display: 'flex', flexDirection: 'column', height: '100%' },
   headerRow: { display: 'grid', gridTemplateColumns: '40px repeat(7, 1fr)', gap: 1, borderBottom: '1px solid var(--grid-line)', flexShrink: 0 },
   timeGutter: { width: 40, flexShrink: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 2 },
-  dayHeader: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 0' },
+  dayHeader: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 0', borderRight: '1px solid var(--grid-line)' },
   todayHeader: {},
   dayName: { fontSize: 10, color: 'var(--text-muted)' },
   dayNum: { fontSize: 14, fontWeight: 700, textShadow: '0 0 4px rgba(255,255,255,0.8)' },
@@ -381,7 +383,7 @@ const styles: Record<string, React.CSSProperties> = {
   grid: { display: 'flex', flexDirection: 'column' },
   hourRow: { display: 'grid', gridTemplateColumns: '40px repeat(7, 1fr)', gap: 1, minHeight: 40, borderBottom: '1px solid var(--grid-line)' },
   timeLabel: { fontSize: 9, color: 'var(--text-muted)' },
-  hourCell: { padding: 1, overflow: 'hidden' },
+  hourCell: { padding: 1, overflow: 'hidden', borderRight: '1px solid var(--grid-line)' },
   eventBlock: { borderRadius: 3, padding: '1px 4px', marginBottom: 1, cursor: 'pointer' },
   eventText: { fontSize: 9, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', textShadow: '0 0 2px rgba(0,0,0,0.3)' },
   comciganBlock: { borderRadius: 3, padding: '1px 4px', marginBottom: 1, background: 'var(--comcigan-bg)', cursor: 'default' },

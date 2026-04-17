@@ -9,6 +9,7 @@ interface ComciganState {
   searching: boolean;
   error: string | null;
   unsubscribe: (() => void) | null;
+  refreshTimer: ReturnType<typeof setInterval> | null;
   showTimetable: boolean;
 
   loadConfig: () => Promise<void>;
@@ -29,6 +30,7 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
   searching: false,
   error: null,
   unsubscribe: null,
+  refreshTimer: null,
   showTimetable: localStorage.getItem('tonet-show-timetable') !== 'false',
 
   loadConfig: async () => {
@@ -52,6 +54,20 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
         set({ timetableData: data });
       });
       set({ unsubscribe: unsub ?? null });
+
+      // 5분마다 자동 갱신 (렌더러 측)
+      const prevTimer = get().refreshTimer;
+      if (prevTimer) clearInterval(prevTimer);
+      if (config) {
+        const timer = setInterval(async () => {
+          console.log('[ComciganStore] 5분 자동 갱신...');
+          try {
+            const data = await window.electronAPI?.comciganFetch() ?? null;
+            if (data) set({ timetableData: data });
+          } catch {}
+        }, 5 * 60 * 1000);
+        set({ refreshTimer: timer });
+      }
     } catch (err) {
       console.error('[ComciganStore] loadConfig error:', err);
     }
@@ -94,9 +110,10 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
   },
 
   cleanup: () => {
-    const { unsubscribe } = get();
+    const { unsubscribe, refreshTimer } = get();
     unsubscribe?.();
-    set({ unsubscribe: null });
+    if (refreshTimer) clearInterval(refreshTimer);
+    set({ unsubscribe: null, refreshTimer: null });
   },
 
   // Get teacher's periods for a specific weekday (1=Mon, 5=Fri)

@@ -38,15 +38,13 @@ export function TitleBar({ onToggleSettings, onToggleAdmin, showSettingsBtn, sho
       <div className="titlebar" style={styles.widgetBar}>
         <span style={styles.widgetTitle}>ToneT</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {comciganConfig && (
-            <button
-              onClick={toggleTimetable}
-              style={{ ...styles.widgetIconBtn, opacity: showTimetable ? 1 : 0.4 }}
-              title={showTimetable ? '시간표 숨기기' : '시간표 보기'}
-            >
-              📚
-            </button>
-          )}
+          <button
+            onClick={toggleTimetable}
+            style={{ ...styles.widgetIconBtn, opacity: showTimetable ? 1 : 0.4 }}
+            title={showTimetable ? '시간표 숨기기' : '시간표 보기'}
+          >
+            📚
+          </button>
           {onToggleTPass && (
             <button
               onClick={onToggleTPass}
@@ -92,18 +90,16 @@ export function TitleBar({ onToggleSettings, onToggleAdmin, showSettingsBtn, sho
                 <span style={styles.badge}>{unreadCount > 9 ? '9+' : unreadCount}</span>
               )}
             </button>
-            {comciganConfig && (
-              <button
-                onClick={toggleTimetable}
-                style={{
-                  ...styles.btn,
-                  opacity: showTimetable ? 1 : 0.4,
-                }}
-                title={showTimetable ? '시간표 숨기기' : '시간표 보기'}
-              >
-                📚
-              </button>
-            )}
+            <button
+              onClick={toggleTimetable}
+              style={{
+                ...styles.btn,
+                opacity: showTimetable ? 1 : 0.4,
+              }}
+              title={showTimetable ? '시간표 숨기기' : '시간표 보기'}
+            >
+              📚
+            </button>
             {onToggleTPass && (
               <button
                 onClick={onToggleTPass}

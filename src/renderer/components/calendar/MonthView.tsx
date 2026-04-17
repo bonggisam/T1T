@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   eachDayOfInterval, isSameMonth, isSameDay, isToday, format,
-  differenceInCalendarDays, addDays,
+  differenceInCalendarDays, addDays, isSameWeek,
 } from 'date-fns';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
@@ -305,7 +305,8 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
           const dayEvents = getEventsForDay(day);
           const dayPersonal = getPersonalEventsForDay(day);
           const dayOfWeek = day.getDay();
-          const comciganPeriods = (dayOfWeek >= 1 && dayOfWeek <= 5 && comciganConfig)
+          const isCurrentWeek = isSameWeek(day, new Date(), { weekStartsOn: 0 });
+          const comciganPeriods = (isCurrentWeek && dayOfWeek >= 1 && dayOfWeek <= 5)
             ? getPeriodsForWeekday(dayOfWeek) : [];
           const inMonth = isSameMonth(day, currentMonth);
           const today = isToday(day);
@@ -405,13 +406,13 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
                 {comciganPeriods.map((cp) => (
                   <div key={`cc-${cp.period}`}
                     style={{ borderRadius: 2, padding: '0px 3px', background: 'var(--comcigan-bg)' }}
-                    title={`${cp.period}교시 ${cp.subject} ${cp.grade}-${cp.classNum}`}>
+                    title={`${cp.period}교시 ${cp.subject} ${cp.grade}-${cp.classNum}${cp.startTime ? ` (${cp.startTime})` : ''}`}>
                     <span style={{
                       fontSize: 8, fontWeight: 600, color: 'var(--comcigan-text)', lineHeight: '12px',
                       display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                       textShadow: 'var(--comcigan-shadow)',
                     }}>
-                      {cp.period} {cp.subject}
+                      {cp.startTime || `${cp.period}교시`} {cp.subject}
                     </span>
                   </div>
                 ))}
