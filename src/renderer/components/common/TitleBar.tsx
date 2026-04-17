@@ -8,9 +8,11 @@ interface TitleBarProps {
   onToggleAdmin: () => void;
   showSettingsBtn: boolean;
   showAdminBtn: boolean;
+  onToggleTPass?: () => void;
+  showTPass?: boolean;
 }
 
-export function TitleBar({ onToggleSettings, onToggleAdmin, showSettingsBtn, showAdminBtn }: TitleBarProps) {
+export function TitleBar({ onToggleSettings, onToggleAdmin, showSettingsBtn, showAdminBtn, onToggleTPass, showTPass }: TitleBarProps) {
   const { user, logout } = useAuthStore();
   const { unreadCount, setShowPanel, showPanel } = useNotificationStore();
   const { showTimetable, toggleTimetable, config: comciganConfig } = useComciganStore();
@@ -35,13 +37,33 @@ export function TitleBar({ onToggleSettings, onToggleAdmin, showSettingsBtn, sho
     return (
       <div className="titlebar" style={styles.widgetBar}>
         <span style={styles.widgetTitle}>ToneT</span>
-        <button
-          onClick={handleToggleWidget}
-          style={styles.editBtn}
-          title="편집 모드 (Ctrl+Shift+C)"
-        >
-          ✏️ 편집
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {comciganConfig && (
+            <button
+              onClick={toggleTimetable}
+              style={{ ...styles.widgetIconBtn, opacity: showTimetable ? 1 : 0.4 }}
+              title={showTimetable ? '시간표 숨기기' : '시간표 보기'}
+            >
+              📚
+            </button>
+          )}
+          {onToggleTPass && (
+            <button
+              onClick={onToggleTPass}
+              style={{ ...styles.widgetIconBtn, opacity: showTPass ? 1 : 0.6 }}
+              title={showTPass ? '캘린더로 돌아가기' : 'TPass 열기'}
+            >
+              🎫
+            </button>
+          )}
+          <button
+            onClick={handleToggleWidget}
+            style={styles.editBtn}
+            title="편집 모드 (Ctrl+Shift+C)"
+          >
+            ✏️ 편집
+          </button>
+        </div>
       </div>
     );
   }
@@ -80,6 +102,18 @@ export function TitleBar({ onToggleSettings, onToggleAdmin, showSettingsBtn, sho
                 title={showTimetable ? '시간표 숨기기' : '시간표 보기'}
               >
                 📚
+              </button>
+            )}
+            {onToggleTPass && (
+              <button
+                onClick={onToggleTPass}
+                style={{
+                  ...styles.btn,
+                  opacity: showTPass ? 1 : 0.6,
+                }}
+                title={showTPass ? '캘린더로 돌아가기' : 'TPass 열기'}
+              >
+                🎫
               </button>
             )}
             <button onClick={onToggleSettings} style={styles.btn} title="설정">
@@ -166,6 +200,16 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     color: 'var(--text-secondary)',
     position: 'relative' as const,
+    transition: 'background 0.15s',
+  },
+  widgetIconBtn: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '4px 6px',
+    borderRadius: 6,
+    fontSize: 13,
+    color: 'var(--text-secondary)',
     transition: 'background 0.15s',
   },
   editBtn: {

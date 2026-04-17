@@ -14,6 +14,7 @@ import { NotificationPanel } from './components/notifications/NotificationPanel'
 import { SettingsPanel } from './components/settings/SettingsPanel';
 import { AdminPanel } from './components/admin/AdminPanel';
 import { PersonalEventModal } from './components/calendar/PersonalEventModal';
+import { TPassView } from './components/tpass/TPassView';
 import { UpdateBanner } from './components/common/UpdateBanner';
 import { useComciganStore } from './store/comciganStore';
 
@@ -29,6 +30,7 @@ export function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showPersonalModal, setShowPersonalModal] = useState(false);
+  const [showTPass, setShowTPass] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
@@ -159,10 +161,12 @@ export function App() {
   return (
     <div className="glass" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <TitleBar
-        onToggleSettings={() => { setShowSettings(!showSettings); setShowAdmin(false); }}
-        onToggleAdmin={() => { setShowAdmin(!showAdmin); setShowSettings(false); }}
+        onToggleSettings={() => { setShowSettings(!showSettings); setShowAdmin(false); setShowTPass(false); }}
+        onToggleAdmin={() => { setShowAdmin(!showAdmin); setShowSettings(false); setShowTPass(false); }}
         showSettingsBtn={true}
         showAdminBtn={isAdmin}
+        onToggleTPass={() => { setShowTPass(!showTPass); setShowSettings(false); setShowAdmin(false); }}
+        showTPass={showTPass}
       />
       <UpdateBanner />
       {isOffline && (
@@ -183,6 +187,8 @@ export function App() {
           <SettingsPanel onClose={() => setShowSettings(false)} theme={theme} setTheme={setTheme} />
         ) : showAdmin ? (
           <AdminPanel onClose={() => setShowAdmin(false)} />
+        ) : showTPass ? (
+          <TPassView onBack={() => setShowTPass(false)} />
         ) : (
           <Calendar onAddPersonalEvent={() => setShowPersonalModal(true)} />
         )}
