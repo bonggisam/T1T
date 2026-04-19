@@ -51,7 +51,7 @@ export function TitleBar({ onToggleSettings, onToggleAdmin, showSettingsBtn, sho
               style={{ ...styles.widgetIconBtn, opacity: showTPass ? 1 : 0.6 }}
               title={showTPass ? '캘린더로 돌아가기' : 'TPass 열기'}
             >
-              🎫
+              <span style={styles.tpassIcon}>T</span>
             </button>
           )}
           <button
@@ -109,7 +109,7 @@ export function TitleBar({ onToggleSettings, onToggleAdmin, showSettingsBtn, sho
                 }}
                 title={showTPass ? '캘린더로 돌아가기' : 'TPass 열기'}
               >
-                🎫
+                <span style={styles.tpassIcon}>T</span>
               </button>
             )}
             <button onClick={onToggleSettings} style={styles.btn} title="설정">
@@ -197,6 +197,21 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-secondary)',
     position: 'relative' as const,
     transition: 'background 0.15s',
+  },
+  tpassIcon: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    background: 'var(--accent)',
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 800,
+    lineHeight: 1,
+    letterSpacing: 0,
+    fontFamily: 'Arial, sans-serif',
   },
   widgetIconBtn: {
     background: 'none',

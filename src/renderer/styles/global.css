@@ -51,6 +51,10 @@
   --comcigan-shadow: 0 1px 3px rgba(0,0,0,0.7);
 }
 
+[data-theme='dark'] .glass {
+  background: rgba(30, 30, 30, 0.6);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -83,9 +87,9 @@ html, body, #root {
   background: rgba(128, 128, 128, 0.5);
 }
 
-/* Glassmorphism base — transparent, top border frame visible */
+/* Glassmorphism base — light grey tint for readability */
 .glass {
-  background: transparent;
+  background: rgba(240, 240, 240, 0.55);
   border: 1px solid var(--grid-line);
   border-radius: 8px;
   box-shadow: none;
