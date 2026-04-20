@@ -34,6 +34,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   setShowPanel: (show) => set({ showPanel: show }),
 
   subscribeToNotifications: (userId) => {
+    // 이전 구독 해제 (중복 방지)
+    const { unsubscribe: prev } = get();
+    prev?.();
+
     const q = query(
       collection(db, 'notifications', userId, 'items'),
       orderBy('createdAt', 'desc')

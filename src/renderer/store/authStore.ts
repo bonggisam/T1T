@@ -76,11 +76,12 @@ export const useAuthStore = create<AuthState>((set) => ({
           });
           updateDoc(doc(db, 'users', firebaseUser.uid), {
             lastLogin: serverTimestamp(),
-          }).catch(() => {});
+          }).catch((err) => console.warn('[Auth] lastLogin update failed:', err));
         } else {
           set({ firebaseUser, user: null, loading: false });
         }
-      } catch {
+      } catch (err) {
+        console.error('[Auth] User data load failed:', err);
         set({ firebaseUser, user: null, loading: false });
       }
     });

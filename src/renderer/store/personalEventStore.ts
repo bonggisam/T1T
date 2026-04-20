@@ -47,6 +47,10 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
   syncTimer: null,
 
   subscribeToPersonalEvents: (userId) => {
+    // 이전 구독 해제 (중복 방지)
+    const { unsubscribe: prev } = get();
+    prev?.();
+
     restoreCalendarConnections();
 
     // Load cached personal events first

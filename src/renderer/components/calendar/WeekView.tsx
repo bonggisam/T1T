@@ -76,9 +76,19 @@ export function WeekView({ onAddPersonalEvent }: WeekViewProps) {
   const personalEventsRef = useRef(personalEvents);
   const [dragOver, setDragOver] = useState<{ col: number; hour: number } | null>(null);
   const [quickAdd, setQuickAdd] = useState<QuickAdd | null>(null);
+  const [nowMinute, setNowMinute] = useState(() => new Date().getHours() * 60 + new Date().getMinutes());
 
   useEffect(() => { eventsRef.current = events; }, [events]);
   useEffect(() => { personalEventsRef.current = personalEvents; }, [personalEvents]);
+
+  // 현재 시간선 1분마다 업데이트
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date();
+      setNowMinute(now.getHours() * 60 + now.getMinutes());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   // 퀵 추가 팝업 외부 클릭 닫기
   useEffect(() => {
@@ -258,7 +268,35 @@ export function WeekView({ onAddPersonalEvent }: WeekViewProps) {
 
       {/* Time grid */}
       <div ref={gridRef} style={styles.gridScroll}>
-        <div style={styles.grid}>
+        <div style={{ ...styles.grid, position: 'relative' }}>
+          {/* 현재 시간선 */}
+          {(() => {
+            const todayIdx = days.findIndex((d) => isToday(d));
+            if (todayIdx < 0) return null;
+            return (
+              <div style={{
+                position: 'absolute',
+                left: `calc(40px + ${(todayIdx / 7) * 100}%)`,
+                width: `${100 / 7}%`,
+                top: `${(nowMinute / (24 * 60)) * 100}%`,
+                height: 2,
+                background: '#E74C3C',
+                zIndex: 10,
+                pointerEvents: 'none',
+                boxShadow: '0 0 4px rgba(231,76,60,0.5)',
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  left: -4,
+                  top: -3,
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: '#E74C3C',
+                }} />
+              </div>
+            );
+          })()}
           {HOURS.map((hour) => (
             <div key={hour} style={styles.hourRow}>
               <div style={styles.timeGutter}>

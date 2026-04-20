@@ -38,6 +38,11 @@ export interface ConnectedCalendar {
 }
 
 // Events
+export interface ReadReceipt {
+  name: string;
+  readAt: Date;
+}
+
 export interface CalendarEvent {
   id: string;
   title: string;
@@ -52,6 +57,7 @@ export interface CalendarEvent {
   repeat: RepeatConfig | null;
   attachments: Attachment[];
   checklist: ChecklistItem[];
+  readBy: Record<string, ReadReceipt>; // userId -> { name, readAt }
   createdAt: Date;
   updatedAt: Date;
 }
@@ -91,6 +97,17 @@ export interface PersonalEvent {
   externalId: string | null;
   checklist: ChecklistItem[];
   color: string;
+}
+
+// Event Comments
+export interface EventComment {
+  id: string;
+  eventId: string;
+  userId: string;
+  userName: string;
+  userColor: string;
+  text: string;
+  createdAt: Date;
 }
 
 // Notifications

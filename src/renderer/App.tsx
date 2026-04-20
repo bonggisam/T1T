@@ -16,6 +16,7 @@ import { AdminPanel } from './components/admin/AdminPanel';
 import { PersonalEventModal } from './components/calendar/PersonalEventModal';
 import { TPassView } from './components/tpass/TPassView';
 import { UpdateBanner } from './components/common/UpdateBanner';
+import { ToastContainer } from './components/common/Toast';
 import { useComciganStore } from './store/comciganStore';
 
 type AuthScreen = 'login' | 'signup';
@@ -198,6 +199,7 @@ export function App() {
         {showNotifications && <NotificationPanel />}
         {showPersonalModal && <PersonalEventModal onClose={() => setShowPersonalModal(false)} />}
       </div>
+      <ToastContainer />
     </div>
   );
 }

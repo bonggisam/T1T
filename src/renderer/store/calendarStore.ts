@@ -14,7 +14,7 @@ import {
 import { db } from '../utils/firebase';
 import { notifyAllUsers } from '../utils/notifications';
 import { cacheEvents, getCachedEvents } from '../utils/offlineCache';
-import type { CalendarEvent, CalendarView, ChecklistItem } from '@shared/types';
+import type { CalendarEvent, CalendarView, ChecklistItem, ReadReceipt } from '@shared/types';
 
 interface CalendarState {
   events: CalendarEvent[];
@@ -40,6 +40,7 @@ interface CalendarState {
   updateEvent: (id: string, updates: Partial<CalendarEvent>) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
   updateChecklist: (eventId: string, checklist: ChecklistItem[]) => Promise<void>;
+  markAsRead: (eventId: string, userId: string, userName: string) => Promise<void>;
 }
 
 function firestoreToEvent(id: string, data: any): CalendarEvent {
@@ -62,6 +63,13 @@ function firestoreToEvent(id: string, data: any): CalendarEvent {
       checked: item.checked ?? false,
       order: item.order ?? idx,
     })),
+    readBy: Object.entries(data.readBy || {}).reduce((acc, [uid, val]: [string, any]) => {
+      acc[uid] = {
+        name: val.name || '',
+        readAt: val.readAt instanceof Timestamp ? val.readAt.toDate() : new Date(val.readAt),
+      };
+      return acc;
+    }, {} as Record<string, ReadReceipt>),
     createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
     updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(),
   };
@@ -92,24 +100,27 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
   },
 
   subscribeToEvents: () => {
+    // 이전 구독 해제 (중복 방지)
+    const { unsubscribe: prev } = get();
+    prev?.();
+
     // Load cached events first for instant display
     getCachedEvents<CalendarEvent>().then((cached) => {
       if (cached.length > 0 && get().events.length === 0) {
         set({ events: cached });
       }
-    });
+    }).catch((err) => console.warn('[CalendarStore] Cache load failed:', err));
 
     const q = query(collection(db, 'events'), orderBy('startDate', 'asc'));
     const unsub = onSnapshot(q, (snapshot) => {
       const events = snapshot.docs.map((d) => firestoreToEvent(d.id, d.data()));
       set({ events, loading: false });
-      cacheEvents(events);
+      cacheEvents(events).catch(() => {});
     }, (error) => {
-      console.error('Event subscription error:', error);
-      // On error (offline), fall back to cache
+      console.error('[CalendarStore] Subscription error:', error);
       getCachedEvents<CalendarEvent>().then((cached) => {
         if (cached.length > 0) set({ events: cached });
-      });
+      }).catch(() => {});
       set({ loading: false });
     });
     set({ unsubscribe: unsub });
@@ -184,5 +195,18 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
       checklist,
       updatedAt: serverTimestamp(),
     });
+  },
+
+  markAsRead: async (eventId, userId, userName) => {
+    try {
+      await updateDoc(doc(db, 'events', eventId), {
+        [`readBy.${userId}`]: {
+          name: userName,
+          readAt: serverTimestamp(),
+        },
+      });
+    } catch (err) {
+      console.warn('[CalendarStore] markAsRead failed:', err);
+    }
   },
 }));

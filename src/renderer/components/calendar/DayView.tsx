@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { format, addHours } from 'date-fns';
+import { format, addHours, isToday } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
@@ -69,9 +69,21 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
   const personalEventsRef = useRef(personalEvents);
   const [dragOverHour, setDragOverHour] = useState<number | null>(null);
   const [quickAdd, setQuickAdd] = useState<QuickAdd | null>(null);
+  const [nowMinute, setNowMinute] = useState(() => new Date().getHours() * 60 + new Date().getMinutes());
+  const isTodayView = isToday(selectedDate);
 
   useEffect(() => { eventsRef.current = events; }, [events]);
   useEffect(() => { personalEventsRef.current = personalEvents; }, [personalEvents]);
+
+  // 현재 시간선 1분마다 업데이트
+  useEffect(() => {
+    if (!isTodayView) return;
+    const timer = setInterval(() => {
+      const now = new Date();
+      setNowMinute(now.getHours() * 60 + now.getMinutes());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, [isTodayView]);
 
   // 퀵 추가 팝업 외부 클릭 닫기
   useEffect(() => {
@@ -217,7 +229,39 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
         </div>
       )}
 
-      <div ref={gridRef} style={styles.hourGrid}>
+      {dayEvents.length === 0 && dayPersonalEvents.length === 0 && (
+        <div style={styles.emptyState}>
+          <span style={{ fontSize: 20 }}>📭</span>
+          <span>이 날에는 일정이 없습니다</span>
+          <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>시간대를 클릭하여 일정을 추가하세요</span>
+        </div>
+      )}
+
+      <div ref={gridRef} style={{ ...styles.hourGrid, position: 'relative' }}>
+        {/* 현재 시간선 */}
+        {isTodayView && (
+          <div style={{
+            position: 'absolute',
+            left: 48,
+            right: 0,
+            top: `${(nowMinute / (24 * 60)) * 100}%`,
+            height: 2,
+            background: '#E74C3C',
+            zIndex: 10,
+            pointerEvents: 'none',
+            boxShadow: '0 0 4px rgba(231,76,60,0.5)',
+          }}>
+            <div style={{
+              position: 'absolute',
+              left: -4,
+              top: -3,
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: '#E74C3C',
+            }} />
+          </div>
+        )}
         {HOURS.map((hour) => {
           const hourEvents = timedEvents.filter((e) => new Date(e.startDate).getHours() === hour);
           const hourPersonal = dayPersonalEvents.filter((e) => new Date(e.startDate).getHours() === hour);
@@ -326,4 +370,5 @@ const styles: Record<string, React.CSSProperties> = {
   eventBlock: { borderRadius: 4, padding: '4px 8px', cursor: 'pointer' },
   eventTitle: { fontSize: 'var(--schedule-font-size)', color: '#fff', fontWeight: 600, display: 'block', textShadow: '0 0 2px rgba(0,0,0,0.3)' },
   eventTime: { fontSize: 'calc(var(--schedule-font-size) - 1px)', color: 'rgba(255,255,255,0.85)' },
+  emptyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '12px 0', color: 'var(--text-muted)', fontSize: 12, flexShrink: 0 },
 };

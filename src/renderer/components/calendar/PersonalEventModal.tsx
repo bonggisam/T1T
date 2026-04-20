@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useAuthStore } from '../../store/authStore';
 import { useCalendarStore } from '../../store/calendarStore';
+import { showToast } from '../common/Toast';
 
 const COLOR_OPTIONS = [
   '#2ECC71', '#3498DB', '#9B59B6', '#E67E22',
@@ -31,6 +32,13 @@ export function PersonalEventModal({ onClose }: PersonalEventModalProps) {
   const [color, setColor] = useState('#2ECC71');
   const [saving, setSaving] = useState(false);
 
+  // ESC 키로 닫기
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
+
   function formatDateTimeLocal(d: Date): string {
     const pad = (n: number) => n.toString().padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -38,20 +46,28 @@ export function PersonalEventModal({ onClose }: PersonalEventModalProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim() || !user) return;
+    const trimTitle = title.trim().slice(0, 100);
+    const trimDesc = description.trim().slice(0, 1000);
+    if (!trimTitle || !user) return;
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
+    if (end < start) { alert('종료 시간이 시작 시간보다 앞설 수 없습니다.'); return; }
 
     setSaving(true);
     try {
       await addPersonalEvent(user.id, {
-        title: title.trim(),
-        description: description.trim(),
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
+        title: trimTitle,
+        description: trimDesc,
+        startDate: start,
+        endDate: end,
         source: 'local',
         externalId: null,
         checklist: [],
         color,
       });
+      showToast('개인 일정이 추가되었습니다');
       onClose();
     } catch (err) {
       console.error('Failed to add personal event:', err);

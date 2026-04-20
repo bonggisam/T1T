@@ -15,19 +15,27 @@ export function TPassView({ onBack }: TPassViewProps) {
     const container = webviewContainerRef.current;
     if (!container) return;
 
-    // Create webview element
+    let mounted = true;
+    const onStartLoad = () => { if (mounted) setLoading(true); };
+    const onStopLoad = () => { if (mounted) setLoading(false); };
+    const onFailLoad = () => { if (mounted) setLoading(false); };
+
     const webview = document.createElement('webview');
     webview.setAttribute('src', TPASS_URL);
     webview.setAttribute('style', 'width: 100%; height: 100%;');
     webview.setAttribute('allowpopups', '');
-    webview.addEventListener('did-start-loading', () => setLoading(true));
-    webview.addEventListener('did-stop-loading', () => setLoading(false));
-    webview.addEventListener('did-fail-load', () => setLoading(false));
+    webview.addEventListener('did-start-loading', onStartLoad);
+    webview.addEventListener('did-stop-loading', onStopLoad);
+    webview.addEventListener('did-fail-load', onFailLoad);
 
     container.appendChild(webview);
     webviewRef.current = webview;
 
     return () => {
+      mounted = false;
+      webview.removeEventListener('did-start-loading', onStartLoad);
+      webview.removeEventListener('did-stop-loading', onStopLoad);
+      webview.removeEventListener('did-fail-load', onFailLoad);
       container.innerHTML = '';
       webviewRef.current = null;
     };

@@ -402,6 +402,7 @@ app.whenReady().then(() => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  comciganService.stopAutoRefresh();
 });
 
 app.on('window-all-closed', () => {

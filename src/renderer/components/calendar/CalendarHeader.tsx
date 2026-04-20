@@ -7,9 +7,11 @@ import type { CalendarView } from '@shared/types';
 
 interface CalendarHeaderProps {
   onAddPersonalEvent?: () => void;
+  onToggleSearch?: () => void;
+  onPrint?: () => void;
 }
 
-export function CalendarHeader({ onAddPersonalEvent }: CalendarHeaderProps = {}) {
+export function CalendarHeader({ onAddPersonalEvent, onToggleSearch, onPrint }: CalendarHeaderProps = {}) {
   const { currentMonth, view, setView, navigateMonth, setShowEventModal, setCurrentMonth, setSelectedDate } = useCalendarStore();
   const { user } = useAuthStore();
   const isLoggedIn = !!user;
@@ -36,6 +38,16 @@ export function CalendarHeader({ onAddPersonalEvent }: CalendarHeaderProps = {})
         </button>
       </div>
       <div style={styles.actions}>
+        {onToggleSearch && (
+          <button onClick={onToggleSearch} style={styles.searchBtn} title="일정 검색">
+            🔍
+          </button>
+        )}
+        {onPrint && (
+          <button onClick={onPrint} style={styles.searchBtn} title="인쇄">
+            🖨️
+          </button>
+        )}
         <div style={styles.viewToggle}>
           {viewButtons.map(({ key, label }) => (
             <button
@@ -143,6 +155,15 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     borderRadius: 8,
     transition: 'all 0.15s',
+  },
+  searchBtn: {
+    background: 'none',
+    border: '1px solid var(--border-color)',
+    cursor: 'pointer',
+    padding: '3px 6px',
+    fontSize: 12,
+    borderRadius: 6,
+    transition: 'background 0.15s',
   },
   addBtn: {
     background: 'var(--accent)',

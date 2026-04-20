@@ -154,6 +154,12 @@ button:active:not(:disabled) {
   transform: scale(0.97);
 }
 
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+  filter: none !important;
+}
+
 /* Input focus */
 input:focus, textarea:focus, select:focus {
   border-color: var(--accent) !important;
@@ -179,4 +185,34 @@ input:focus, textarea:focus, select:focus {
   0% { transform: translateX(-100%); }
   50% { transform: translateX(200%); }
   100% { transform: translateX(400%); }
+}
+
+/* Print styles */
+@media print {
+  html, body, #root {
+    background: #fff !important;
+    overflow: visible !important;
+    height: auto !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .glass, .glass-solid {
+    background: #fff !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+  .print-area {
+    position: absolute !important;
+    inset: 0 !important;
+    padding: 10mm !important;
+    overflow: visible !important;
+  }
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
 }

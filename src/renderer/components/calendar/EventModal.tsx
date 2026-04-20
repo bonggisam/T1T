@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
 import type { EventCategory, ChecklistItem } from '@shared/types';
+import { showToast } from '../common/Toast';
 
 const CATEGORIES: { key: EventCategory; label: string }[] = [
   { key: 'event', label: '행사' },
@@ -33,6 +34,13 @@ export function EventModal() {
   const [newCheckItem, setNewCheckItem] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // ESC 키로 닫기
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowEventModal(false); };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
+
   function formatDateTimeLocal(d: Date): string {
     const pad = (n: number) => n.toString().padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -55,15 +63,22 @@ export function EventModal() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim() || !user) return;
+    const trimTitle = title.trim().slice(0, 100);
+    const trimDesc = description.trim().slice(0, 1000);
+    if (!trimTitle || !user) return;
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
+    if (end < start) { alert('종료 시간이 시작 시간보다 앞설 수 없습니다.'); return; }
 
     setSaving(true);
     try {
       await addEvent({
-        title: title.trim(),
-        description: description.trim(),
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
+        title: trimTitle,
+        description: trimDesc,
+        startDate: start,
+        endDate: end,
         allDay,
         category,
         createdBy: user.id,
@@ -72,7 +87,9 @@ export function EventModal() {
         repeat: null,
         attachments: [],
         checklist,
+        readBy: {},
       });
+      showToast('일정이 등록되었습니다');
       setShowEventModal(false);
     } catch (err) {
       console.error('Failed to add event:', err);
