@@ -1,9 +1,10 @@
 import React from 'react';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
+import { useUIStore } from '../../store/uiStore';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import type { CalendarView, EventCategory } from '@shared/types';
+import type { CalendarView, EventCategory, School } from '@shared/types';
 
 interface CalendarHeaderProps {
   onAddPersonalEvent?: () => void;
@@ -25,7 +26,15 @@ const CATEGORIES: { key: EventCategory | 'all'; label: string; icon: string }[] 
 export function CalendarHeader({ onAddPersonalEvent, onToggleSearch, onPrint, categoryFilter, setCategoryFilter }: CalendarHeaderProps) {
   const { currentMonth, view, setView, navigateMonth, setShowEventModal, setCurrentMonth, setSelectedDate } = useCalendarStore();
   const { user } = useAuthStore();
+  const { viewingSchool, setViewingSchool } = useUIStore();
   const isLoggedIn = !!user;
+
+  const schoolButtons: { key: 'own' | 'all' | School; label: string; icon: string }[] = [
+    { key: 'own', label: '우리학교', icon: user?.school === 'taeseong_high' ? '🎓' : '🏫' },
+    { key: 'taeseong_middle', label: '태성중', icon: '🏫' },
+    { key: 'taeseong_high', label: '태성고', icon: '🎓' },
+    { key: 'all', label: '전체', icon: '🌐' },
+  ];
 
   const viewButtons: { key: CalendarView; label: string }[] = [
     { key: 'month', label: '월' },
@@ -89,6 +98,24 @@ export function CalendarHeader({ onAddPersonalEvent, onToggleSearch, onPrint, ca
         )}
       </div>
     </div>
+
+    {/* 학교 선택 토글 바 */}
+    {isLoggedIn && (
+      <div style={styles.schoolToggleBar}>
+        {schoolButtons.map((s) => (
+          <button
+            key={s.key}
+            onClick={() => setViewingSchool(s.key)}
+            style={{
+              ...styles.schoolChip,
+              ...(viewingSchool === s.key ? styles.schoolChipActive : {}),
+            }}
+          >
+            {s.icon} {s.label}
+          </button>
+        ))}
+      </div>
+    )}
 
     {/* 카테고리 필터 바 */}
     <div style={styles.filterBar}>
@@ -207,6 +234,34 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     borderRadius: 8,
     transition: 'background 0.15s',
+  },
+  schoolToggleBar: {
+    display: 'flex',
+    gap: 4,
+    padding: '4px 12px 2px',
+    overflowX: 'auto',
+    flexShrink: 0,
+    borderBottom: '1px dashed var(--border-subtle)',
+    paddingBottom: 6,
+    marginBottom: 4,
+  },
+  schoolChip: {
+    background: 'var(--bg-secondary)',
+    border: '1px solid transparent',
+    cursor: 'pointer',
+    padding: '5px 14px',
+    fontSize: 13,
+    fontWeight: 600,
+    color: 'var(--text-secondary)',
+    borderRadius: 14,
+    whiteSpace: 'nowrap',
+    transition: 'all 0.15s',
+  },
+  schoolChipActive: {
+    background: 'linear-gradient(135deg, #8B5CF6, #4A90E2)',
+    color: '#fff',
+    fontWeight: 700,
+    border: '1px solid transparent',
   },
   filterBar: {
     display: 'flex',

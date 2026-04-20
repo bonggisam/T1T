@@ -10,11 +10,54 @@ interface AdminPanelProps {
   onClose: () => void;
 }
 
+type SchoolFilter = 'all' | 'taeseong_middle' | 'taeseong_high';
+
+function renderActiveUser(
+  u: User,
+  handleChangeRole: (userId: string, role: 'teacher' | 'head_teacher') => void,
+  handleDeactivate: (userId: string) => void,
+): React.ReactNode {
+  return (
+    <div key={u.id} style={styles.userCard}>
+      <div style={styles.userInfo}>
+        <span style={styles.userName}>
+          {u.name}
+          <span style={{
+            ...styles.schoolBadge,
+            background: u.school === 'taeseong_high' ? '#8B5CF6' : '#10B981',
+          }}>
+            {u.school === 'taeseong_high' ? '🎓 고' : '🏫 중'}
+          </span>
+          <span style={{
+            ...styles.roleBadge,
+            background: u.role === 'head_teacher' ? '#F59E0B' : 'var(--accent)',
+          }}>
+            {u.role === 'super_admin' ? '슈퍼관리자' : u.role === 'admin' ? '관리자' : u.role === 'head_teacher' ? '부장교사' : '교사'}
+          </span>
+        </span>
+        <span style={styles.userEmail}>{u.email} · {SCHOOL_LABELS[u.school] || '미지정'}</span>
+      </div>
+      <div style={styles.userActions}>
+        {u.role === 'teacher' && (
+          <button onClick={() => handleChangeRole(u.id, 'head_teacher')} style={styles.promoteBtn}>부장 승격</button>
+        )}
+        {u.role === 'head_teacher' && (
+          <button onClick={() => handleChangeRole(u.id, 'teacher')} style={styles.demoteBtn}>교사 변경</button>
+        )}
+        {(u.role === 'teacher' || u.role === 'head_teacher') && (
+          <button onClick={() => handleDeactivate(u.id)} style={styles.deactivateBtn}>비활성화</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function AdminPanel({ onClose }: AdminPanelProps) {
   const { user } = useAuthStore();
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [activeUsers, setActiveUsers] = useState<User[]>([]);
   const [tab, setTab] = useState<'pending' | 'active'>('pending');
+  const [schoolFilter, setSchoolFilter] = useState<SchoolFilter>('all');
   const [loading, setLoading] = useState(true);
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
@@ -114,6 +157,27 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
         </button>
       </div>
 
+      {/* 학교별 서브필터 (활성 탭에서만) */}
+      {tab === 'active' && (
+        <div style={styles.subFilter}>
+          {(['all', 'taeseong_middle', 'taeseong_high'] as SchoolFilter[]).map((s) => {
+            const count = s === 'all'
+              ? activeUsers.length
+              : activeUsers.filter((u) => u.school === s).length;
+            const label = s === 'all' ? '전체' : s === 'taeseong_middle' ? '🏫 태성중' : '🎓 태성고';
+            return (
+              <button
+                key={s}
+                onClick={() => setSchoolFilter(s)}
+                style={{ ...styles.subFilterBtn, ...(schoolFilter === s ? styles.subFilterBtnActive : {}) }}
+              >
+                {label} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Content */}
       <div style={styles.list}>
         {loading ? (
@@ -145,43 +209,48 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
             ))
           )
         ) : (
-          activeUsers.length === 0 ? (
-            <p style={styles.emptyMsg}>활성 사용자가 없습니다.</p>
-          ) : (
-            activeUsers.map((u) => (
-              <div key={u.id} style={styles.userCard}>
-                <div style={styles.userInfo}>
-                  <span style={styles.userName}>
-                    {u.name}
-                    <span style={{
-                      ...styles.schoolBadge,
-                      background: u.school === 'taeseong_high' ? '#8B5CF6' : '#10B981',
-                    }}>
-                      {u.school === 'taeseong_high' ? '🎓 고' : '🏫 중'}
-                    </span>
-                    <span style={{
-                      ...styles.roleBadge,
-                      background: u.role === 'head_teacher' ? '#F59E0B' : 'var(--accent)',
-                    }}>
-                      {u.role === 'super_admin' ? '슈퍼관리자' : u.role === 'admin' ? '관리자' : u.role === 'head_teacher' ? '부장교사' : '교사'}
-                    </span>
-                  </span>
-                  <span style={styles.userEmail}>{u.email} · {SCHOOL_LABELS[u.school] || '미지정'}</span>
-                </div>
-                <div style={styles.userActions}>
-                  {u.role === 'teacher' && (
-                    <button onClick={() => handleChangeRole(u.id, 'head_teacher')} style={styles.promoteBtn}>부장 승격</button>
+          (() => {
+            const filteredActive = schoolFilter === 'all'
+              ? activeUsers
+              : activeUsers.filter((u) => u.school === schoolFilter);
+
+            if (filteredActive.length === 0) {
+              return <p style={styles.emptyMsg}>해당 학교에 활성 사용자가 없습니다.</p>;
+            }
+
+            // 전체일 때는 학교별 그룹핑
+            if (schoolFilter === 'all') {
+              const middle = activeUsers.filter((u) => u.school === 'taeseong_middle');
+              const high = activeUsers.filter((u) => u.school === 'taeseong_high');
+              const other = activeUsers.filter((u) => u.school !== 'taeseong_middle' && u.school !== 'taeseong_high');
+
+              return (
+                <>
+                  {middle.length > 0 && (
+                    <>
+                      <div style={styles.groupHeader}>🏫 태성중학교 ({middle.length})</div>
+                      {middle.map((u) => renderActiveUser(u, handleChangeRole, handleDeactivate))}
+                    </>
                   )}
-                  {u.role === 'head_teacher' && (
-                    <button onClick={() => handleChangeRole(u.id, 'teacher')} style={styles.demoteBtn}>교사 변경</button>
+                  {high.length > 0 && (
+                    <>
+                      <div style={styles.groupHeader}>🎓 태성고등학교 ({high.length})</div>
+                      {high.map((u) => renderActiveUser(u, handleChangeRole, handleDeactivate))}
+                    </>
                   )}
-                  {(u.role === 'teacher' || u.role === 'head_teacher') && (
-                    <button onClick={() => handleDeactivate(u.id)} style={styles.deactivateBtn}>비활성화</button>
+                  {other.length > 0 && (
+                    <>
+                      <div style={styles.groupHeader}>⚠️ 학교 미지정 ({other.length})</div>
+                      {other.map((u) => renderActiveUser(u, handleChangeRole, handleDeactivate))}
+                    </>
                   )}
-                </div>
-              </div>
-            ))
-          )
+                </>
+              );
+            }
+
+            // 특정 학교 선택 시: 플랫 리스트
+            return filteredActive.map((u) => renderActiveUser(u, handleChangeRole, handleDeactivate));
+          })()
         )}
       </div>
     </div>
@@ -287,6 +356,36 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#fff',
     fontWeight: 600,
     marginLeft: 4,
+  },
+  subFilter: {
+    display: 'flex',
+    gap: 4,
+    marginBottom: 8,
+  },
+  subFilterBtn: {
+    flex: 1,
+    padding: '4px 8px',
+    fontSize: 10,
+    fontWeight: 600,
+    border: '1px solid var(--border-subtle)',
+    borderRadius: 6,
+    background: 'transparent',
+    color: 'var(--text-secondary)',
+    cursor: 'pointer',
+  },
+  subFilterBtnActive: {
+    background: 'var(--accent)',
+    color: '#fff',
+    border: '1px solid var(--accent)',
+  },
+  groupHeader: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: 'var(--text-secondary)',
+    padding: '8px 4px 4px',
+    borderBottom: '1px solid var(--border-subtle)',
+    marginTop: 4,
+    marginBottom: 4,
   },
   userActions: {
     display: 'flex',
