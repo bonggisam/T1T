@@ -94,9 +94,28 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
   }
 
   function handleClickThrough(value: boolean) {
+    if (value) {
+      // 클릭 통과를 켜면 UI 클릭이 안 되므로 해제 방법을 먼저 안내
+      const ok = window.confirm(
+        '⚠️ 클릭 통과 모드를 켜면 앱 UI를 클릭할 수 없게 됩니다.\n\n' +
+        '해제 방법:\n' +
+        '• 단축키: Ctrl/Cmd + Shift + X\n' +
+        '• 작업표시줄 트레이 아이콘 우클릭 → "클릭 통과 해제"\n\n' +
+        '계속하시겠습니까?'
+      );
+      if (!ok) return;
+    }
     setClickThrough(value);
     window.electronAPI?.toggleClickThrough(value);
   }
+
+  // 외부(트레이/단축키)에서 클릭 통과 변경 시 UI 동기화
+  useEffect(() => {
+    const unsub = window.electronAPI?.onClickThroughChanged((enabled) => {
+      setClickThrough(enabled);
+    });
+    return () => unsub?.();
+  }, []);
 
   async function restoreOriginalBounds() {
     if (originalBoundsRef.current) {

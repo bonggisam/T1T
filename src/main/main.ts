@@ -8,6 +8,20 @@ let tray: Tray | null = null;
 let isClickThrough = false;
 let isWidgetMode = true; // Desktop widget mode (pinned behind windows)
 
+// 클릭 통과 모드 토글 (단축키/트레이/IPC 공통 호출)
+function setClickThrough(enabled: boolean): void {
+  isClickThrough = enabled;
+  mainWindow?.setIgnoreMouseEvents(enabled, { forward: true });
+  // 렌더러에 상태 알림 (UI 동기화)
+  mainWindow?.webContents.send('click-through-changed', enabled);
+  // 트레이 메뉴 체크 상태 업데이트
+  updateTrayMenu();
+}
+
+function toggleClickThrough(): void {
+  setClickThrough(!isClickThrough);
+}
+
 const isDev = !app.isPackaged;
 
 // macOS 26 (Tahoe) beta workaround: disable sandbox to prevent V8 crash
@@ -74,6 +88,13 @@ function createTray(): void {
 
   tray = new Tray(trayIcon.isEmpty() ? createDefaultTrayIcon() : trayIcon);
 
+  tray.setToolTip('ToneT');
+  updateTrayMenu();
+  tray.on('click', () => toggleWindow());
+}
+
+function updateTrayMenu(): void {
+  if (!tray) return;
   const contextMenu = Menu.buildFromTemplate([
     {
       label: '캘린더 표시/숨김',
@@ -82,10 +103,14 @@ function createTray(): void {
     {
       label: '항상 위',
       type: 'checkbox',
-      checked: true,
+      checked: !!mainWindow?.isAlwaysOnTop(),
       click: (menuItem) => {
         mainWindow?.setAlwaysOnTop(menuItem.checked);
       },
+    },
+    {
+      label: isClickThrough ? '🖱 클릭 통과 해제' : '🖱 클릭 통과 켜기',
+      click: () => toggleClickThrough(),
     },
     { type: 'separator' },
     {
@@ -96,10 +121,7 @@ function createTray(): void {
       },
     },
   ]);
-
-  tray.setToolTip('ToneT');
   tray.setContextMenu(contextMenu);
-  tray.on('click', () => toggleWindow());
 }
 
 function createDefaultTrayIcon(): NativeImage {
@@ -162,8 +184,7 @@ function setupIPC(): void {
   });
 
   ipcMain.handle('window:toggle-click-through', (_event, enabled: boolean) => {
-    isClickThrough = enabled;
-    mainWindow?.setIgnoreMouseEvents(enabled, { forward: true });
+    setClickThrough(enabled);
   });
 
   ipcMain.handle('window:minimize', () => {
@@ -412,6 +433,12 @@ app.whenReady().then(() => {
     } else {
       mainWindow?.show();
     }
+  });
+
+  // Register global shortcut: Ctrl+Shift+X to toggle click-through
+  // (UI 클릭 불가 상태에서 빠져나오는 비상 단축키)
+  globalShortcut.register('CommandOrControl+Shift+X', () => {
+    toggleClickThrough();
   });
 });
 

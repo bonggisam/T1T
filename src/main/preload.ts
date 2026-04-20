@@ -17,6 +17,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('widget-mode-changed', listener);
     return () => ipcRenderer.removeListener('widget-mode-changed', listener);
   },
+  onClickThroughChanged: (callback: (enabled: boolean) => void) => {
+    const listener = (_event: any, enabled: boolean) => callback(enabled);
+    ipcRenderer.on('click-through-changed', listener);
+    return () => ipcRenderer.removeListener('click-through-changed', listener);
+  },
   setTrayBadge: (hasBadge: boolean) => ipcRenderer.invoke('tray:set-badge', hasBadge),
 
   // Auto-updater
