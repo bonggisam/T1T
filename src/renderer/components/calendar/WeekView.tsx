@@ -11,6 +11,7 @@ import { useComciganStore } from '../../store/comciganStore';
 import type { CalendarEvent, PersonalEvent, TeacherPeriod } from '@shared/types';
 import { showToast } from '../common/Toast';
 import { formatEventTooltip, formatPersonalTooltip } from '../../utils/calendarHelpers';
+import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
@@ -36,7 +37,8 @@ interface WeekViewProps {
 }
 
 export function WeekView({ onAddPersonalEvent }: WeekViewProps) {
-  const { selectedDate, events, setSelectedDate, setSelectedEvent, setShowEventDetail, setShowEventModal, updateEvent } = useCalendarStore();
+  const { selectedDate, setSelectedDate, setSelectedEvent, setShowEventDetail, setShowEventModal, updateEvent } = useCalendarStore();
+  const events = useVisibleEvents();
   const { user } = useAuthStore();
   const { allPersonalEvents, updatePersonalEvent } = usePersonalEventStore();
   const personalEvents = allPersonalEvents();

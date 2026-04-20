@@ -3,15 +3,26 @@ import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import type { CalendarView } from '@shared/types';
+import type { CalendarView, EventCategory } from '@shared/types';
 
 interface CalendarHeaderProps {
   onAddPersonalEvent?: () => void;
   onToggleSearch?: () => void;
   onPrint?: () => void;
+  categoryFilter: EventCategory | 'all';
+  setCategoryFilter: (c: EventCategory | 'all') => void;
 }
 
-export function CalendarHeader({ onAddPersonalEvent, onToggleSearch, onPrint }: CalendarHeaderProps = {}) {
+const CATEGORIES: { key: EventCategory | 'all'; label: string; icon: string }[] = [
+  { key: 'all', label: '전체', icon: '📋' },
+  { key: 'event', label: '행사', icon: '🎉' },
+  { key: 'meeting', label: '회의', icon: '💼' },
+  { key: 'deadline', label: '마감', icon: '⏰' },
+  { key: 'notice', label: '공지', icon: '📢' },
+  { key: 'other', label: '기타', icon: '📌' },
+];
+
+export function CalendarHeader({ onAddPersonalEvent, onToggleSearch, onPrint, categoryFilter, setCategoryFilter }: CalendarHeaderProps) {
   const { currentMonth, view, setView, navigateMonth, setShowEventModal, setCurrentMonth, setSelectedDate } = useCalendarStore();
   const { user } = useAuthStore();
   const isLoggedIn = !!user;
@@ -20,9 +31,13 @@ export function CalendarHeader({ onAddPersonalEvent, onToggleSearch, onPrint }: 
     { key: 'month', label: '월' },
     { key: 'week', label: '주' },
     { key: 'day', label: '일' },
+    { key: 'year', label: '년' },
+    { key: 'agenda', label: '📋' },
+    { key: 'stats', label: '📊' },
   ];
 
   return (
+    <>
     <div style={styles.container}>
       <div style={styles.nav}>
         <button onClick={() => navigateMonth(-1)} style={styles.navBtn}>◀</button>
@@ -74,6 +89,23 @@ export function CalendarHeader({ onAddPersonalEvent, onToggleSearch, onPrint }: 
         )}
       </div>
     </div>
+
+    {/* 카테고리 필터 바 */}
+    <div style={styles.filterBar}>
+      {CATEGORIES.map((c) => (
+        <button
+          key={c.key}
+          onClick={() => setCategoryFilter(c.key)}
+          style={{
+            ...styles.categoryChip,
+            ...(categoryFilter === c.key ? styles.categoryChipActive : {}),
+          }}
+        >
+          {c.icon} {c.label}
+        </button>
+      ))}
+    </div>
+    </>
   );
 }
 
@@ -175,5 +207,29 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     borderRadius: 8,
     transition: 'background 0.15s',
+  },
+  filterBar: {
+    display: 'flex',
+    gap: 4,
+    padding: '4px 12px 8px',
+    overflowX: 'auto',
+    flexShrink: 0,
+  },
+  categoryChip: {
+    background: 'var(--bg-secondary)',
+    border: '1px solid transparent',
+    cursor: 'pointer',
+    padding: '3px 10px',
+    fontSize: 10,
+    fontWeight: 500,
+    color: 'var(--text-secondary)',
+    borderRadius: 12,
+    whiteSpace: 'nowrap',
+    transition: 'all 0.15s',
+  },
+  categoryChipActive: {
+    background: 'var(--accent)',
+    color: '#fff',
+    fontWeight: 600,
   },
 };

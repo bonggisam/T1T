@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
-import type { EventCategory, ChecklistItem } from '@shared/types';
+import type { EventCategory, ChecklistItem, School } from '@shared/types';
 import { showToast } from '../common/Toast';
 
 const CATEGORIES: { key: EventCategory; label: string }[] = [
@@ -30,6 +30,7 @@ export function EventModal() {
   const [endDate, setEndDate] = useState(formatDateTimeLocal(defaultEnd));
   const [allDay, setAllDay] = useState(false);
   const [category, setCategory] = useState<EventCategory>('event');
+  const [scope, setScope] = useState<School | 'all'>(user?.school || 'taeseong_middle');
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [newCheckItem, setNewCheckItem] = useState('');
   const [saving, setSaving] = useState(false);
@@ -81,6 +82,7 @@ export function EventModal() {
         endDate: end,
         allDay,
         category,
+        school: scope,
         createdBy: user.id,
         adminName: user.name,
         adminColor: user.profileColor || '#4A90E2',
@@ -118,6 +120,11 @@ export function EventModal() {
           <div style={styles.row}>
             <select value={category} onChange={(e) => setCategory(e.target.value as EventCategory)} style={styles.select}>
               {CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+            </select>
+            <select value={scope} onChange={(e) => setScope(e.target.value as School | 'all')} style={styles.select}>
+              <option value="taeseong_middle">🏫 태성중</option>
+              <option value="taeseong_high">🎓 태성고</option>
+              <option value="all">📢 전체</option>
             </select>
             <label style={styles.checkbox}>
               <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />

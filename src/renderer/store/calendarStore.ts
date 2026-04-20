@@ -14,7 +14,7 @@ import {
 import { db } from '../utils/firebase';
 import { notifyAllUsers } from '../utils/notifications';
 import { cacheEvents, getCachedEvents } from '../utils/offlineCache';
-import type { CalendarEvent, CalendarView, ChecklistItem, ReadReceipt } from '@shared/types';
+import type { CalendarEvent, CalendarView, ChecklistItem, ReadReceipt, School } from '@shared/types';
 
 interface CalendarState {
   events: CalendarEvent[];
@@ -52,6 +52,7 @@ function firestoreToEvent(id: string, data: any): CalendarEvent {
     endDate: data.endDate instanceof Timestamp ? data.endDate.toDate() : new Date(data.endDate),
     allDay: data.allDay ?? false,
     category: data.category || 'other',
+    school: (data.school as School | 'all') || 'all',
     createdBy: data.createdBy || '',
     adminName: data.adminName || '',
     adminColor: data.adminColor || '#4A90E2',

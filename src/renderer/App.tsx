@@ -15,9 +15,13 @@ import { SettingsPanel } from './components/settings/SettingsPanel';
 import { AdminPanel } from './components/admin/AdminPanel';
 import { PersonalEventModal } from './components/calendar/PersonalEventModal';
 import { TPassView } from './components/tpass/TPassView';
+import { TodosView } from './components/todos/TodosView';
+import { ReservView } from './components/reserv/ReservView';
+import { MealView } from './components/meal/MealView';
 import { UpdateBanner } from './components/common/UpdateBanner';
 import { ToastContainer } from './components/common/Toast';
 import { useComciganStore } from './store/comciganStore';
+import { useTodosStore } from './store/todosStore';
 import { useReminder } from './hooks/useReminder';
 
 type AuthScreen = 'login' | 'signup';
@@ -28,11 +32,15 @@ export function App() {
   const { subscribeToNotifications, cleanup: cleanupNotifications, showPanel: showNotifications } = useNotificationStore();
   const { subscribeToPersonalEvents, startAutoSync, stopAutoSync, cleanup: cleanupPersonal } = usePersonalEventStore();
   const { loadConfig: loadComcigan, cleanup: cleanupComcigan } = useComciganStore();
+  const { subscribeToTodos, cleanup: cleanupTodos } = useTodosStore();
   const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
   const [showSettings, setShowSettings] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showPersonalModal, setShowPersonalModal] = useState(false);
   const [showTPass, setShowTPass] = useState(false);
+  const [showTodos, setShowTodos] = useState(false);
+  const [showReserv, setShowReserv] = useState(false);
+  const [showMeal, setShowMeal] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
@@ -60,6 +68,7 @@ export function App() {
       subscribeToEvents();
       subscribeToNotifications(user.id);
       subscribeToPersonalEvents(user.id);
+      subscribeToTodos(user.id);
       startAutoSync(user.settings?.syncInterval ?? 15);
       loadComcigan();
       return () => {
@@ -67,6 +76,7 @@ export function App() {
         cleanupNotifications();
         stopAutoSync();
         cleanupPersonal();
+        cleanupTodos();
         cleanupComcigan();
       };
     }
@@ -163,15 +173,27 @@ export function App() {
 
   const isAdmin = user.role === 'admin' || user.role === 'super_admin';
 
+  // 하나의 탭만 활성화되게 다른 모든 탭 닫기
+  function closeAllTabs() {
+    setShowSettings(false); setShowAdmin(false); setShowTPass(false);
+    setShowTodos(false); setShowReserv(false); setShowMeal(false);
+  }
+
   return (
     <div className="glass" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <TitleBar
-        onToggleSettings={() => { setShowSettings(!showSettings); setShowAdmin(false); setShowTPass(false); }}
-        onToggleAdmin={() => { setShowAdmin(!showAdmin); setShowSettings(false); setShowTPass(false); }}
+        onToggleSettings={() => { const next = !showSettings; closeAllTabs(); setShowSettings(next); }}
+        onToggleAdmin={() => { const next = !showAdmin; closeAllTabs(); setShowAdmin(next); }}
         showSettingsBtn={true}
         showAdminBtn={isAdmin}
-        onToggleTPass={() => { setShowTPass(!showTPass); setShowSettings(false); setShowAdmin(false); }}
+        onToggleTPass={() => { const next = !showTPass; closeAllTabs(); setShowTPass(next); }}
         showTPass={showTPass}
+        onToggleTodos={() => { const next = !showTodos; closeAllTabs(); setShowTodos(next); }}
+        showTodos={showTodos}
+        onToggleReserv={() => { const next = !showReserv; closeAllTabs(); setShowReserv(next); }}
+        showReserv={showReserv}
+        onToggleMeal={() => { const next = !showMeal; closeAllTabs(); setShowMeal(next); }}
+        showMeal={showMeal}
       />
       <UpdateBanner />
       {isOffline && (
@@ -194,6 +216,12 @@ export function App() {
           <AdminPanel onClose={() => setShowAdmin(false)} />
         ) : showTPass ? (
           <TPassView onBack={() => setShowTPass(false)} />
+        ) : showTodos ? (
+          <TodosView onBack={() => setShowTodos(false)} />
+        ) : showReserv ? (
+          <ReservView onBack={() => setShowReserv(false)} />
+        ) : showMeal ? (
+          <MealView onBack={() => setShowMeal(false)} />
         ) : (
           <Calendar onAddPersonalEvent={() => setShowPersonalModal(true)} />
         )}

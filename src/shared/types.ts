@@ -1,6 +1,12 @@
 // User roles
 export type UserRole = 'super_admin' | 'admin' | 'head_teacher' | 'teacher';
 export type UserStatus = 'pending' | 'active' | 'rejected' | 'deactivated';
+export type School = 'taeseong_middle' | 'taeseong_high';
+
+export const SCHOOL_LABELS: Record<School, string> = {
+  taeseong_middle: '태성중학교',
+  taeseong_high: '태성고등학교',
+};
 
 export interface User {
   id: string;
@@ -8,6 +14,7 @@ export interface User {
   name: string;
   role: UserRole;
   status: UserStatus;
+  school: School;
   profileColor?: string; // HEX, admin only
   createdAt: Date;
   lastLogin: Date;
@@ -27,7 +34,7 @@ export interface UserSettings {
   reminderDefault: ReminderTime;
 }
 
-export type CalendarView = 'month' | 'week' | 'day';
+export type CalendarView = 'month' | 'week' | 'day' | 'year' | 'agenda' | 'stats';
 export type ReminderTime = '10min' | '30min' | '1hour' | '1day' | 'none';
 
 export interface ConnectedCalendar {
@@ -51,6 +58,7 @@ export interface CalendarEvent {
   endDate: Date;
   allDay: boolean;
   category: EventCategory;
+  school: School | 'all'; // 'all' = 양교 공통
   createdBy: string; // userId
   adminName?: string;
   adminColor: string;
@@ -97,6 +105,20 @@ export interface PersonalEvent {
   externalId: string | null;
   checklist: ChecklistItem[];
   color: string;
+}
+
+// Todos
+export interface Todo {
+  id: string;
+  userId: string;
+  title: string;
+  description?: string;
+  completed: boolean;
+  priority: 'low' | 'medium' | 'high';
+  dueDate?: Date;
+  school: School | 'all';
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Event Comments

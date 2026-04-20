@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
+import type { School } from '@shared/types';
 
 interface SignupFormProps {
   onSwitchToLogin: () => void;
@@ -11,6 +12,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [school, setSchool] = useState<School>('taeseong_middle');
   const [localError, setLocalError] = useState('');
   const [success, setSuccess] = useState(false);
 
@@ -38,7 +40,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
     }
 
     try {
-      await signup(email, password, name);
+      await signup(email, password, name, school);
       // If user is now active (admin), App.tsx will show calendar directly.
       // If pending (teacher), show success message.
       const currentUser = useAuthStore.getState().user;
@@ -71,6 +73,16 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
       <p style={styles.subtitle}>교사 계정 등록</p>
 
       <form onSubmit={handleSignup} style={styles.form}>
+        <div style={styles.schoolSelector}>
+          <label style={{ ...styles.schoolOption, ...(school === 'taeseong_middle' ? styles.schoolOptionActive : {}) }}>
+            <input type="radio" name="school" value="taeseong_middle" checked={school === 'taeseong_middle'} onChange={() => setSchool('taeseong_middle')} style={{ display: 'none' }} />
+            🏫 태성중학교
+          </label>
+          <label style={{ ...styles.schoolOption, ...(school === 'taeseong_high' ? styles.schoolOptionActive : {}) }}>
+            <input type="radio" name="school" value="taeseong_high" checked={school === 'taeseong_high'} onChange={() => setSchool('taeseong_high')} style={{ display: 'none' }} />
+            🎓 태성고등학교
+          </label>
+        </div>
         <input
           type="text"
           placeholder="이름"
@@ -190,5 +202,28 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-secondary)',
     lineHeight: 1.8,
     margin: '16px 0',
+  },
+  schoolSelector: {
+    display: 'flex',
+    gap: 6,
+    marginBottom: 2,
+  },
+  schoolOption: {
+    flex: 1,
+    padding: '10px 6px',
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: 600,
+    color: 'var(--text-secondary)',
+    background: 'var(--bg-secondary)',
+    border: '2px solid transparent',
+    borderRadius: 10,
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+  },
+  schoolOptionActive: {
+    color: 'var(--accent)',
+    background: 'rgba(74, 144, 226, 0.1)',
+    border: '2px solid var(--accent)',
   },
 };

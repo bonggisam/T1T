@@ -3,6 +3,7 @@ import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInte
 import { ko } from 'date-fns/locale';
 import { useCalendarStore } from '../../store/calendarStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
+import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -20,7 +21,8 @@ interface PrintViewProps {
 }
 
 export function PrintView({ onClose }: PrintViewProps) {
-  const { events, currentMonth } = useCalendarStore();
+  const { currentMonth } = useCalendarStore();
+  const events = useVisibleEvents();
   const { personalEvents, externalEvents } = usePersonalEventStore();
   const printRef = useRef<HTMLDivElement>(null);
 

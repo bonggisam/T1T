@@ -12,6 +12,7 @@ import { useComciganStore } from '../../store/comciganStore';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
 import { showToast } from '../common/Toast';
 import { formatEventTooltip, formatPersonalTooltip } from '../../utils/calendarHelpers';
+import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 const DRAG_THRESHOLD = 5;
@@ -38,9 +39,10 @@ interface MonthViewProps {
 
 export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
   const {
-    currentMonth, events, selectedDate,
+    currentMonth, selectedDate,
     setSelectedDate, setSelectedEvent, setShowEventDetail, setShowEventModal, updateEvent,
   } = useCalendarStore();
+  const events = useVisibleEvents();
   const { user } = useAuthStore();
   const { notifications } = useNotificationStore();
   const { allPersonalEvents, updatePersonalEvent } = usePersonalEventStore();

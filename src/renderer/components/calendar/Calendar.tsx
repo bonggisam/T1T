@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { useCalendarStore } from '../../store/calendarStore';
+import { useUIStore } from '../../store/uiStore';
 import { MonthView } from './MonthView';
 import { WeekView } from './WeekView';
 import { DayView } from './DayView';
+import { YearView } from './YearView';
+import { AgendaView } from './AgendaView';
+import { StatsView } from './StatsView';
 import { CalendarHeader } from './CalendarHeader';
 import { EventLegend } from './EventLegend';
 import { SearchPanel } from './SearchPanel';
@@ -14,6 +18,7 @@ interface CalendarProps {
 
 export function Calendar({ onAddPersonalEvent }: CalendarProps = {}) {
   const { view } = useCalendarStore();
+  const { categoryFilter, setCategoryFilter } = useUIStore();
   const [showSearch, setShowSearch] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
 
@@ -27,11 +32,16 @@ export function Calendar({ onAddPersonalEvent }: CalendarProps = {}) {
         onAddPersonalEvent={onAddPersonalEvent}
         onToggleSearch={() => setShowSearch(true)}
         onPrint={() => setShowPrint(true)}
+        categoryFilter={categoryFilter}
+        setCategoryFilter={setCategoryFilter}
       />
       <div style={styles.viewContainer}>
         {view === 'month' && <MonthView onAddPersonalEvent={onAddPersonalEvent} />}
         {view === 'week' && <WeekView onAddPersonalEvent={onAddPersonalEvent} />}
         {view === 'day' && <DayView onAddPersonalEvent={onAddPersonalEvent} />}
+        {view === 'year' && <YearView />}
+        {view === 'agenda' && <AgendaView categoryFilter={categoryFilter} />}
+        {view === 'stats' && <StatsView />}
       </div>
       <EventLegend />
       {showSearch && <SearchPanel onClose={() => setShowSearch(false)} />}

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useCalendarStore } from '../../store/calendarStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
+import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
@@ -30,7 +31,8 @@ interface SearchPanelProps {
 }
 
 export function SearchPanel({ onClose }: SearchPanelProps) {
-  const { events, setSelectedDate, setView } = useCalendarStore();
+  const { setSelectedDate, setView } = useCalendarStore();
+  const events = useVisibleEvents();
   const { personalEvents, externalEvents } = usePersonalEventStore();
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);

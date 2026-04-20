@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useCalendarStore } from '../../store/calendarStore';
+import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 
 interface TeacherColor {
   id: string;
@@ -8,7 +8,7 @@ interface TeacherColor {
 }
 
 export function EventLegend() {
-  const { events } = useCalendarStore();
+  const events = useVisibleEvents();
 
   // 일정에서 고유 교사별 색상 추출
   const teachers = useMemo<TeacherColor[]>(() => {

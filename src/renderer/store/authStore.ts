@@ -9,7 +9,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../utils/firebase';
-import type { User, UserRole, UserStatus, UserSettings } from '@shared/types';
+import type { User, UserRole, UserStatus, UserSettings, School } from '@shared/types';
 
 interface AuthState {
   firebaseUser: FirebaseUser | null;
@@ -18,7 +18,7 @@ interface AuthState {
   error: string | null;
   initialize: () => () => void;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name: string) => Promise<void>;
+  signup: (email: string, password: string, name: string, school: School) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   clearError: () => void;
@@ -66,6 +66,7 @@ export const useAuthStore = create<AuthState>((set) => ({
               name: data.name,
               role: data.role as UserRole,
               status: data.status as UserStatus,
+              school: (data.school as School) || 'taeseong_middle',
               profileColor: data.profileColor,
               createdAt: data.createdAt?.toDate() || new Date(),
               lastLogin: new Date(),
@@ -97,7 +98,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  signup: async (email, password, name) => {
+  signup: async (email, password, name, school) => {
     set({ loading: true, error: null });
     signupInProgress = true;
 
@@ -126,6 +127,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         name,
         role,
         status,
+        school,
         profileColor: role === 'super_admin' ? '#FF6B6B' : '#4A90E2',
         createdAt: serverTimestamp(),
         lastLogin: serverTimestamp(),
@@ -147,6 +149,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         name,
         role,
         status,
+        school,
         profileColor: role === 'super_admin' ? '#FF6B6B' : '#4A90E2',
         createdAt: new Date(),
         lastLogin: new Date(),

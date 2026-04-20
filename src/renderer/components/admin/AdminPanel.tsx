@@ -3,6 +3,7 @@ import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/fire
 import { db } from '../../utils/firebase';
 import { showToast } from '../common/Toast';
 import type { User, UserStatus } from '@shared/types';
+import { SCHOOL_LABELS } from '@shared/types';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -113,8 +114,16 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
             pendingUsers.map((u) => (
               <div key={u.id} style={styles.userCard}>
                 <div style={styles.userInfo}>
-                  <span style={styles.userName}>{u.name}</span>
-                  <span style={styles.userEmail}>{u.email}</span>
+                  <span style={styles.userName}>
+                    {u.name}
+                    <span style={{
+                      ...styles.schoolBadge,
+                      background: u.school === 'taeseong_high' ? '#8B5CF6' : '#10B981',
+                    }}>
+                      {u.school === 'taeseong_high' ? '🎓 고' : '🏫 중'}
+                    </span>
+                  </span>
+                  <span style={styles.userEmail}>{u.email} · {SCHOOL_LABELS[u.school] || '미지정'}</span>
                 </div>
                 <div style={styles.userActions}>
                   <button onClick={() => handleApprove(u.id, 'teacher')} style={styles.approveBtn}>교사</button>
@@ -134,13 +143,19 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                   <span style={styles.userName}>
                     {u.name}
                     <span style={{
+                      ...styles.schoolBadge,
+                      background: u.school === 'taeseong_high' ? '#8B5CF6' : '#10B981',
+                    }}>
+                      {u.school === 'taeseong_high' ? '🎓 고' : '🏫 중'}
+                    </span>
+                    <span style={{
                       ...styles.roleBadge,
                       background: u.role === 'head_teacher' ? '#F59E0B' : 'var(--accent)',
                     }}>
                       {u.role === 'super_admin' ? '슈퍼관리자' : u.role === 'admin' ? '관리자' : u.role === 'head_teacher' ? '부장교사' : '교사'}
                     </span>
                   </span>
-                  <span style={styles.userEmail}>{u.email}</span>
+                  <span style={styles.userEmail}>{u.email} · {SCHOOL_LABELS[u.school] || '미지정'}</span>
                 </div>
                 <div style={styles.userActions}>
                   {u.role === 'teacher' && (
@@ -253,6 +268,14 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'var(--accent)',
     color: '#fff',
     fontWeight: 500,
+  },
+  schoolBadge: {
+    fontSize: 9,
+    padding: '1px 6px',
+    borderRadius: 4,
+    color: '#fff',
+    fontWeight: 600,
+    marginLeft: 4,
   },
   userActions: {
     display: 'flex',
