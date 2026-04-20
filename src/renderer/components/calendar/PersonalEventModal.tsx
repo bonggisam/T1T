@@ -37,7 +37,7 @@ export function PersonalEventModal({ onClose }: PersonalEventModalProps) {
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, []);
+  }, [onClose]);
 
   function formatDateTimeLocal(d: Date): string {
     const pad = (n: number) => n.toString().padStart(2, '0');

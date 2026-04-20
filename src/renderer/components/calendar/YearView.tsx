@@ -82,6 +82,7 @@ export function YearView() {
                   return (
                     <button
                       key={day.toISOString()}
+                      aria-label={format(day, 'yyyy년 M월 d일')}
                       onClick={() => clickDay(day)}
                       style={{
                         ...styles.day,

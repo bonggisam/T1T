@@ -6,6 +6,7 @@ import {
   addDoc,
   serverTimestamp,
 } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 import { db } from './firebase';
 import type { NotificationType } from '@shared/types';
 
@@ -19,6 +20,12 @@ export async function notifyAllUsers(
   eventId: string | undefined,
   createdBy: string,
 ): Promise<void> {
+  // 스푸핑 방지: 실제 현재 로그인 uid와 일치하는지 확인
+  const currentUid = getAuth().currentUser?.uid;
+  if (!currentUid || currentUid !== createdBy) {
+    console.warn('[Notifications] createdBy mismatch — aborting', { currentUid, createdBy });
+    return;
+  }
   try {
     const q = query(
       collection(db, 'users'),
@@ -26,20 +33,22 @@ export async function notifyAllUsers(
     );
     const snapshot = await getDocs(q);
 
-    const promises = snapshot.docs
-      .filter((d) => d.id !== createdBy) // Don't notify self
-      .map((d) =>
-        addDoc(collection(db, 'notifications', d.id, 'items'), {
-          type,
-          eventId: eventId || null,
-          message,
-          read: false,
-          createdAt: serverTimestamp(),
-          createdBy,
-        }),
-      );
-
-    await Promise.all(promises);
+    const results = await Promise.allSettled(
+      snapshot.docs
+        .filter((d) => d.id !== createdBy)
+        .map((d) =>
+          addDoc(collection(db, 'notifications', d.id, 'items'), {
+            type,
+            eventId: eventId || null,
+            message,
+            read: false,
+            createdAt: serverTimestamp(),
+            createdBy,
+          }),
+        ),
+    );
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    if (failed > 0) console.warn(`[Notifications] ${failed}/${results.length} notifications failed`);
   } catch (err) {
     console.error('Failed to send notifications:', err);
   }
@@ -55,6 +64,11 @@ export async function notifyUser(
   eventId: string | undefined,
   createdBy: string,
 ): Promise<void> {
+  const currentUid = getAuth().currentUser?.uid;
+  if (!currentUid || currentUid !== createdBy) {
+    console.warn('[Notifications] notifyUser createdBy mismatch');
+    return;
+  }
   try {
     await addDoc(collection(db, 'notifications', targetUserId, 'items'), {
       type,

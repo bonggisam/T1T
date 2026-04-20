@@ -66,7 +66,8 @@ export function EventDetail() {
     if (selectedEvent && user) {
       const alreadyRead = selectedEvent.readBy?.[user.id];
       if (!alreadyRead) {
-        markAsRead(selectedEvent.id, user.id, user.name);
+        markAsRead(selectedEvent.id, user.id, user.name)
+          .catch((err) => console.warn('[EventDetail] markAsRead failed:', err));
       }
     }
   }, [selectedEvent?.id, user?.id]);
@@ -165,6 +166,7 @@ export function EventDetail() {
       setNewComment('');
     } catch (err) {
       console.error('Failed to add comment:', err);
+      showToast('댓글 등록 실패', 'error');
     }
     setSendingComment(false);
   }
@@ -322,7 +324,11 @@ export function EventDetail() {
               .map((item) => (
                 <div
                   key={item.id}
+                  role="checkbox"
+                  aria-checked={item.checked}
+                  tabIndex={canEdit ? 0 : -1}
                   onClick={() => handleToggleCheck(item)}
+                  onKeyDown={(e) => { if (canEdit && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleToggleCheck(item); } }}
                   style={{
                     ...styles.checkItem,
                     cursor: canEdit ? 'pointer' : 'default',

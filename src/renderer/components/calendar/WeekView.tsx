@@ -96,11 +96,19 @@ export function WeekView({ onAddPersonalEvent }: WeekViewProps) {
 
   const isCurrentWeek = isSameWeek(selectedDate, new Date(), { weekStartsOn: 0 });
 
+  // 한국 중·고등학교 기본 교시 시간 (fallback)
+  const DEFAULT_PERIOD_START_HOURS: Record<number, number> = {
+    1: 9, 2: 10, 3: 11, 4: 12, 5: 13, 6: 14, 7: 15, 8: 16,
+  };
+
   const comciganByDayHour = React.useMemo(() => {
     if (!isCurrentWeek || !comciganConfig || !timetableData) return new Map<string, TeacherPeriod[]>();
     const map = new Map<string, TeacherPeriod[]>();
     for (const period of timetableData.teacherSchedule) {
-      const hour = period.startTime ? parseInt(period.startTime.split(':')[0], 10) : 8 + period.period;
+      const hour = period.startTime
+        ? parseInt(period.startTime.split(':')[0], 10)
+        : DEFAULT_PERIOD_START_HOURS[period.period] ?? -1;
+      if (hour < 0 || hour > 23) continue; // 잘못된 교시는 skip
       const key = `${period.weekday}-${hour}`;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(period);

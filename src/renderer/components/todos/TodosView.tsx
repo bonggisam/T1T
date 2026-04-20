@@ -6,6 +6,8 @@ import { useAuthStore } from '../../store/authStore';
 import { showToast } from '../common/Toast';
 import type { Todo } from '@shared/types';
 
+const PRIORITY_COLORS = { low: '#10B981', medium: '#F59E0B', high: '#EF4444' } as const;
+
 interface TodosViewProps {
   onBack: () => void;
 }
@@ -65,6 +67,7 @@ export function TodosView({ onBack }: TodosViewProps) {
   }
 
   async function handleDelete(id: string) {
+    if (!confirm('이 할 일을 삭제하시겠습니까?')) return;
     try {
       await deleteTodo(id);
       showToast('삭제되었습니다');
@@ -142,7 +145,7 @@ function FilterBtn({ active, onClick, label }: { active: boolean; onClick: () =>
 }
 
 function TodoItem({ todo, onToggle, onDelete }: { todo: Todo; onToggle: () => void; onDelete: () => void }) {
-  const priorityColor = { low: '#10B981', medium: '#F59E0B', high: '#EF4444' }[todo.priority];
+  const priorityColor = PRIORITY_COLORS[todo.priority];
   const isOverdue = todo.dueDate && !todo.completed && new Date(todo.dueDate) < new Date();
 
   return (

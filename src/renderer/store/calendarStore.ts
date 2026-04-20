@@ -122,7 +122,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
       console.error('[CalendarStore] Subscription error:', error);
       getCachedEvents<CalendarEvent>().then((cached) => {
         if (cached.length > 0) set({ events: cached });
-      }).catch(() => {});
+      }).catch((err) => console.warn('[CalendarStore] Fallback cache load failed:', err));
       set({ loading: false });
     });
     set({ unsubscribe: unsub });
@@ -153,10 +153,10 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
       docRef.id,
       event.createdBy,
     );
-    // 슬랙 알림 (설정된 경우)
+    // 슬랙 알림 (설정된 경우) — 실패해도 무해
     sendSlackNotification(
       `📅 새 일정 등록: *${event.title}* (${dateStr})\n작성자: ${event.adminName || '알 수 없음'}`,
-    ).catch(() => {});
+    ).catch((err) => console.warn('[CalendarStore] Slack notify failed:', err));
     return docRef.id;
   },
 

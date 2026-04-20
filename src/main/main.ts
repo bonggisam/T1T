@@ -194,13 +194,17 @@ function setupIPC(): void {
   });
 
   ipcMain.handle('window:set-bounds', (_event, bounds: { x: number; y: number; width: number; height: number }) => {
-    if (mainWindow && bounds && typeof bounds.width === 'number' && typeof bounds.height === 'number' && bounds.width > 0 && bounds.height > 0) {
-      // Temporarily allow resize so setBounds works even in widget mode
-      const wasResizable = mainWindow.isResizable();
-      if (!wasResizable) mainWindow.setResizable(true);
-      mainWindow.setBounds(bounds);
-      if (!wasResizable) mainWindow.setResizable(false);
-    }
+    if (!mainWindow || !bounds) return;
+    const { x, y, width, height } = bounds;
+    if (![x, y, width, height].every((v) => typeof v === 'number' && Number.isFinite(v))) return;
+    if (width <= 0 || height <= 0 || width > 10000 || height > 10000) return;
+    const { workAreaSize } = screen.getPrimaryDisplay();
+    const clampedX = Math.max(-width + 100, Math.min(Math.round(x), workAreaSize.width - 100));
+    const clampedY = Math.max(0, Math.min(Math.round(y), workAreaSize.height - 100));
+    const wasResizable = mainWindow.isResizable();
+    if (!wasResizable) mainWindow.setResizable(true);
+    mainWindow.setBounds({ x: clampedX, y: clampedY, width: Math.round(width), height: Math.round(height) });
+    if (!wasResizable) mainWindow.setResizable(false);
   });
 
   ipcMain.handle('tray:set-badge', (_event, hasBadge: boolean) => {
@@ -349,7 +353,10 @@ function setupGoogleAuthIPC(): void {
 // Comcigan IPC
 function setupComciganIPC(): void {
   ipcMain.handle('comcigan:search', async (_event, name: string) => {
-    return comciganService.searchSchool(name);
+    if (typeof name !== 'string') throw new Error('Invalid school name');
+    const trimmed = name.trim();
+    if (!trimmed || trimmed.length > 50) throw new Error('Invalid school name');
+    return comciganService.searchSchool(trimmed);
   });
 
   ipcMain.handle('comcigan:configure', async (_event, config) => {

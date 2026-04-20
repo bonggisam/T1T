@@ -121,7 +121,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         // Can't determine → default teacher+pending (safe fallback)
       }
 
-      // 3. Create user document
+      // 3. Create user document (반드시 완료 후 상태 설정 — race 방지)
       await setDoc(doc(db, 'users', cred.user.uid), {
         email,
         name,
@@ -134,7 +134,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         settings: defaultSettings,
       });
 
-      // 4. If first user, lock it down
+      // 4. If first user, lock it down (app_meta는 signup 완료의 일부)
       if (role === 'super_admin') {
         await setDoc(doc(db, 'app_meta', 'initialized'), {
           createdAt: serverTimestamp(),
@@ -142,7 +142,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         });
       }
 
-      // 5. Set state directly
+      // 5. 모든 Firestore 쓰기가 완료된 후에만 상태 설정
       const user: User = {
         id: cred.user.uid,
         email,

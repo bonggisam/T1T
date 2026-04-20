@@ -3,22 +3,7 @@ import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useAuthStore } from '../../store/authStore';
 
-/**
- * NEIS Open API — 교육정보개방포털의 급식 데이터
- * 학교별 교육청 코드 + 학교 코드를 localStorage에 저장 (설정에서 변경 가능).
- */
-interface NeisConfig { education: string; school: string; }
-
-function getNeisConfig(schoolKey: string): NeisConfig | null {
-  try {
-    const raw = localStorage.getItem(`tonet-neis-${schoolKey}`);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-
-export function setNeisConfig(schoolKey: string, cfg: NeisConfig): void {
-  try { localStorage.setItem(`tonet-neis-${schoolKey}`, JSON.stringify(cfg)); } catch {}
-}
+import { getNeisConfig, setNeisConfig } from '../../utils/neisSchedule';
 
 interface MealInfo {
   date: string; // YYYYMMDD
@@ -39,8 +24,12 @@ export function MealView({ onBack }: MealViewProps) {
   const [showSetup, setShowSetup] = useState(false);
   const [eduCode, setEduCode] = useState('');
   const [schoolCode, setSchoolCode] = useState('');
+  const [configVersion, setConfigVersion] = useState(0); // NEIS 설정 변경 시 재로드 트리거
 
-  const schoolConfig = user?.school ? getNeisConfig(user.school) : null;
+  const schoolConfig = useMemo(
+    () => (user?.school ? getNeisConfig(user.school) : null),
+    [user?.school, configVersion],
+  );
 
   const weekDays = useMemo(() => {
     return Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
@@ -49,7 +38,7 @@ export function MealView({ onBack }: MealViewProps) {
   useEffect(() => {
     if (!schoolConfig) return;
     fetchMeals();
-  }, [weekStart, user?.school]);
+  }, [weekStart, user?.school, configVersion]);
 
   async function fetchMeals() {
     if (!schoolConfig) return;
@@ -127,9 +116,11 @@ export function MealView({ onBack }: MealViewProps) {
           />
           <button
             onClick={() => {
-              if (!eduCode.trim() || !schoolCode.trim() || !user) return;
+              if (!eduCode.trim() || !schoolCode.trim() || !user?.school) return;
               setNeisConfig(user.school, { education: eduCode.trim(), school: schoolCode.trim() });
-              window.location.reload();
+              setEduCode('');
+              setSchoolCode('');
+              setConfigVersion((v) => v + 1); // 재로드 트리거
             }}
             style={styles.setupBtn}
             disabled={!eduCode.trim() || !schoolCode.trim()}

@@ -16,6 +16,10 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
   const [localError, setLocalError] = useState('');
   const [success, setSuccess] = useState(false);
 
+  function validateEmail(e: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
+  }
+
   function validatePassword(pw: string): string | null {
     if (pw.length < 8) return '비밀번호는 최소 8자 이상이어야 합니다.';
     if (!/[a-zA-Z]/.test(pw)) return '영문을 포함해야 합니다.';
@@ -29,6 +33,18 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
     clearError();
     setLocalError('');
 
+    if (!validateEmail(email)) {
+      setLocalError('유효한 이메일 주소를 입력하세요.');
+      return;
+    }
+    if (!name.trim()) {
+      setLocalError('이름을 입력하세요.');
+      return;
+    }
+    if (!school) {
+      setLocalError('학교를 선택하세요.');
+      return;
+    }
     if (password !== confirmPassword) {
       setLocalError('비밀번호가 일치하지 않습니다.');
       return;

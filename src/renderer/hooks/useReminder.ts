@@ -19,6 +19,9 @@ export function useReminder() {
   const { events } = useCalendarStore();
   const { user } = useAuthStore();
   const notifiedRef = useRef<Set<string>>(new Set());
+  const eventsRef = useRef(events);
+
+  useEffect(() => { eventsRef.current = events; }, [events]);
 
   useEffect(() => {
     if (!user) return;
@@ -29,7 +32,7 @@ export function useReminder() {
     const timer = setInterval(() => {
       const now = Date.now();
 
-      for (const event of events) {
+      for (const event of eventsRef.current) {
         const start = event.startDate instanceof Date ? event.startDate.getTime() : new Date(event.startDate).getTime();
         const diff = start - now;
         const key = `${event.id}-${reminderMs}`;
@@ -63,5 +66,5 @@ export function useReminder() {
     }, 60000); // 1분마다 체크
 
     return () => clearInterval(timer);
-  }, [events, user?.id, user?.settings?.reminderDefault]);
+  }, [user?.id, user?.settings?.reminderDefault]);
 }

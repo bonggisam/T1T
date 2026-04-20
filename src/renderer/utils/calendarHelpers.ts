@@ -1,6 +1,28 @@
 import { format } from 'date-fns';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
 
+/**
+ * 이벤트(시작~종료 범위)가 주어진 날짜에 걸쳐있는지 확인.
+ * 모든 뷰에서 공통으로 사용.
+ */
+export function isEventOnDate(event: { startDate: Date | string; endDate: Date | string }, date: Date): boolean {
+  const start = event.startDate instanceof Date ? event.startDate : new Date(event.startDate);
+  const end = event.endDate instanceof Date ? event.endDate : new Date(event.endDate);
+  const target = new Date(date);
+  // 날짜 범위 비교 (시간 무시)
+  const s = new Date(start); s.setHours(0, 0, 0, 0);
+  const e = new Date(end); e.setHours(23, 59, 59, 999);
+  const d = new Date(target); d.setHours(12, 0, 0, 0);
+  return d >= s && d <= e;
+}
+
+/**
+ * Date | string 을 안전하게 Date로 변환.
+ */
+export function toDate(value: Date | string | number): Date {
+  return value instanceof Date ? value : new Date(value);
+}
+
 export const CATEGORY_LABELS: Record<string, string> = {
   event: '행사',
   meeting: '회의',

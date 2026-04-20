@@ -89,21 +89,24 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
   },
 
   syncExternalCalendars: async () => {
+    // 중복 sync 방지 (race condition)
+    if (get().loading) return;
     set({ loading: true });
-    const now = new Date();
-    const timeMin = startOfMonth(subMonths(now, 1));
-    const timeMax = endOfMonth(addMonths(now, 2));
-    let allExternal: PersonalEvent[] = [];
+    try {
+      const now = new Date();
+      const timeMin = startOfMonth(subMonths(now, 1));
+      const timeMax = endOfMonth(addMonths(now, 2));
+      let allExternal: PersonalEvent[] = [];
 
-    // Google Calendar
-    if (isGoogleConnected()) {
-      const googleEvents = await fetchGoogleCalendarEvents(timeMin, timeMax);
-      allExternal = [...allExternal, ...googleEvents];
+      if (isGoogleConnected()) {
+        const googleEvents = await fetchGoogleCalendarEvents(timeMin, timeMax);
+        allExternal = [...allExternal, ...googleEvents];
+      }
+
+      set({ externalEvents: allExternal });
+    } finally {
+      set({ loading: false });
     }
-
-    // Other providers would go here...
-
-    set({ externalEvents: allExternal, loading: false });
   },
 
   startAutoSync: (intervalMinutes) => {

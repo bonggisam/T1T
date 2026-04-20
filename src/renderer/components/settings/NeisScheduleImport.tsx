@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
-import { importNeisScheduleToFirestore, getNeisConfig } from '../../utils/neisSchedule';
-import { setNeisConfig } from '../meal/MealView';
+import { importNeisScheduleToFirestore, getNeisConfig, setNeisConfig } from '../../utils/neisSchedule';
 import { showToast } from '../common/Toast';
 import { SCHOOL_LABELS } from '@shared/types';
 
@@ -12,7 +11,7 @@ export function NeisScheduleImport() {
   const [schoolCode, setSchoolCode] = useState('');
 
   if (!user) return null;
-  const isAdmin = user.role === 'admin' || user.role === 'super_admin' || user.role === 'head_teacher';
+  const isAdmin = user.role === 'admin' || user.role === 'super_admin';
   if (!isAdmin) {
     return <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>관리자만 학사일정을 가져올 수 있습니다.</p>;
   }

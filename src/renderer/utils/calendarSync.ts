@@ -196,14 +196,17 @@ export async function deleteGoogleEvent(externalId: string): Promise<boolean> {
 function saveTokensToStorage(provider: string, tokens: any): void {
   try {
     localStorage.setItem(`cal_tokens_${provider}`, JSON.stringify(tokens));
-  } catch {}
+  } catch (err) {
+    console.warn(`[CalendarSync] Failed to save ${provider} tokens:`, err);
+  }
 }
 
 function loadTokensFromStorage(provider: string): any | null {
   try {
     const raw = localStorage.getItem(`cal_tokens_${provider}`);
     return raw ? JSON.parse(raw) : null;
-  } catch {
+  } catch (err) {
+    console.warn(`[CalendarSync] Failed to load ${provider} tokens:`, err);
     return null;
   }
 }
@@ -211,13 +214,18 @@ function loadTokensFromStorage(provider: string): any | null {
 function removeTokensFromStorage(provider: string): void {
   try {
     localStorage.removeItem(`cal_tokens_${provider}`);
-  } catch {}
+  } catch (err) {
+    console.warn(`[CalendarSync] Failed to remove ${provider} tokens:`, err);
+  }
 }
 
-/** Restore saved tokens on app load */
+/** Restore saved tokens on app load (만료 버퍼 적용) */
 export function restoreCalendarConnections(): void {
   const gTokens = loadTokensFromStorage('google');
-  if (gTokens && gTokens.expires_at > Date.now()) {
+  if (gTokens && gTokens.expires_at > Date.now() + TOKEN_EXPIRY_BUFFER_MS) {
     googleTokens = gTokens;
+  } else if (gTokens) {
+    // 만료 임박/완료 — 정리
+    removeTokensFromStorage('google');
   }
 }

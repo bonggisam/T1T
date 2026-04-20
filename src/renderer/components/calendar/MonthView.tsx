@@ -11,7 +11,7 @@ import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useComciganStore } from '../../store/comciganStore';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
 import { showToast } from '../common/Toast';
-import { formatEventTooltip, formatPersonalTooltip } from '../../utils/calendarHelpers';
+import { formatEventTooltip, formatPersonalTooltip, isEventOnDate } from '../../utils/calendarHelpers';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -90,27 +90,11 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
 
   // ─── 이벤트 필터링 ───
   function getEventsForDay(date: Date): CalendarEvent[] {
-    const d = new Date(date);
-    d.setHours(12, 0, 0, 0);
-    return events.filter((e) => {
-      const start = new Date(e.startDate);
-      const end = new Date(e.endDate);
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
-      return d >= start && d <= end;
-    });
+    return events.filter((e) => isEventOnDate(e, date));
   }
 
   function getPersonalEventsForDay(date: Date): PersonalEvent[] {
-    const d = new Date(date);
-    d.setHours(12, 0, 0, 0);
-    return personalEvents.filter((e) => {
-      const start = new Date(e.startDate);
-      const end = new Date(e.endDate);
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
-      return d >= start && d <= end;
-    });
+    return personalEvents.filter((e) => isEventOnDate(e, date));
   }
 
   // ─── 클릭 핸들러 ───
@@ -292,6 +276,8 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
             <div
               key={dayStr}
               data-day-str={dayStr}
+              role="gridcell"
+              aria-label={format(day, 'yyyy년 M월 d일')}
               onClick={(e) => handleDayCellClick(e, day, dayStr)}
               style={{
                 padding: '2px 3px',
@@ -375,6 +361,14 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
                     </div>
                   );
                 })}
+                {(dayEvents.length + dayPersonal.length) > MAX_VISIBLE && (
+                  <div style={{
+                    fontSize: 'calc(var(--schedule-font-size) - 1px)',
+                    color: 'var(--text-muted)', fontWeight: 600, padding: '0 3px',
+                  }}>
+                    +{(dayEvents.length + dayPersonal.length) - MAX_VISIBLE}개 더
+                  </div>
+                )}
 
                 {/* 시간표: 각 교시 한줄 */}
                 {comciganPeriods.map((cp) => (

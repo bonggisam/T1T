@@ -4,6 +4,7 @@ import { ko } from 'date-fns/locale';
 import { useNotificationStore } from '../../store/notificationStore';
 import { useAuthStore } from '../../store/authStore';
 import { useCalendarStore } from '../../store/calendarStore';
+import { showToast } from '../common/Toast';
 
 export function NotificationPanel() {
   const { notifications, markAsRead, markAllAsRead, setShowPanel } = useNotificationStore();
@@ -13,7 +14,10 @@ export function NotificationPanel() {
   function handleNotificationClick(notification: typeof notifications[0]) {
     if (!user) return;
     if (!notification.read) {
-      markAsRead(notification.id, user.id).catch((err) => console.warn('[Notification] markAsRead failed:', err));
+      markAsRead(notification.id, user.id).catch((err) => {
+        console.warn('[Notification] markAsRead failed:', err);
+        showToast('알림 읽음 표시 실패', 'error');
+      });
     }
     if (notification.eventId) {
       const event = events.find((e) => e.id === notification.eventId);
@@ -32,7 +36,7 @@ export function NotificationPanel() {
           <h4 style={styles.title}>🔔 알림</h4>
           <div style={styles.headerActions}>
             {notifications.some((n) => !n.read) && user && (
-              <button onClick={() => markAllAsRead(user.id).catch((err) => console.warn('[Notification] markAllAsRead failed:', err))} style={styles.readAllBtn}>
+              <button onClick={() => markAllAsRead(user.id).catch((err) => { console.warn('[Notification] markAllAsRead failed:', err); showToast('모두 읽음 표시 실패', 'error'); })} style={styles.readAllBtn}>
                 모두 읽음
               </button>
             )}

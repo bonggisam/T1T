@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { CheckCircle, XCircle, Info } from 'lucide-react';
 
 export interface ToastMessage {
   id: number;
@@ -50,7 +51,9 @@ export function ToastContainer() {
           }}
         >
           <span style={styles.icon}>
-            {t.type === 'success' ? '✅' : t.type === 'error' ? '❌' : 'ℹ️'}
+            {t.type === 'success' ? <CheckCircle size={16} strokeWidth={2.5} /> :
+             t.type === 'error' ? <XCircle size={16} strokeWidth={2.5} /> :
+             <Info size={16} strokeWidth={2.5} />}
           </span>
           <span style={styles.text}>{t.text}</span>
         </div>

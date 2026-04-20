@@ -25,6 +25,9 @@ export function TPassView({ onBack }: TPassViewProps) {
     webview.setAttribute('src', TPASS_URL);
     webview.setAttribute('style', 'width: 100%; height: 100%;');
     webview.setAttribute('allowpopups', '');
+    // Electron 보안: partition 분리, sandbox 활성
+    webview.setAttribute('partition', 'persist:tpass');
+    webview.setAttribute('webpreferences', 'contextIsolation=yes, nodeIntegration=no, sandbox=yes');
     webview.addEventListener('did-start-loading', onStartLoad);
     webview.addEventListener('did-stop-loading', onStopLoad);
     webview.addEventListener('did-fail-load', onFailLoad);

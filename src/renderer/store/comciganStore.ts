@@ -35,12 +35,18 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
 
   loadConfig: async () => {
     try {
+      set({ error: null });
       const config = await window.electronAPI?.comciganGetConfig() ?? null;
       let cached = await window.electronAPI?.comciganGetCached() ?? null;
 
       // If config exists but no cached data, trigger a fresh fetch
       if (config && !cached) {
-        cached = await window.electronAPI?.comciganFetch() ?? null;
+        try {
+          cached = await window.electronAPI?.comciganFetch() ?? null;
+        } catch (fetchErr: any) {
+          console.warn('[ComciganStore] Fetch failed:', fetchErr);
+          set({ error: fetchErr?.message || '시간표를 가져올 수 없습니다' });
+        }
       }
 
       set({ config, timetableData: cached });
@@ -65,8 +71,9 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
         }, 5 * 60 * 1000);
         set({ refreshTimer: timer });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[ComciganStore] loadConfig error:', err);
+      set({ error: err?.message || '시간표 설정 로드 실패' });
     }
   },
 

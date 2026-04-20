@@ -3,35 +3,32 @@ import { format, isSameDay, startOfToday, addDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
-import type { CalendarEvent, EventCategory } from '@shared/types';
+import { useUIStore } from '../../store/uiStore';
+import type { CalendarEvent } from '@shared/types';
 
 const CATEGORY_LABELS: Record<string, string> = {
   event: '행사', meeting: '회의', deadline: '마감일', notice: '공지', other: '기타',
 };
 
-interface AgendaViewProps {
-  categoryFilter: EventCategory | 'all';
-}
-
-export function AgendaView({ categoryFilter }: AgendaViewProps) {
+export function AgendaView() {
   const { setSelectedEvent, setShowEventDetail } = useCalendarStore();
+  const { categoryFilter } = useUIStore();
+  // useVisibleEvents가 이미 학교+카테고리 필터를 적용함 — 여기서는 날짜만 필터
   const events = useVisibleEvents();
 
   // 앞으로 60일간 일정
   const upcoming = useMemo(() => {
     const today = startOfToday();
     const end = addDays(today, 60);
-    let filtered = events.filter((e) => {
-      const start = new Date(e.startDate);
-      return start >= today && start <= end;
-    });
-    if (categoryFilter !== 'all') {
-      filtered = filtered.filter((e) => e.category === categoryFilter);
-    }
-    return filtered.sort((a, b) =>
-      new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
-    );
-  }, [events, categoryFilter]);
+    return events
+      .filter((e) => {
+        const start = new Date(e.startDate);
+        return start >= today && start <= end;
+      })
+      .sort((a, b) =>
+        new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+      );
+  }, [events]);
 
   // 날짜별로 그룹화
   const groups = useMemo(() => {
@@ -49,8 +46,8 @@ export function AgendaView({ categoryFilter }: AgendaViewProps) {
     <div style={styles.container}>
       {groups.length === 0 ? (
         <div style={styles.empty}>
-          <span style={{ fontSize: 24 }}>📭</span>
-          <span>예정된 일정이 없습니다</span>
+          <span style={{ fontSize: 24 }} role="img" aria-label="빈 상자">📭</span>
+          <span>{categoryFilter !== 'all' ? '해당 카테고리에 예정된 일정이 없습니다' : '예정된 일정이 없습니다'}</span>
         </div>
       ) : (
         groups.map(([dateKey, dayEvents]) => {

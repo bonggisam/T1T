@@ -40,7 +40,7 @@ export function Calendar({ onAddPersonalEvent }: CalendarProps = {}) {
         {view === 'week' && <WeekView onAddPersonalEvent={onAddPersonalEvent} />}
         {view === 'day' && <DayView onAddPersonalEvent={onAddPersonalEvent} />}
         {view === 'year' && <YearView />}
-        {view === 'agenda' && <AgendaView categoryFilter={categoryFilter} />}
+        {view === 'agenda' && <AgendaView />}
         {view === 'stats' && <StatsView />}
       </div>
       <EventLegend />

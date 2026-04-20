@@ -47,7 +47,7 @@ export interface ConnectedCalendar {
 // Events
 export interface ReadReceipt {
   name: string;
-  readAt: Date;
+  readAt: Date; // Firestore Timestamp → Date 로 변환되어 저장됨
 }
 
 export interface CalendarEvent {

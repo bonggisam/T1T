@@ -26,6 +26,9 @@ export function ReservView({ onBack }: ReservViewProps) {
     webview.setAttribute('src', RESERV_URL);
     webview.setAttribute('style', 'width: 100%; height: 100%;');
     webview.setAttribute('allowpopups', '');
+    // Electron 보안: partition 분리, node 비활성 (기본값)
+    webview.setAttribute('partition', 'persist:reserv');
+    webview.setAttribute('webpreferences', 'contextIsolation=yes, nodeIntegration=no, sandbox=yes');
     webview.addEventListener('did-start-loading', handlers.start);
     webview.addEventListener('did-stop-loading', handlers.stop);
     webview.addEventListener('did-fail-load', handlers.fail);
