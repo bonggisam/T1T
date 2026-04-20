@@ -24,6 +24,7 @@ interface TitleBarProps {
   showMeal?: boolean;
   theme?: 'light' | 'dark';
   onToggleTheme?: () => void;
+  onGoHome?: () => void; // 메인 달력으로 복귀
 }
 
 export function TitleBar({
@@ -33,6 +34,7 @@ export function TitleBar({
   onToggleReserv, showReserv,
   onToggleMeal, showMeal,
   theme, onToggleTheme,
+  onGoHome,
 }: TitleBarProps) {
   const { user } = useAuthStore();
   const { unreadCount, setShowPanel, showPanel } = useNotificationStore();
@@ -53,12 +55,34 @@ export function TitleBar({
     window.electronAPI?.setWidgetMode(next);
   }
 
-  // Widget mode: minimal edit-only bar
+  // Widget mode: 미니멀이지만 필수 탭 버튼은 포함
   if (widgetMode) {
     return (
       <div className="titlebar" style={styles.widgetBar}>
-        <span style={styles.widgetTitle}>ToneT</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <button onClick={onGoHome} style={styles.widgetTitleBtn} title="메인 달력으로">
+          <Calendar size={12} strokeWidth={2.2} style={{ marginRight: 3, verticalAlign: '-1px', color: 'var(--accent)' }} />
+          ToneT
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {user && onToggleTodos && (
+            <IconBtn Icon={CheckSquare} active={showTodos} onClick={onToggleTodos} title={showTodos ? '캘린더로' : '할 일'} compact />
+          )}
+          {user && onToggleReserv && (
+            <IconBtn Icon={Building2} active={showReserv} onClick={onToggleReserv} title={showReserv ? '캘린더로' : '회의실 예약'} compact />
+          )}
+          {user && onToggleMeal && (
+            <IconBtn Icon={UtensilsCrossed} active={showMeal} onClick={onToggleMeal} title={showMeal ? '캘린더로' : '급식 메뉴'} compact />
+          )}
+          {user && onToggleTPass && (
+            <button
+              onClick={onToggleTPass}
+              style={{ ...styles.iconBtnCompact, background: showTPass ? 'var(--bg-hover)' : 'transparent' }}
+              title={showTPass ? '캘린더로' : 'TPass 출결'}
+              aria-label="TPass"
+            >
+              <span style={styles.tpassIconCompact}>T</span>
+            </button>
+          )}
           <IconBtn Icon={BookOpen} active={showTimetable} onClick={toggleTimetable} title={showTimetable ? '시간표 숨기기' : '시간표 보기'} compact />
           <button onClick={handleToggleWidget} style={styles.editBtn} title="편집 모드 (Ctrl+Shift+C)">
             <Pencil size={12} strokeWidth={2} style={{ marginRight: 4, verticalAlign: '-2px' }} />편집
@@ -71,8 +95,15 @@ export function TitleBar({
   return (
     <div className="titlebar" style={styles.container}>
       <div style={styles.left}>
-        <Calendar size={18} strokeWidth={2.2} color="var(--accent)" />
-        <span style={styles.title}>ToneT</span>
+        <button
+          onClick={onGoHome}
+          style={styles.homeBtn}
+          title="메인 달력으로"
+          aria-label="메인 달력"
+        >
+          <Calendar size={18} strokeWidth={2.2} color="var(--accent)" />
+          <span style={styles.title}>ToneT</span>
+        </button>
         {user && (
           <span style={{
             ...styles.schoolPill,
@@ -207,6 +238,45 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     color: 'var(--text-muted)',
     letterSpacing: 1,
+  },
+  widgetTitleBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '2px 6px',
+    fontSize: 11,
+    fontWeight: 700,
+    color: 'var(--text-secondary)',
+    letterSpacing: 0.5,
+    borderRadius: 4,
+    transition: 'all 0.15s',
+  },
+  homeBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '4px 8px',
+    borderRadius: 8,
+    transition: 'background 0.15s',
+  },
+  tpassIconCompact: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 16,
+    height: 16,
+    borderRadius: 3,
+    background: 'var(--accent)',
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 800,
+    lineHeight: 1,
+    fontFamily: 'Arial, sans-serif',
   },
   left: {
     display: 'flex',

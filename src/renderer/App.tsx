@@ -200,6 +200,7 @@ export function App() {
         showMeal={showMeal}
         theme={theme}
         onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        onGoHome={closeAllTabs}
       />
       <UpdateBanner />
       {isOffline && (
