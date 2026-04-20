@@ -21,12 +21,22 @@ export function SlackSettings() {
   }
 
   async function handleTest() {
-    if (!url.trim()) { showToast('URL을 먼저 입력하세요', 'error'); return; }
-    setSlackWebhook(url.trim());
+    const trimmed = url.trim();
+    if (!trimmed) { showToast('URL을 먼저 입력하세요', 'error'); return; }
+    if (!trimmed.startsWith('https://hooks.slack.com/')) {
+      showToast('Slack Webhook URL이 아닙니다', 'error');
+      return;
+    }
     setTesting(true);
+    // 테스트용으로만 임시 저장 후 원래 값 복원 (저장은 handleSave에서만)
+    const prev = getSlackWebhook();
+    setSlackWebhook(trimmed);
     const ok = await sendSlackNotification('👋 ToneT 연결 테스트입니다!');
+    // 저장 안 된 상태였다면 되돌리기
+    if (!prev) clearSlackWebhook();
+    else setSlackWebhook(prev);
     setTesting(false);
-    if (ok) showToast('테스트 메시지 전송 완료');
+    if (ok) showToast('테스트 메시지 전송 완료 — 저장을 누르세요');
     else showToast('전송 실패 — URL을 확인하세요', 'error');
   }
 

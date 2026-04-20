@@ -44,6 +44,7 @@ export const useTodosStore = create<TodosState>((set, get) => ({
     prev?.();
 
     set({ loading: true });
+    // userId로 필터링 (사용자 본인 todos만) — where school 없이도 안전
     const q = query(
       collection(db, 'todos'),
       where('userId', '==', userId),

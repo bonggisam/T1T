@@ -33,9 +33,12 @@ export async function sendSlackNotification(text: string, opts?: { emoji?: strin
         icon_emoji: opts?.emoji || ':calendar:',
       }),
     });
+    if (!res.ok) {
+      console.warn(`[Slack] Failed with HTTP ${res.status}: ${await res.text().catch(() => '')}`);
+    }
     return res.ok;
   } catch (err) {
-    console.warn('[Slack] Notification failed:', err);
+    console.warn('[Slack] Notification failed (network/CORS):', err);
     return false;
   }
 }

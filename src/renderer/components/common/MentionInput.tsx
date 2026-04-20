@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+
 import { useUsersStore } from '../../store/usersStore';
 
 interface MentionInputProps {
@@ -18,9 +19,28 @@ export function MentionInput({ value, onChange, onSubmit, placeholder, disabled,
   const inputRef = useRef<HTMLInputElement>(null);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [popupPosition, setPopupPosition] = useState<'top' | 'bottom'>('top');
+
+  useEffect(() => {
+    if (mentionQuery !== null && inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      // input이 화면 상단 절반이면 popup을 아래에, 아니면 위에
+      setPopupPosition(rect.top < window.innerHeight / 2 ? 'bottom' : 'top');
+    }
+  }, [mentionQuery]);
 
   const filteredUsers = mentionQuery !== null
-    ? users.filter((u) => u.name.includes(mentionQuery) || u.email.startsWith(mentionQuery)).slice(0, 5)
+    ? users
+        .filter((u) => u.name.includes(mentionQuery) || u.email.startsWith(mentionQuery))
+        .sort((a, b) => {
+          // 시작 매칭 우선, 그다음 이름 가나다순
+          const aStart = a.name.startsWith(mentionQuery);
+          const bStart = b.name.startsWith(mentionQuery);
+          if (aStart && !bStart) return -1;
+          if (!aStart && bStart) return 1;
+          return a.name.localeCompare(b.name, 'ko');
+        })
+        .slice(0, 5)
     : [];
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -82,7 +102,12 @@ export function MentionInput({ value, onChange, onSubmit, placeholder, disabled,
         style={style}
       />
       {mentionQuery !== null && filteredUsers.length > 0 && (
-        <div style={mStyles.popup}>
+        <div style={{
+          ...mStyles.popup,
+          ...(popupPosition === 'top'
+            ? { bottom: '100%', marginBottom: 4 }
+            : { top: '100%', marginTop: 4 }),
+        }}>
           {filteredUsers.map((u, i) => (
             <div
               key={u.id}
@@ -107,30 +132,41 @@ export function MentionInput({ value, onChange, onSubmit, placeholder, disabled,
 }
 
 /**
+ * 멘션 패턴: 공백 또는 문자열 시작 뒤의 @이름 (이메일 내부 @ 제외).
+ * 한글·영문·숫자·언더스코어 이름만 매칭.
+ */
+const MENTION_RE = /(^|\s)@([\w가-힣]+)/g;
+
+/**
  * 텍스트 내 @이름 패턴을 React 요소로 렌더링.
  */
 export function renderMentions(text: string): React.ReactNode {
-  const parts = text.split(/(@[^\s@]+)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('@')) {
-      return <span key={i} style={{ color: 'var(--accent)', fontWeight: 600 }}>{part}</span>;
-    }
-    return <React.Fragment key={i}>{part}</React.Fragment>;
-  });
+  const out: React.ReactNode[] = [];
+  let lastIdx = 0;
+  let key = 0;
+  for (const m of text.matchAll(MENTION_RE)) {
+    const matchStart = m.index! + m[1].length; // 선행 공백 제외
+    if (matchStart > lastIdx) out.push(<React.Fragment key={key++}>{text.slice(lastIdx, matchStart)}</React.Fragment>);
+    out.push(<span key={key++} style={{ color: 'var(--accent)', fontWeight: 600 }}>@{m[2]}</span>);
+    lastIdx = matchStart + 1 + m[2].length;
+  }
+  if (lastIdx < text.length) out.push(<React.Fragment key={key++}>{text.slice(lastIdx)}</React.Fragment>);
+  return out;
 }
 
 /**
- * 텍스트에서 멘션된 사용자 이름 추출.
+ * 텍스트에서 멘션된 사용자 이름 추출 (이메일 @ 제외).
  */
 export function extractMentions(text: string): string[] {
-  const matches = text.match(/@([^\s@]+)/g) || [];
-  return matches.map((m) => m.slice(1));
+  const out: string[] = [];
+  for (const m of text.matchAll(MENTION_RE)) out.push(m[2]);
+  return out;
 }
 
 const mStyles: Record<string, React.CSSProperties> = {
   popup: {
-    position: 'absolute', bottom: '100%', left: 0, right: 0,
-    marginBottom: 4, padding: 4, borderRadius: 8,
+    position: 'absolute', left: 0, right: 0,
+    padding: 4, borderRadius: 8,
     background: 'var(--bg-modal, #fff)',
     border: '1px solid var(--border-color)',
     boxShadow: '0 4px 16px rgba(0,0,0,0.2)',

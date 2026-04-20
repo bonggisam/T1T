@@ -124,10 +124,13 @@ export function EventDetail() {
       showToast('일정이 삭제되었습니다');
       setShowEventDetail(false);
       setSelectedEvent(null);
+      setEditing(false);
     } catch (err) {
       console.error('Delete failed:', err);
+      showToast('삭제 실패', 'error');
+    } finally {
+      setDeleting(false);
     }
-    setDeleting(false);
   }
 
   async function handleAddComment() {
@@ -211,8 +214,8 @@ export function EventDetail() {
         allDay: editAllDay,
       };
       await updateEvent(selectedEvent.id, updates);
-      // 편집 후 selectedEvent 갱신
-      setSelectedEvent({ ...selectedEvent, ...updates });
+      // 편집 후 selectedEvent 갱신 (updatedAt도 현재 시각으로)
+      setSelectedEvent({ ...selectedEvent, ...updates, updatedAt: new Date() });
       showToast('일정이 수정되었습니다');
       setEditing(false);
     } catch (err) {

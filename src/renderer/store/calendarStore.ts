@@ -135,8 +135,11 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
   },
 
   addEvent: async (event) => {
+    // school 필드 필수 (기본값 'all'로 안전망)
+    const schoolValue = event.school || 'all';
     const docRef = await addDoc(collection(db, 'events'), {
       ...event,
+      school: schoolValue,
       startDate: Timestamp.fromDate(event.startDate),
       endDate: Timestamp.fromDate(event.endDate),
       createdAt: serverTimestamp(),

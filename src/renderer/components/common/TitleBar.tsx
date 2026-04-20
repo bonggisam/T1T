@@ -1,4 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import {
+  Calendar, CheckSquare, Building2, UtensilsCrossed, BookOpen,
+  Bell, Users, Settings, Sun, Moon, Pin, Minus, X,
+  GraduationCap, School as SchoolIcon, Pencil,
+} from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/notificationStore';
 import { useComciganStore } from '../../store/comciganStore';
@@ -17,6 +22,8 @@ interface TitleBarProps {
   showReserv?: boolean;
   onToggleMeal?: () => void;
   showMeal?: boolean;
+  theme?: 'light' | 'dark';
+  onToggleTheme?: () => void;
 }
 
 export function TitleBar({
@@ -25,6 +32,7 @@ export function TitleBar({
   onToggleTodos, showTodos,
   onToggleReserv, showReserv,
   onToggleMeal, showMeal,
+  theme, onToggleTheme,
 }: TitleBarProps) {
   const { user } = useAuthStore();
   const { unreadCount, setShowPanel, showPanel } = useNotificationStore();
@@ -51,9 +59,9 @@ export function TitleBar({
       <div className="titlebar" style={styles.widgetBar}>
         <span style={styles.widgetTitle}>ToneT</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <IconBtn icon="📚" active={showTimetable} onClick={toggleTimetable} title={showTimetable ? '시간표 숨기기' : '시간표 보기'} compact />
+          <IconBtn Icon={BookOpen} active={showTimetable} onClick={toggleTimetable} title={showTimetable ? '시간표 숨기기' : '시간표 보기'} compact />
           <button onClick={handleToggleWidget} style={styles.editBtn} title="편집 모드 (Ctrl+Shift+C)">
-            ✏️ 편집
+            <Pencil size={12} strokeWidth={2} style={{ marginRight: 4, verticalAlign: '-2px' }} />편집
           </button>
         </div>
       </div>
@@ -63,7 +71,7 @@ export function TitleBar({
   return (
     <div className="titlebar" style={styles.container}>
       <div style={styles.left}>
-        <span style={styles.logo}>📅</span>
+        <Calendar size={18} strokeWidth={2.2} color="var(--accent)" />
         <span style={styles.title}>ToneT</span>
         {user && (
           <span style={{
@@ -71,7 +79,11 @@ export function TitleBar({
             background: user.school === 'taeseong_high' ? 'rgba(139,92,246,0.15)' : 'rgba(16,185,129,0.15)',
             color: user.school === 'taeseong_high' ? '#8B5CF6' : '#10B981',
           }}>
-            {user.school === 'taeseong_high' ? '🎓 태성고' : '🏫 태성중'}
+            {user.school === 'taeseong_high' ? (
+              <><GraduationCap size={11} strokeWidth={2.5} style={{ verticalAlign: '-1px' }} /> 태성고</>
+            ) : (
+              <><SchoolIcon size={11} strokeWidth={2.5} style={{ verticalAlign: '-1px' }} /> 태성중</>
+            )}
           </span>
         )}
       </div>
@@ -80,50 +92,60 @@ export function TitleBar({
         {showSettingsBtn && user && (
           <>
             {onToggleTodos && (
-              <IconBtn icon="✅" active={showTodos} onClick={onToggleTodos} title={showTodos ? '캘린더로' : '할 일'} />
+              <IconBtn Icon={CheckSquare} active={showTodos} onClick={onToggleTodos} title={showTodos ? '캘린더로' : '할 일'} />
             )}
             {onToggleReserv && (
-              <IconBtn icon="🏢" active={showReserv} onClick={onToggleReserv} title={showReserv ? '캘린더로' : '회의실 예약'} />
+              <IconBtn Icon={Building2} active={showReserv} onClick={onToggleReserv} title={showReserv ? '캘린더로' : '회의실 예약'} />
             )}
             {onToggleMeal && (
-              <IconBtn icon="🍱" active={showMeal} onClick={onToggleMeal} title={showMeal ? '캘린더로' : '급식 메뉴'} />
+              <IconBtn Icon={UtensilsCrossed} active={showMeal} onClick={onToggleMeal} title={showMeal ? '캘린더로' : '급식 메뉴'} />
             )}
             {onToggleTPass && (
               <button
                 onClick={onToggleTPass}
                 style={{ ...styles.iconBtn, background: showTPass ? 'var(--bg-hover)' : 'transparent' }}
                 title={showTPass ? '캘린더로' : 'TPass 출결'}
+                aria-label="TPass"
               >
                 <span style={styles.tpassIcon}>T</span>
               </button>
             )}
             <div style={styles.divider} />
-            <IconBtn icon="📚" active={showTimetable} onClick={toggleTimetable} title={showTimetable ? '시간표 숨기기' : '시간표 보기'} />
+            <IconBtn Icon={BookOpen} active={showTimetable} onClick={toggleTimetable} title={showTimetable ? '시간표 숨기기' : '시간표 보기'} />
             <button
               onClick={() => setShowPanel(!showPanel)}
               style={{ ...styles.iconBtn, background: showPanel ? 'var(--bg-hover)' : 'transparent', position: 'relative' }}
               title="알림"
+              aria-label="알림"
             >
-              <span style={styles.iconText}>🔔</span>
+              <Bell size={18} strokeWidth={2} />
               {unreadCount > 0 && (
                 <span style={styles.badge}>{unreadCount > 9 ? '9+' : unreadCount}</span>
               )}
             </button>
             {showAdminBtn && (
-              <IconBtn icon="👥" onClick={onToggleAdmin} title="관리자" />
+              <IconBtn Icon={Users} onClick={onToggleAdmin} title="관리자" />
             )}
-            <IconBtn icon="⚙️" onClick={onToggleSettings} title="설정" />
+            <IconBtn Icon={Settings} onClick={onToggleSettings} title="설정" />
+            {onToggleTheme && (
+              <IconBtn
+                Icon={theme === 'dark' ? Sun : Moon}
+                onClick={onToggleTheme}
+                title={theme === 'dark' ? '라이트 모드' : '다크 모드'}
+              />
+            )}
             <div style={styles.divider} />
           </>
         )}
-        <IconBtn icon="📌" onClick={handleToggleWidget} title="위젯 모드 (바탕 고정)" accent />
-        <IconBtn icon="─" onClick={() => window.electronAPI?.minimize()} title="최소화" />
+        <IconBtn Icon={Pin} onClick={handleToggleWidget} title="위젯 모드 (바탕 고정)" accent />
+        <IconBtn Icon={Minus} onClick={() => window.electronAPI?.minimize()} title="최소화" />
         <button
           onClick={() => window.electronAPI?.close()}
           style={{ ...styles.iconBtn, ...styles.closeBtn }}
           title="종료"
+          aria-label="종료"
         >
-          <span style={styles.iconText}>✕</span>
+          <X size={18} strokeWidth={2} />
         </button>
       </div>
     </div>
@@ -131,7 +153,8 @@ export function TitleBar({
 }
 
 interface IconBtnProps {
-  icon: string;
+  Icon?: React.ComponentType<any>;
+  icon?: string; // fallback 이모지 (레거시)
   title: string;
   onClick: () => void;
   active?: boolean;
@@ -139,7 +162,8 @@ interface IconBtnProps {
   compact?: boolean;
 }
 
-function IconBtn({ icon, title, onClick, active, accent, compact }: IconBtnProps) {
+function IconBtn({ Icon, icon, title, onClick, active, accent, compact }: IconBtnProps) {
+  const size = compact ? 14 : 18;
   return (
     <button
       onClick={onClick}
@@ -150,8 +174,9 @@ function IconBtn({ icon, title, onClick, active, accent, compact }: IconBtnProps
         opacity: active === false ? 0.5 : 1,
       }}
       title={title}
+      aria-label={title}
     >
-      <span style={compact ? styles.iconTextCompact : styles.iconText}>{icon}</span>
+      {Icon ? <Icon size={size} strokeWidth={2} /> : <span style={compact ? styles.iconTextCompact : styles.iconText}>{icon}</span>}
     </button>
   );
 }

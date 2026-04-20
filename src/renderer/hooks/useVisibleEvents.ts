@@ -13,10 +13,8 @@ export function useVisibleEvents(): CalendarEvent[] {
   const categoryFilter = useCategoryFilter();
 
   return useMemo(() => {
-    let filtered = events;
-    if (user) {
-      filtered = filtered.filter((e) => e.school === 'all' || e.school === user.school);
-    }
+    if (!user) return []; // 로그인 전엔 아무것도 노출 안 함
+    let filtered = events.filter((e) => e.school === 'all' || e.school === user.school);
     if (categoryFilter !== 'all') {
       filtered = filtered.filter((e) => e.category === categoryFilter);
     }

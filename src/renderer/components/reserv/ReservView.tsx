@@ -16,33 +16,39 @@ export function ReservView({ onBack }: ReservViewProps) {
     if (!container) return;
 
     let mounted = true;
-    const onStartLoad = () => { if (mounted) setLoading(true); };
-    const onStopLoad = () => { if (mounted) setLoading(false); };
-    const onFailLoad = () => { if (mounted) setLoading(false); };
+    const handlers = {
+      start: () => { if (mounted) setLoading(true); },
+      stop: () => { if (mounted) setLoading(false); },
+      fail: () => { if (mounted) setLoading(false); },
+    };
 
     const webview = document.createElement('webview');
     webview.setAttribute('src', RESERV_URL);
     webview.setAttribute('style', 'width: 100%; height: 100%;');
     webview.setAttribute('allowpopups', '');
-    webview.addEventListener('did-start-loading', onStartLoad);
-    webview.addEventListener('did-stop-loading', onStopLoad);
-    webview.addEventListener('did-fail-load', onFailLoad);
+    webview.addEventListener('did-start-loading', handlers.start);
+    webview.addEventListener('did-stop-loading', handlers.stop);
+    webview.addEventListener('did-fail-load', handlers.fail);
 
     container.appendChild(webview);
     webviewRef.current = webview;
 
     return () => {
       mounted = false;
-      webview.removeEventListener('did-start-loading', onStartLoad);
-      webview.removeEventListener('did-stop-loading', onStopLoad);
-      webview.removeEventListener('did-fail-load', onFailLoad);
+      webview.removeEventListener('did-start-loading', handlers.start);
+      webview.removeEventListener('did-stop-loading', handlers.stop);
+      webview.removeEventListener('did-fail-load', handlers.fail);
       if (webview.parentNode) webview.parentNode.removeChild(webview);
       webviewRef.current = null;
     };
   }, []);
 
-  function reload() { webviewRef.current?.reload?.(); }
-  function goBack() { if (webviewRef.current?.canGoBack?.()) webviewRef.current.goBack(); }
+  function reload() {
+    try { webviewRef.current?.reload?.(); } catch (err) { console.warn('[ReservView] reload failed:', err); }
+  }
+  function goBack() {
+    try { if (webviewRef.current?.canGoBack?.()) webviewRef.current.goBack(); } catch (err) { console.warn('[ReservView] goBack failed:', err); }
+  }
 
   return (
     <div className="animate-fade-in" style={styles.container}>

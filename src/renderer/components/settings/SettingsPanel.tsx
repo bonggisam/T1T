@@ -5,6 +5,7 @@ import { useAuthStore } from '../../store/authStore';
 import { CalendarSyncSettings } from './CalendarSyncSettings';
 import { ComciganSettings } from './ComciganSettings';
 import { SlackSettings } from './SlackSettings';
+import { NeisScheduleImport } from './NeisScheduleImport';
 
 interface SettingsPanelProps {
   onClose: () => void;
@@ -245,6 +246,11 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
         {/* Comcigan timetable */}
         <Section title="🏫 컴시간 시간표">
           <ComciganSettings />
+        </Section>
+
+        {/* NEIS Schedule Import */}
+        <Section title="📅 학사일정 (NEIS)">
+          <NeisScheduleImport />
         </Section>
 
         {/* Info */}

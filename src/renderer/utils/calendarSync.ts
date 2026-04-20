@@ -15,8 +15,10 @@ interface GoogleTokens {
 
 let googleTokens: GoogleTokens | null = null;
 
+const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // 5분 여유
+
 export function isGoogleConnected(): boolean {
-  return googleTokens !== null && googleTokens.expires_at > Date.now();
+  return googleTokens !== null && googleTokens.expires_at > Date.now() + TOKEN_EXPIRY_BUFFER_MS;
 }
 
 /**

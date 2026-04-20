@@ -5,22 +5,20 @@ import { useAuthStore } from '../../store/authStore';
 
 /**
  * NEIS Open API — 교육정보개방포털의 급식 데이터
- * 학교별 교육청 코드 + 학교 코드가 필요하나 공개 API로 이름 검색 가능
- * 이 앱은 태성중/고 전용이므로 하드코딩.
- * 실제 값은 교육청·학교에 따라 맞춰야 함 — 임의값으로 시작하되 설정 화면에서 변경 가능하게.
+ * 학교별 교육청 코드 + 학교 코드를 localStorage에 저장 (설정에서 변경 가능).
  */
-const SCHOOL_CODES: Record<string, { education: string; school: string; name: string }> = {
-  taeseong_middle: {
-    education: 'G10', // 강원도교육청 (예시)
-    school: '7734135', // 실제 학교 코드로 교체 필요
-    name: '태성중학교',
-  },
-  taeseong_high: {
-    education: 'G10',
-    school: '7734136', // 실제 학교 코드로 교체 필요
-    name: '태성고등학교',
-  },
-};
+interface NeisConfig { education: string; school: string; }
+
+function getNeisConfig(schoolKey: string): NeisConfig | null {
+  try {
+    const raw = localStorage.getItem(`tonet-neis-${schoolKey}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+export function setNeisConfig(schoolKey: string, cfg: NeisConfig): void {
+  try { localStorage.setItem(`tonet-neis-${schoolKey}`, JSON.stringify(cfg)); } catch {}
+}
 
 interface MealInfo {
   date: string; // YYYYMMDD
@@ -38,8 +36,11 @@ export function MealView({ onBack }: MealViewProps) {
   const [meals, setMeals] = useState<MealInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSetup, setShowSetup] = useState(false);
+  const [eduCode, setEduCode] = useState('');
+  const [schoolCode, setSchoolCode] = useState('');
 
-  const schoolConfig = user?.school ? SCHOOL_CODES[user.school] : null;
+  const schoolConfig = user?.school ? getNeisConfig(user.school) : null;
 
   const weekDays = useMemo(() => {
     return Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
@@ -59,7 +60,13 @@ export function MealView({ onBack }: MealViewProps) {
       const to = format(addDays(weekStart, 4), 'yyyyMMdd');
       const url = `https://open.neis.go.kr/hub/mealServiceDietInfo?Type=json&pIndex=1&pSize=100&ATPT_OFCDC_SC_CODE=${schoolConfig.education}&SD_SCHUL_CODE=${schoolConfig.school}&MLSV_FROM_YMD=${from}&MLSV_TO_YMD=${to}`;
       const res = await fetch(url);
+      if (!res.ok) throw new Error(`NEIS HTTP ${res.status}`);
       const json = await res.json();
+      // NEIS API: 데이터 없으면 RESULT.CODE !== 'INFO-000'
+      if (json?.RESULT && json.RESULT.CODE !== 'INFO-000') {
+        setMeals([]);
+        return;
+      }
       const rows = json?.mealServiceDietInfo?.[1]?.row || [];
       setMeals(rows.map((r: any) => ({
         date: r.MLSV_YMD,
@@ -69,6 +76,7 @@ export function MealView({ onBack }: MealViewProps) {
     } catch (err: any) {
       console.error('[Meal] fetch failed:', err);
       setError('급식 정보를 불러올 수 없습니다. (학교 코드 확인 필요)');
+      setMeals([]);
     }
     setLoading(false);
   }
@@ -99,7 +107,34 @@ export function MealView({ onBack }: MealViewProps) {
       </div>
 
       {!schoolConfig && (
-        <div style={styles.error}>학교 정보가 없습니다.</div>
+        <div style={styles.setup}>
+          <p style={styles.setupDesc}>
+            ⚙️ NEIS 학교 코드 설정이 필요합니다.
+            <br />
+            <a href="https://open.neis.go.kr/portal/guide/actKnowHow.do" target="_blank" rel="noreferrer" style={styles.link}>
+              학교 코드 조회 →
+            </a>
+          </p>
+          <input
+            type="text" placeholder="교육청 코드 (예: K10)"
+            value={eduCode} onChange={(e) => setEduCode(e.target.value)}
+            style={styles.setupInput}
+          />
+          <input
+            type="text" placeholder="학교 코드 (7자리 숫자)"
+            value={schoolCode} onChange={(e) => setSchoolCode(e.target.value)}
+            style={styles.setupInput}
+          />
+          <button
+            onClick={() => {
+              if (!eduCode.trim() || !schoolCode.trim() || !user) return;
+              setNeisConfig(user.school, { education: eduCode.trim(), school: schoolCode.trim() });
+              window.location.reload();
+            }}
+            style={styles.setupBtn}
+            disabled={!eduCode.trim() || !schoolCode.trim()}
+          >저장</button>
+        </div>
       )}
       {error && <div style={styles.error}>{error}</div>}
 
@@ -185,4 +220,21 @@ const styles: Record<string, React.CSSProperties> = {
   calorie: { fontSize: 10, color: 'var(--text-muted)', marginTop: 4, display: 'block' },
   noMeal: { fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' },
   footer: { fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', marginTop: 8 },
+  setup: {
+    display: 'flex', flexDirection: 'column', gap: 6,
+    padding: 12, marginBottom: 8, borderRadius: 8,
+    background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)',
+  },
+  setupDesc: { fontSize: 11, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 },
+  link: { color: 'var(--accent)', textDecoration: 'none', fontSize: 10 },
+  setupInput: {
+    padding: '6px 10px', fontSize: 11,
+    border: '1px solid var(--border-color)', borderRadius: 6,
+    background: 'var(--bg-primary, #fff)', color: 'var(--text-primary)', outline: 'none',
+  },
+  setupBtn: {
+    padding: '6px', fontSize: 11, fontWeight: 600,
+    border: 'none', borderRadius: 6,
+    background: 'var(--accent)', color: '#fff', cursor: 'pointer',
+  },
 };

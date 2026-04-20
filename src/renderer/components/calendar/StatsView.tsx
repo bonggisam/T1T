@@ -72,7 +72,7 @@ export function StatsView() {
         <StatCard label="총 일정" value={stats.total.toString()} icon="📅" />
         <StatCard
           label="가장 바쁜 날"
-          value={stats.busiestDay ? `${stats.busiestDay[0]} (${stats.busiestDay[1]}건)` : '-'}
+          value={stats.busiestDay && stats.busiestDay[0] ? `${stats.busiestDay[0]} (${stats.busiestDay[1]}건)` : '-'}
           icon="🔥"
         />
       </div>

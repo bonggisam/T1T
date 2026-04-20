@@ -198,6 +198,8 @@ export function App() {
         showReserv={showReserv}
         onToggleMeal={() => { const next = !showMeal; closeAllTabs(); setShowMeal(next); }}
         showMeal={showMeal}
+        theme={theme}
+        onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
       />
       <UpdateBanner />
       {isOffline && (
