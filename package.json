@@ -54,6 +54,7 @@
         "dmg",
         "zip"
       ],
+      "identity": "-",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "type": "development"
