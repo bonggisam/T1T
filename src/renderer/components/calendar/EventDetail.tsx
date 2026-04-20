@@ -17,6 +17,9 @@ import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
 import type { ChecklistItem, EventComment, EventCategory } from '@shared/types';
 import { showToast } from '../common/Toast';
+import { MentionInput, renderMentions, extractMentions } from '../common/MentionInput';
+import { useUsersStore } from '../../store/usersStore';
+import { notifyUser } from '../../utils/notifications';
 
 const CATEGORY_LABELS: Record<string, string> = {
   event: '행사',
@@ -139,6 +142,23 @@ export function EventDetail() {
         text: text.slice(0, 500),
         createdAt: serverTimestamp(),
       });
+      // 멘션된 사용자에게 알림 전송
+      const mentionedNames = extractMentions(text);
+      if (mentionedNames.length > 0) {
+        const allUsers = useUsersStore.getState().users;
+        for (const name of mentionedNames) {
+          const target = allUsers.find((u) => u.name === name);
+          if (target && target.id !== user.id) {
+            notifyUser(
+              target.id,
+              'new_event',
+              `💬 ${user.name}님이 "${selectedEvent.title}"에서 언급했습니다`,
+              selectedEvent.id,
+              user.id,
+            );
+          }
+        }
+      }
       setNewComment('');
     } catch (err) {
       console.error('Failed to add comment:', err);
@@ -385,20 +405,18 @@ export function EventDetail() {
                     )}
                   </div>
                 </div>
-                <p style={styles.commentText}>{c.text}</p>
+                <p style={styles.commentText}>{renderMentions(c.text)}</p>
               </div>
             ))}
           </div>
           {user && (
             <div style={styles.commentInput}>
-              <input
-                type="text"
-                placeholder="댓글을 입력하세요..."
+              <MentionInput
                 value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
+                onChange={setNewComment}
+                onSubmit={handleAddComment}
+                placeholder="댓글 (@로 멘션)"
                 style={styles.commentTextInput}
-                maxLength={500}
               />
               <button
                 onClick={handleAddComment}

@@ -16,6 +16,9 @@ import {
   isGoogleConnected,
   fetchGoogleCalendarEvents,
   restoreCalendarConnections,
+  createGoogleEvent,
+  updateGoogleEvent,
+  deleteGoogleEvent,
 } from '../utils/calendarSync';
 import { cachePersonalEvents, getCachedPersonalEvents } from '../utils/offlineCache';
 import type { PersonalEvent } from '@shared/types';
@@ -125,8 +128,19 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
   },
 
   addPersonalEvent: async (userId, event) => {
+    // 로컬 일정인 경우 + 구글 연결된 경우 → 구글 캘린더에도 생성
+    let externalId = event.externalId;
+    if (event.source === 'local' && isGoogleConnected()) {
+      externalId = await createGoogleEvent({
+        title: event.title,
+        description: event.description,
+        startDate: event.startDate,
+        endDate: event.endDate,
+      });
+    }
     const docRef = await addDoc(collection(db, 'personal_events', userId, 'events'), {
       ...event,
+      externalId,
       startDate: Timestamp.fromDate(event.startDate),
       endDate: Timestamp.fromDate(event.endDate),
     });
@@ -145,10 +159,26 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
       if (isNaN(d.getTime())) throw new Error('Invalid endDate');
       updateData.endDate = Timestamp.fromDate(d);
     }
+    // 구글 연결 + externalId 있으면 구글에도 반영
+    const pe = get().personalEvents.find((p) => p.id === eventId);
+    if (pe?.externalId && isGoogleConnected()) {
+      updateGoogleEvent(pe.externalId, {
+        title: updates.title ?? pe.title,
+        description: updates.description ?? pe.description,
+        startDate: (updates.startDate instanceof Date ? updates.startDate : pe.startDate),
+        endDate: (updates.endDate instanceof Date ? updates.endDate : pe.endDate),
+      }).catch((err) => console.warn('[PersonalEventStore] Google sync (update) failed:', err));
+    }
     await updateDoc(doc(db, 'personal_events', userId, 'events', eventId), updateData);
   },
 
   deletePersonalEvent: async (userId, eventId) => {
+    const pe = get().personalEvents.find((p) => p.id === eventId);
+    if (pe?.externalId && isGoogleConnected()) {
+      deleteGoogleEvent(pe.externalId).catch((err) =>
+        console.warn('[PersonalEventStore] Google sync (delete) failed:', err)
+      );
+    }
     await deleteDoc(doc(db, 'personal_events', userId, 'events', eventId));
   },
 

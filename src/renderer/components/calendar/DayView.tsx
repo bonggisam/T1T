@@ -7,6 +7,8 @@ import { usePersonalEventStore } from '../../store/personalEventStore';
 import { showToast } from '../common/Toast';
 import { formatEventTooltip, formatPersonalTooltip } from '../../utils/calendarHelpers';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
+import { useComciganStore } from '../../store/comciganStore';
+import { hasTimetableOverlap } from '../../utils/timetableOverlap';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
@@ -28,13 +30,15 @@ interface DragInfo {
   activated: boolean;
   originHour: number;
   mode: 'move' | 'resize'; // move=전체이동, resize=종료시간변경
+  copy: boolean; // Alt 키 눌린 상태 = 복사
 }
 
 export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
-  const { selectedDate, setSelectedDate, setSelectedEvent, setShowEventDetail, setShowEventModal, updateEvent } = useCalendarStore();
+  const { selectedDate, setSelectedDate, setSelectedEvent, setShowEventDetail, setShowEventModal, updateEvent, addEvent } = useCalendarStore();
   const events = useVisibleEvents();
+  const { getPeriodsForWeekday } = useComciganStore();
   const { user } = useAuthStore();
-  const { allPersonalEvents, updatePersonalEvent } = usePersonalEventStore();
+  const { allPersonalEvents, updatePersonalEvent, addPersonalEvent } = usePersonalEventStore();
   const personalEvents = allPersonalEvents();
 
   const gridRef = useRef<HTMLDivElement>(null);
@@ -124,7 +128,7 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
     }
     e.preventDefault();
     e.stopPropagation();
-    dragRef.current = { eventId, type, startX: e.clientX, startY: e.clientY, activated: false, originHour: hour, mode: 'move' };
+    dragRef.current = { eventId, type, startX: e.clientX, startY: e.clientY, activated: false, originHour: hour, mode: 'move', copy: e.altKey };
   }
 
   function handleResizeMouseDown(e: React.MouseEvent, eventId: string, type: 'shared' | 'personal', hour: number) {
@@ -137,7 +141,7 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
     }
     e.preventDefault();
     e.stopPropagation();
-    dragRef.current = { eventId, type, startX: e.clientX, startY: e.clientY, activated: false, originHour: hour, mode: 'resize' };
+    dragRef.current = { eventId, type, startX: e.clientX, startY: e.clientY, activated: false, originHour: hour, mode: 'resize', copy: false };
   }
 
   useEffect(() => {
@@ -184,30 +188,62 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
           } catch { showToast('시간 변경에 실패했습니다', 'error'); }
         }
       } else {
-        // 전체 이동
+        // 전체 이동 (또는 Alt = 복사)
         if (drag.type === 'shared') {
           const event = eventsRef.current.find((ev) => ev.id === drag.eventId);
           if (!event) return;
+          const newStart = addHours(new Date(event.startDate), hoursDiff);
+          const newEnd = addHours(new Date(event.endDate), hoursDiff);
           try {
-            await updateEvent(event.id, {
-              startDate: addHours(new Date(event.startDate), hoursDiff),
-              endDate: addHours(new Date(event.endDate), hoursDiff),
-            });
+            if (drag.copy && user) {
+              await addEvent({
+                title: event.title + ' (복사)',
+                description: event.description,
+                startDate: newStart,
+                endDate: newEnd,
+                allDay: event.allDay,
+                category: event.category,
+                school: event.school,
+                createdBy: user.id,
+                adminName: user.name,
+                adminColor: user.profileColor || '#4A90E2',
+                repeat: null,
+                attachments: [],
+                checklist: [],
+                readBy: {},
+              });
+              showToast('일정이 복사되었습니다');
+            } else {
+              await updateEvent(event.id, { startDate: newStart, endDate: newEnd });
+            }
           } catch (err) {
             console.error('[DayDrag] Failed:', err);
-            showToast('일정 이동에 실패했습니다', 'error');
+            showToast(drag.copy ? '복사 실패' : '이동 실패', 'error');
           }
         } else if (drag.type === 'personal' && user) {
           const pe = personalEventsRef.current.find((p) => p.id === drag.eventId);
           if (!pe) return;
+          const newStart = addHours(new Date(pe.startDate), hoursDiff);
+          const newEnd = addHours(new Date(pe.endDate), hoursDiff);
           try {
-            await updatePersonalEvent(user.id, pe.id, {
-              startDate: addHours(new Date(pe.startDate), hoursDiff),
-              endDate: addHours(new Date(pe.endDate), hoursDiff),
-            });
+            if (drag.copy) {
+              await addPersonalEvent(user.id, {
+                title: pe.title + ' (복사)',
+                description: pe.description,
+                startDate: newStart,
+                endDate: newEnd,
+                source: 'local',
+                externalId: null,
+                checklist: [],
+                color: pe.color,
+              });
+              showToast('일정이 복사되었습니다');
+            } else {
+              await updatePersonalEvent(user.id, pe.id, { startDate: newStart, endDate: newEnd });
+            }
           } catch (err) {
             console.error('[DayDrag] Failed:', err);
-            showToast('일정 이동에 실패했습니다', 'error');
+            showToast(drag.copy ? '복사 실패' : '이동 실패', 'error');
           }
         }
       }
@@ -303,6 +339,10 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
               <div style={styles.hourContent}>
                 {hourEvents.map((event) => {
                   const isOwner = event.createdBy === user?.id;
+                  const weekday = new Date(event.startDate).getDay();
+                  const weekdayMon1 = weekday === 0 ? 7 : weekday;
+                  const periods = weekdayMon1 >= 1 && weekdayMon1 <= 5 ? getPeriodsForWeekday(weekdayMon1) : [];
+                  const overlaps = hasTimetableOverlap(event, periods);
                   return (
                     <div key={event.id}
                       role="button"
@@ -317,9 +357,14 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
                         opacity: dragRef.current?.eventId === event.id ? 0.4 : 1,
                         position: 'relative',
                       }}
-                      title={formatEventTooltip(event, isOwner)}
+                      title={overlaps.length > 0
+                        ? `${formatEventTooltip(event, isOwner)}\n\n⚠️ 수업 시간과 겹침: ${overlaps.map(p => p.period + '교시').join(', ')}`
+                        : formatEventTooltip(event, isOwner)}
                     >
-                      <span style={styles.eventTitle}>{event.title}</span>
+                      <span style={styles.eventTitle}>
+                        {overlaps.length > 0 && <span style={styles.overlapBadge} title="수업 시간과 겹침">⚠️</span>}
+                        {event.title}
+                      </span>
                       <span style={styles.eventTime}>
                         {format(new Date(event.startDate), 'HH:mm')} - {format(new Date(event.endDate), 'HH:mm')}
                       </span>
@@ -412,4 +457,5 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'ns-resize', borderRadius: '0 0 4px 4px',
     background: 'linear-gradient(transparent, rgba(255,255,255,0.3))',
   },
+  overlapBadge: { marginRight: 3 },
 };

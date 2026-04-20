@@ -22,6 +22,7 @@ import { UpdateBanner } from './components/common/UpdateBanner';
 import { ToastContainer } from './components/common/Toast';
 import { useComciganStore } from './store/comciganStore';
 import { useTodosStore } from './store/todosStore';
+import { useUsersStore } from './store/usersStore';
 import { useReminder } from './hooks/useReminder';
 
 type AuthScreen = 'login' | 'signup';
@@ -33,6 +34,7 @@ export function App() {
   const { subscribeToPersonalEvents, startAutoSync, stopAutoSync, cleanup: cleanupPersonal } = usePersonalEventStore();
   const { loadConfig: loadComcigan, cleanup: cleanupComcigan } = useComciganStore();
   const { subscribeToTodos, cleanup: cleanupTodos } = useTodosStore();
+  const { subscribeToUsers, cleanup: cleanupUsers } = useUsersStore();
   const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
   const [showSettings, setShowSettings] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
@@ -69,6 +71,7 @@ export function App() {
       subscribeToNotifications(user.id);
       subscribeToPersonalEvents(user.id);
       subscribeToTodos(user.id);
+      subscribeToUsers();
       startAutoSync(user.settings?.syncInterval ?? 15);
       loadComcigan();
       return () => {
@@ -77,6 +80,7 @@ export function App() {
         stopAutoSync();
         cleanupPersonal();
         cleanupTodos();
+        cleanupUsers();
         cleanupComcigan();
       };
     }

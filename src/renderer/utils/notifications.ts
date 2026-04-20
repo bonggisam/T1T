@@ -46,6 +46,30 @@ export async function notifyAllUsers(
 }
 
 /**
+ * 특정 사용자에게 알림 전송 (멘션용).
+ */
+export async function notifyUser(
+  targetUserId: string,
+  type: NotificationType,
+  message: string,
+  eventId: string | undefined,
+  createdBy: string,
+): Promise<void> {
+  try {
+    await addDoc(collection(db, 'notifications', targetUserId, 'items'), {
+      type,
+      eventId: eventId || null,
+      message,
+      read: false,
+      createdAt: serverTimestamp(),
+      createdBy,
+    });
+  } catch (err) {
+    console.error('Failed to notify user:', err);
+  }
+}
+
+/**
  * Play notification sound using Web Audio API.
  * Generates a pleasant two-tone chime — no external mp3 needed.
  */

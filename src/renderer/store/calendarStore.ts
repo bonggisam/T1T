@@ -14,6 +14,7 @@ import {
 import { db } from '../utils/firebase';
 import { notifyAllUsers } from '../utils/notifications';
 import { cacheEvents, getCachedEvents } from '../utils/offlineCache';
+import { sendSlackNotification } from '../utils/slackNotify';
 import type { CalendarEvent, CalendarView, ChecklistItem, ReadReceipt, School } from '@shared/types';
 
 interface CalendarState {
@@ -149,6 +150,10 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
       docRef.id,
       event.createdBy,
     );
+    // 슬랙 알림 (설정된 경우)
+    sendSlackNotification(
+      `📅 새 일정 등록: *${event.title}* (${dateStr})\n작성자: ${event.adminName || '알 수 없음'}`,
+    ).catch(() => {});
     return docRef.id;
   },
 

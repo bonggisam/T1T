@@ -87,6 +87,106 @@ export async function fetchGoogleCalendarEvents(
   }
 }
 
+/**
+ * Google Calendar에 일정 생성 (양방향 동기화용).
+ * 성공 시 생성된 이벤트 ID 반환.
+ */
+export async function createGoogleEvent(input: {
+  title: string;
+  description?: string;
+  startDate: Date;
+  endDate: Date;
+  allDay?: boolean;
+}): Promise<string | null> {
+  if (!googleTokens) return null;
+  try {
+    const body: any = {
+      summary: input.title,
+      description: input.description || '',
+    };
+    if (input.allDay) {
+      body.start = { date: input.startDate.toISOString().slice(0, 10) };
+      body.end = { date: input.endDate.toISOString().slice(0, 10) };
+    } else {
+      body.start = { dateTime: input.startDate.toISOString() };
+      body.end = { dateTime: input.endDate.toISOString() };
+    }
+    const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${googleTokens.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      console.warn('[CalendarSync] createGoogleEvent failed:', res.status);
+      return null;
+    }
+    const data = await res.json();
+    return data.id || null;
+  } catch (err) {
+    console.error('[CalendarSync] createGoogleEvent error:', err);
+    return null;
+  }
+}
+
+/**
+ * Google Calendar 일정 수정.
+ */
+export async function updateGoogleEvent(externalId: string, input: {
+  title?: string;
+  description?: string;
+  startDate?: Date;
+  endDate?: Date;
+  allDay?: boolean;
+}): Promise<boolean> {
+  if (!googleTokens) return false;
+  try {
+    const body: any = {};
+    if (input.title) body.summary = input.title;
+    if (input.description !== undefined) body.description = input.description;
+    if (input.startDate && input.endDate) {
+      if (input.allDay) {
+        body.start = { date: input.startDate.toISOString().slice(0, 10) };
+        body.end = { date: input.endDate.toISOString().slice(0, 10) };
+      } else {
+        body.start = { dateTime: input.startDate.toISOString() };
+        body.end = { dateTime: input.endDate.toISOString() };
+      }
+    }
+    const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${externalId}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${googleTokens.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error('[CalendarSync] updateGoogleEvent error:', err);
+    return false;
+  }
+}
+
+/**
+ * Google Calendar 일정 삭제.
+ */
+export async function deleteGoogleEvent(externalId: string): Promise<boolean> {
+  if (!googleTokens) return false;
+  try {
+    const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${externalId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${googleTokens.access_token}` },
+    });
+    return res.ok || res.status === 410; // 410 = 이미 삭제됨
+  } catch (err) {
+    console.error('[CalendarSync] deleteGoogleEvent error:', err);
+    return false;
+  }
+}
+
 // ============================================================
 // Token storage (localStorage)
 // ============================================================
