@@ -281,9 +281,12 @@ function setupAutoUpdater(): void {
 
 // Google Calendar OAuth IPC
 function setupGoogleAuthIPC(): void {
-  const GOOGLE_CLIENT_ID = '607193357118-cu3ldm1e22re43un4bhc6p5j2e221kpk.apps.googleusercontent.com';
-  const REDIRECT_URI = 'http://localhost/auth/google/callback';
-  const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
+  // 환경변수로 오버라이드 가능 (프로덕션 빌드 시 별도 Client ID 사용)
+  const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID
+    || '607193357118-cu3ldm1e22re43un4bhc6p5j2e221kpk.apps.googleusercontent.com';
+  const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI
+    || 'http://localhost/auth/google/callback';
+  const SCOPES = 'https://www.googleapis.com/auth/calendar'; // 읽기+쓰기 (양방향 동기화)
 
   ipcMain.handle('google:auth', () => {
     return new Promise<{ access_token: string; expires_in: number } | null>((resolve) => {

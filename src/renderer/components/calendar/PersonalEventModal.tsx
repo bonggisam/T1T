@@ -3,6 +3,7 @@ import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useAuthStore } from '../../store/authStore';
 import { useCalendarStore } from '../../store/calendarStore';
 import { showToast } from '../common/Toast';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 const COLOR_OPTIONS = [
   '#2ECC71', '#3498DB', '#9B59B6', '#E67E22',
@@ -33,11 +34,7 @@ export function PersonalEventModal({ onClose }: PersonalEventModalProps) {
   const [saving, setSaving] = useState(false);
 
   // ESC 키로 닫기
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose]);
+  useEscapeKey(onClose);
 
   function formatDateTimeLocal(d: Date): string {
     const pad = (n: number) => n.toString().padStart(2, '0');

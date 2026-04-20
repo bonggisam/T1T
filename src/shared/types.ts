@@ -8,6 +8,10 @@ export const SCHOOL_LABELS: Record<School, string> = {
   taeseong_high: '태성고등학교',
 };
 
+/** 기본 프로필/이벤트 색상 */
+export const DEFAULT_PROFILE_COLOR = '#4A90E2';
+export const SUPER_ADMIN_PROFILE_COLOR = '#FF6B6B';
+
 export interface User {
   id: string;
   email: string;
@@ -101,6 +105,7 @@ export interface PersonalEvent {
   description: string;
   startDate: Date;
   endDate: Date;
+  allDay?: boolean; // 종일 이벤트 (구글 동기화 시 date vs dateTime)
   source: 'local' | 'google' | 'apple' | 'notion' | 'outlook';
   externalId: string | null;
   checklist: ChecklistItem[];

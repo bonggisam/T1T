@@ -139,6 +139,7 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
         description: event.description,
         startDate: event.startDate,
         endDate: event.endDate,
+        allDay: event.allDay,
       });
     }
     const docRef = await addDoc(collection(db, 'personal_events', userId, 'events'), {
@@ -170,6 +171,7 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
         description: updates.description ?? pe.description,
         startDate: (updates.startDate instanceof Date ? updates.startDate : pe.startDate),
         endDate: (updates.endDate instanceof Date ? updates.endDate : pe.endDate),
+        allDay: updates.allDay ?? pe.allDay,
       }).catch((err) => console.warn('[PersonalEventStore] Google sync (update) failed:', err));
     }
     await updateDoc(doc(db, 'personal_events', userId, 'events', eventId), updateData);

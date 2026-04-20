@@ -3,6 +3,7 @@ import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
 import type { EventCategory, ChecklistItem, School } from '@shared/types';
 import { showToast } from '../common/Toast';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 const CATEGORIES: { key: EventCategory; label: string }[] = [
   { key: 'event', label: '행사' },
@@ -35,12 +36,17 @@ export function EventModal() {
   const [newCheckItem, setNewCheckItem] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // ESC 키로 닫기
+  // ESC 키로 닫기 (캡처 우선)
+  useEscapeKey(() => setShowEventModal(false));
+
+  // user.school이 나중에 로드되면 scope 기본값 동기화 (초기 undefined인 경우 대비)
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowEventModal(false); };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, []);
+    if (user?.school && scope !== 'all' && scope !== user.school) {
+      setScope(user.school);
+    }
+    // scope가 이미 'all'이거나 사용자 선택값이면 유지
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.school]);
 
   function formatDateTimeLocal(d: Date): string {
     const pad = (n: number) => n.toString().padStart(2, '0');

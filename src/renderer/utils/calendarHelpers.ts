@@ -23,6 +23,19 @@ export function toDate(value: Date | string | number): Date {
   return value instanceof Date ? value : new Date(value);
 }
 
+/**
+ * Firestore Timestamp | Date | string 을 Date로 변환.
+ * fallback null 허용.
+ */
+export function firestoreToDate(value: any, fallback: Date | null = null): Date | null {
+  if (!value) return fallback;
+  // Firestore Timestamp: toDate() 메서드 보유
+  if (typeof value.toDate === 'function') return value.toDate();
+  if (value instanceof Date) return value;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? fallback : d;
+}
+
 export const CATEGORY_LABELS: Record<string, string> = {
   event: '행사',
   meeting: '회의',

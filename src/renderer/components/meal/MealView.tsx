@@ -53,6 +53,18 @@ export function MealView({ onBack }: MealViewProps) {
       const json = await res.json();
       // NEIS API: 데이터 없으면 RESULT.CODE !== 'INFO-000'
       if (json?.RESULT && json.RESULT.CODE !== 'INFO-000') {
+        const code = json.RESULT.CODE;
+        const msg = json.RESULT.MESSAGE || '';
+        // 대표 에러 코드 해석
+        if (code === 'INFO-200') {
+          setMeals([]); // 해당 데이터 없음 — 조용히 빈 상태
+        } else if (code === 'ERROR-290' || code === 'ERROR-300') {
+          setError('학교 코드가 올바르지 않습니다. 설정에서 다시 확인해주세요.');
+        } else if (code === 'ERROR-310' || code === 'ERROR-333') {
+          setError('날짜 조건이 올바르지 않습니다.');
+        } else {
+          setError(`급식 정보를 가져올 수 없습니다 (${code}${msg ? ': ' + msg : ''})`);
+        }
         setMeals([]);
         return;
       }

@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type { ComciganConfig, ComciganSchool, ComciganTimetableData } from '../shared/types';
 
 contextBridge.exposeInMainWorld('electronAPI', {
   toggleAlwaysOnTop: (value: boolean) => ipcRenderer.invoke('window:toggle-always-on-top', value),
@@ -39,14 +40,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   googleAuth: () => ipcRenderer.invoke('google:auth'),
 
   // Comcigan
-  comciganSearch: (name: string) => ipcRenderer.invoke('comcigan:search', name),
-  comciganConfigure: (config: any) => ipcRenderer.invoke('comcigan:configure', config),
-  comciganGetConfig: () => ipcRenderer.invoke('comcigan:get-config'),
-  comciganFetch: () => ipcRenderer.invoke('comcigan:fetch'),
-  comciganGetCached: () => ipcRenderer.invoke('comcigan:get-cached'),
-  comciganClear: () => ipcRenderer.invoke('comcigan:clear'),
-  onComciganUpdate: (callback: (data: any) => void) => {
-    const listener = (_event: any, data: any) => callback(data);
+  comciganSearch: (name: string): Promise<ComciganSchool[]> => ipcRenderer.invoke('comcigan:search', name),
+  comciganConfigure: (config: ComciganConfig): Promise<void> => ipcRenderer.invoke('comcigan:configure', config),
+  comciganGetConfig: (): Promise<ComciganConfig | null> => ipcRenderer.invoke('comcigan:get-config'),
+  comciganFetch: (): Promise<ComciganTimetableData | null> => ipcRenderer.invoke('comcigan:fetch'),
+  comciganGetCached: (): Promise<ComciganTimetableData | null> => ipcRenderer.invoke('comcigan:get-cached'),
+  comciganClear: (): Promise<void> => ipcRenderer.invoke('comcigan:clear'),
+  onComciganUpdate: (callback: (data: ComciganTimetableData) => void) => {
+    const listener = (_event: any, data: ComciganTimetableData) => callback(data);
     ipcRenderer.on('comcigan:updated', listener);
     return () => ipcRenderer.removeListener('comcigan:updated', listener);
   },

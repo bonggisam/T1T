@@ -69,7 +69,13 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
       } catch {}
     }
     resizeForSettings();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+      // 언마운트 시 원래 크기로 복원 (save/close 경로 외 강제 언마운트 대비)
+      if (originalBoundsRef.current) {
+        window.electronAPI?.setBounds(originalBoundsRef.current).catch(() => {});
+      }
+    };
   }, []);
 
   // Apply font size CSS variable in real-time

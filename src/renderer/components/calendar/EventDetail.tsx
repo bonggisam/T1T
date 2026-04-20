@@ -18,6 +18,7 @@ import { useAuthStore } from '../../store/authStore';
 import type { ChecklistItem, EventComment, EventCategory } from '@shared/types';
 import { showToast } from '../common/Toast';
 import { MentionInput, renderMentions, extractMentions } from '../common/MentionInput';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useUsersStore } from '../../store/usersStore';
 import { notifyUser } from '../../utils/notifications';
 
@@ -54,12 +55,8 @@ export function EventDetail() {
   const [newComment, setNewComment] = useState('');
   const [sendingComment, setSendingComment] = useState(false);
 
-  // ESC 키로 닫기
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, []);
+  // ESC 키로 닫기 (캡처 우선)
+  useEscapeKey(() => close());
 
   // 열 때 자동 읽음 표시
   useEffect(() => {
@@ -80,18 +77,20 @@ export function EventDetail() {
       orderBy('createdAt', 'asc'),
     );
     const unsub = onSnapshot(q, (snapshot) => {
-      const list: EventComment[] = snapshot.docs.map((d) => {
-        const data = d.data();
-        return {
-          id: d.id,
-          eventId: selectedEvent.id,
-          userId: data.userId || '',
-          userName: data.userName || '',
-          userColor: data.userColor || '#4A90E2',
-          text: data.text || '',
-          createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
-        };
-      });
+      const list: EventComment[] = snapshot.docs
+        .map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            eventId: selectedEvent.id,
+            userId: data.userId || '',
+            userName: data.userName || '',
+            userColor: data.userColor || '#4A90E2',
+            text: data.text || '',
+            createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
+          };
+        })
+        .filter((c) => c.userId); // userId 없는 손상된 댓글 skip
       setComments(list);
     }, (err) => {
       console.warn('[EventDetail] Comments subscription error:', err);

@@ -10,6 +10,7 @@ import {
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../utils/firebase';
 import type { User, UserRole, UserStatus, UserSettings, School } from '@shared/types';
+import { DEFAULT_PROFILE_COLOR, SUPER_ADMIN_PROFILE_COLOR } from '@shared/types';
 
 interface AuthState {
   firebaseUser: FirebaseUser | null;
@@ -128,7 +129,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         role,
         status,
         school,
-        profileColor: role === 'super_admin' ? '#FF6B6B' : '#4A90E2',
+        profileColor: role === 'super_admin' ? SUPER_ADMIN_PROFILE_COLOR : DEFAULT_PROFILE_COLOR,
         createdAt: serverTimestamp(),
         lastLogin: serverTimestamp(),
         settings: defaultSettings,
@@ -150,7 +151,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         role,
         status,
         school,
-        profileColor: role === 'super_admin' ? '#FF6B6B' : '#4A90E2',
+        profileColor: role === 'super_admin' ? SUPER_ADMIN_PROFILE_COLOR : DEFAULT_PROFILE_COLOR,
         createdAt: new Date(),
         lastLogin: new Date(),
         settings: defaultSettings,

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, limit as fsLimit, orderBy } from 'firebase/firestore';
 import { db } from '../../utils/firebase';
+import { useAuthStore } from '../../store/authStore';
 import { showToast } from '../common/Toast';
 import type { User, UserStatus } from '@shared/types';
 import { SCHOOL_LABELS } from '@shared/types';
@@ -10,10 +11,20 @@ interface AdminPanelProps {
 }
 
 export function AdminPanel({ onClose }: AdminPanelProps) {
+  const { user } = useAuthStore();
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [activeUsers, setActiveUsers] = useState<User[]>([]);
   const [tab, setTab] = useState<'pending' | 'active'>('pending');
   const [loading, setLoading] = useState(true);
+
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  if (!isAdmin) {
+    return (
+      <div style={{ padding: 20, textAlign: 'center' }}>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>관리자 권한이 필요합니다.</p>
+      </div>
+    );
+  }
 
   useEffect(() => {
     fetchUsers();
@@ -22,13 +33,13 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
   async function fetchUsers() {
     setLoading(true);
     try {
-      // Fetch pending users
-      const pendingQ = query(collection(db, 'users'), where('status', '==', 'pending'));
+      // Fetch pending users (최대 200명)
+      const pendingQ = query(collection(db, 'users'), where('status', '==', 'pending'), fsLimit(200));
       const pendingSnap = await getDocs(pendingQ);
       const pending = pendingSnap.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as User));
 
-      // Fetch active users
-      const activeQ = query(collection(db, 'users'), where('status', '==', 'active'));
+      // Fetch active users (최대 500명)
+      const activeQ = query(collection(db, 'users'), where('status', '==', 'active'), fsLimit(500));
       const activeSnap = await getDocs(activeQ);
       const active = activeSnap.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as User));
 

@@ -53,7 +53,7 @@ export function TodosView({ onBack }: TodosViewProps) {
         completed: false,
         priority,
         dueDate: dueDate ? new Date(dueDate) : undefined,
-        school: user.school,
+        school: user.school || 'all',
       });
       setTitle('');
       setDueDate('');

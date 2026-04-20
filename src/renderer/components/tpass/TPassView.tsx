@@ -40,7 +40,7 @@ export function TPassView({ onBack }: TPassViewProps) {
       webview.removeEventListener('did-start-loading', onStartLoad);
       webview.removeEventListener('did-stop-loading', onStopLoad);
       webview.removeEventListener('did-fail-load', onFailLoad);
-      container.innerHTML = '';
+      if (webview.parentNode) webview.parentNode.removeChild(webview);
       webviewRef.current = null;
     };
   }, []);

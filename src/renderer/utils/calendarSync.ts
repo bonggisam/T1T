@@ -78,6 +78,7 @@ export async function fetchGoogleCalendarEvents(
       description: item.description || '',
       startDate: new Date(item.start?.dateTime || item.start?.date),
       endDate: new Date(item.end?.dateTime || item.end?.date),
+      allDay: !item.start?.dateTime && !!item.start?.date, // date만 있으면 종일
       source: 'google' as const,
       externalId: item.id,
       checklist: [],

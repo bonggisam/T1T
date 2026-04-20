@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useCalendarStore } from '../../store/calendarStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
@@ -41,12 +42,8 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
     inputRef.current?.focus();
   }, []);
 
-  // ESC 키로 닫기
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, []);
+  // ESC 키로 닫기 (캡처 우선)
+  useEscapeKey(onClose);
 
   const allPersonal = useMemo(() => [...personalEvents, ...externalEvents], [personalEvents, externalEvents]);
 

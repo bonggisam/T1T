@@ -101,6 +101,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   cleanup: () => {
     const { unsubscribe } = get();
     unsubscribe?.();
-    set({ unsubscribe: null });
+    set({ unsubscribe: null, notifications: [], unreadCount: 0 });
   },
 }));
