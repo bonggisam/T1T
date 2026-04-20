@@ -16,9 +16,16 @@ interface ActiveUserCardProps {
   u: User;
   onChangeRole: (userId: string, role: 'teacher' | 'head_teacher') => void;
   onDeactivate: (userId: string) => void;
+  onChangeSchool: (userId: string, school: 'taeseong_middle' | 'taeseong_high') => void;
 }
 
-function ActiveUserCard({ u, onChangeRole, onDeactivate }: ActiveUserCardProps) {
+function ActiveUserCard({ u, onChangeRole, onDeactivate, onChangeSchool }: ActiveUserCardProps) {
+  const isSchoolAssigned = u.school === 'taeseong_middle' || u.school === 'taeseong_high';
+  const schoolBadgeBg = u.school === 'taeseong_high'
+    ? '#8B5CF6'
+    : u.school === 'taeseong_middle'
+      ? '#10B981'
+      : '#9CA3AF'; // 미지정: 회색
   return (
     <div style={styles.userCard}>
       <div style={styles.userInfo}>
@@ -26,9 +33,9 @@ function ActiveUserCard({ u, onChangeRole, onDeactivate }: ActiveUserCardProps) 
           {u.name}
           <span style={{
             ...styles.schoolBadge,
-            background: u.school === 'taeseong_high' ? '#8B5CF6' : '#10B981',
+            background: schoolBadgeBg,
           }}>
-            {u.school === 'taeseong_high' ? '🎓 고' : '🏫 중'}
+            {u.school === 'taeseong_high' ? '🎓 고' : u.school === 'taeseong_middle' ? '🏫 중' : '❓ 미지정'}
           </span>
           <span style={{
             ...styles.roleBadge,
@@ -40,6 +47,26 @@ function ActiveUserCard({ u, onChangeRole, onDeactivate }: ActiveUserCardProps) 
         <span style={styles.userEmail}>{u.email} · {SCHOOL_LABELS[u.school] || '미지정'}</span>
       </div>
       <div style={styles.userActions}>
+        {/* 학교 미지정이면 눈에 띄게 배정 버튼 표시 */}
+        {!isSchoolAssigned && (
+          <>
+            <button onClick={() => onChangeSchool(u.id, 'taeseong_middle')} style={styles.assignMiddleBtn}>🏫 중 배정</button>
+            <button onClick={() => onChangeSchool(u.id, 'taeseong_high')} style={styles.assignHighBtn}>🎓 고 배정</button>
+          </>
+        )}
+        {/* 학교 배정된 경우 변경 버튼 (반대편 학교로) */}
+        {isSchoolAssigned && (
+          <button
+            onClick={() => onChangeSchool(
+              u.id,
+              u.school === 'taeseong_high' ? 'taeseong_middle' : 'taeseong_high',
+            )}
+            style={styles.switchSchoolBtn}
+            title="학교 변경"
+          >
+            {u.school === 'taeseong_high' ? '→🏫중' : '→🎓고'}
+          </button>
+        )}
         {u.role === 'teacher' && (
           <button onClick={() => onChangeRole(u.id, 'head_teacher')} style={styles.promoteBtn}>부장 승격</button>
         )}
@@ -133,6 +160,17 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
     } catch (err) {
       console.error('Deactivate failed:', err);
       showToast('비활성화 처리에 실패했습니다.', 'error');
+    }
+  }
+
+  async function handleChangeSchool(userId: string, school: 'taeseong_middle' | 'taeseong_high') {
+    try {
+      await updateDoc(doc(db, 'users', userId), { school });
+      showToast(`${school === 'taeseong_high' ? '태성고' : '태성중'}으로 배정했습니다.`);
+      fetchUsers();
+    } catch (err) {
+      console.error('School change failed:', err);
+      showToast('학교 배정에 실패했습니다.', 'error');
     }
   }
 
@@ -231,19 +269,19 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                   {middle.length > 0 && (
                     <>
                       <div style={styles.groupHeader}>🏫 태성중학교 ({middle.length})</div>
-                      {middle.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} />)}
+                      {middle.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} onChangeSchool={handleChangeSchool} />)}
                     </>
                   )}
                   {high.length > 0 && (
                     <>
                       <div style={styles.groupHeader}>🎓 태성고등학교 ({high.length})</div>
-                      {high.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} />)}
+                      {high.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} onChangeSchool={handleChangeSchool} />)}
                     </>
                   )}
                   {other.length > 0 && (
                     <>
                       <div style={styles.groupHeader}>⚠️ 학교 미지정 ({other.length})</div>
-                      {other.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} />)}
+                      {other.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} onChangeSchool={handleChangeSchool} />)}
                     </>
                   )}
                 </>
@@ -251,7 +289,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
             }
 
             // 특정 학교 선택 시: 플랫 리스트
-            return filteredActive.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} />);
+            return filteredActive.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} onChangeSchool={handleChangeSchool} />);
           })()
         )}
       </div>
@@ -430,6 +468,36 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 6,
     background: 'transparent',
     color: '#F59E0B',
+    cursor: 'pointer',
+  },
+  assignMiddleBtn: {
+    padding: '4px 10px',
+    fontSize: 11,
+    fontWeight: 600,
+    border: 'none',
+    borderRadius: 6,
+    background: '#10B981',
+    color: '#fff',
+    cursor: 'pointer',
+  },
+  assignHighBtn: {
+    padding: '4px 10px',
+    fontSize: 11,
+    fontWeight: 600,
+    border: 'none',
+    borderRadius: 6,
+    background: '#8B5CF6',
+    color: '#fff',
+    cursor: 'pointer',
+  },
+  switchSchoolBtn: {
+    padding: '4px 10px',
+    fontSize: 11,
+    fontWeight: 500,
+    border: '1px dashed var(--text-muted)',
+    borderRadius: 6,
+    background: 'transparent',
+    color: 'var(--text-secondary)',
     cursor: 'pointer',
   },
   demoteBtn: {
