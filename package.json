@@ -54,9 +54,9 @@
         "dmg",
         "zip"
       ],
-      "hardenedRuntime": true,
+      "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "type": "distribution"
+      "type": "development"
     },
     "win": {
       "target": [
