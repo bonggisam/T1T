@@ -365,7 +365,7 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
                       title={formatEventTooltip(event, isOwner)}
                     >
                       <span style={{
-                        fontSize: 9, fontWeight: 600, color: '#fff', lineHeight: '14px',
+                        fontSize: 'var(--schedule-font-size)', fontWeight: 600, color: '#fff', lineHeight: 1.4,
                         display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         textShadow: '0 1px 2px rgba(0,0,0,0.5)',
                       }}>
@@ -392,7 +392,7 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
                       title={formatPersonalTooltip(pe, canDrag)}
                     >
                       <span style={{
-                        fontSize: 9, fontWeight: 600, color: '#fff', lineHeight: '14px',
+                        fontSize: 'var(--schedule-font-size)', fontWeight: 600, color: '#fff', lineHeight: 1.4,
                         display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         textShadow: '0 1px 2px rgba(0,0,0,0.5)',
                       }}>
@@ -408,7 +408,7 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
                     style={{ borderRadius: 2, padding: '0px 3px', background: 'var(--comcigan-bg)' }}
                     title={`${cp.period}교시 ${cp.subject} ${cp.grade}-${cp.classNum}${cp.startTime ? ` (${cp.startTime})` : ''}`}>
                     <span style={{
-                      fontSize: 8, fontWeight: 600, color: 'var(--comcigan-text)', lineHeight: '12px',
+                      fontSize: 'calc(var(--schedule-font-size) - 1px)', fontWeight: 600, color: 'var(--comcigan-text)', lineHeight: 1.4,
                       display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                       textShadow: 'var(--comcigan-shadow)',
                     }}>

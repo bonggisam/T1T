@@ -32,7 +32,7 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
   const [syncInterval, setSyncInterval] = useState(user?.settings.syncInterval ?? 15);
   const [scheduleFontSize, setScheduleFontSize] = useState(() => {
     const saved = localStorage.getItem('tonet-schedule-font-size');
-    return saved ? Number(saved) : 9;
+    return saved ? Number(saved) : 11;
   });
   const [appVersion, setAppVersion] = useState('1.0.0');
   const [saving, setSaving] = useState(false);

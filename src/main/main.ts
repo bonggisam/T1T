@@ -164,7 +164,7 @@ function setupIPC(): void {
   });
 
   ipcMain.handle('window:minimize', () => {
-    mainWindow?.hide();
+    mainWindow?.minimize();
   });
 
   ipcMain.handle('window:close', () => {

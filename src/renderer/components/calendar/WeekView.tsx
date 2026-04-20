@@ -385,7 +385,7 @@ const styles: Record<string, React.CSSProperties> = {
   timeLabel: { fontSize: 9, color: 'var(--text-muted)' },
   hourCell: { padding: 1, overflow: 'hidden', borderRight: '1px solid var(--grid-line)' },
   eventBlock: { borderRadius: 3, padding: '1px 4px', marginBottom: 1, cursor: 'pointer' },
-  eventText: { fontSize: 9, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', textShadow: '0 0 2px rgba(0,0,0,0.3)' },
+  eventText: { fontSize: 'var(--schedule-font-size)', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', textShadow: '0 0 2px rgba(0,0,0,0.3)' },
   comciganBlock: { borderRadius: 3, padding: '1px 4px', marginBottom: 1, background: 'var(--comcigan-bg)', cursor: 'default' },
-  comciganText: { fontSize: 9, fontWeight: 600, color: 'var(--comcigan-text)', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', textShadow: 'var(--comcigan-shadow)' },
+  comciganText: { fontSize: 'var(--schedule-font-size)', fontWeight: 600, color: 'var(--comcigan-text)', lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', textShadow: 'var(--comcigan-shadow)' },
 };
