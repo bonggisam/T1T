@@ -1,6 +1,6 @@
 # 📅 ToneT — 학교 바탕화면 캘린더
 
-> **T**eacher **one** **T**able, 선생님들의 하나된 일정표
+> **T**eacher **one** **T**aesung, 태성의 선생님 캘린더
 
 ---
 
