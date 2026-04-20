@@ -5,6 +5,7 @@ import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
+import { showToast } from '../common/Toast';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
@@ -24,7 +25,7 @@ function formatEventTooltip(event: CalendarEvent, isOwner: boolean): string {
   if (event.category) lines.push(`[${CATEGORY_LABELS[event.category] || event.category}]`);
   if (event.adminName) lines.push(`작성: ${event.adminName}`);
   if (event.description) lines.push(`\n${event.description}`);
-  if (isOwner) lines.push('\n🖱 드래그로 이동');
+  if (isOwner) lines.push('\n🖱 드래그로 이동 | 하단 드래그로 시간 조절');
   return lines.join('\n');
 }
 
@@ -34,7 +35,7 @@ function formatPersonalTooltip(pe: PersonalEvent, canDrag: boolean): string {
   const end = new Date(pe.endDate);
   lines.push(`${format(start, 'M/d HH:mm')} ~ ${format(end, 'M/d HH:mm')}`);
   if (pe.description) lines.push(`\n${pe.description}`);
-  if (canDrag) lines.push('\n🖱 드래그로 이동');
+  if (canDrag) lines.push('\n🖱 드래그로 이동 | 하단 드래그로 시간 조절');
   return lines.join('\n');
 }
 
@@ -55,6 +56,7 @@ interface DragInfo {
   startY: number;
   activated: boolean;
   originHour: number;
+  mode: 'move' | 'resize'; // move=전체이동, resize=종료시간변경
 }
 
 export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
@@ -150,7 +152,20 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
     }
     e.preventDefault();
     e.stopPropagation();
-    dragRef.current = { eventId, type, startX: e.clientX, startY: e.clientY, activated: false, originHour: hour };
+    dragRef.current = { eventId, type, startX: e.clientX, startY: e.clientY, activated: false, originHour: hour, mode: 'move' };
+  }
+
+  function handleResizeMouseDown(e: React.MouseEvent, eventId: string, type: 'shared' | 'personal', hour: number) {
+    if (type === 'shared') {
+      const ev = events.find((x) => x.id === eventId);
+      if (!ev || ev.createdBy !== user?.id) return;
+    } else {
+      const pe = personalEvents.find((x) => x.id === eventId);
+      if (!pe || pe.source !== 'local') return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    dragRef.current = { eventId, type, startX: e.clientX, startY: e.clientY, activated: false, originHour: hour, mode: 'resize' };
   }
 
   useEffect(() => {
@@ -174,31 +189,54 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
       if (targetHour === null || targetHour === drag.originHour) return;
 
       const hoursDiff = targetHour - drag.originHour;
-      console.log('[DayDrag]', drag.type, drag.eventId, ': hour', hoursDiff);
 
-      if (drag.type === 'shared') {
-        const event = eventsRef.current.find((ev) => ev.id === drag.eventId);
-        if (!event) return;
-        try {
-          await updateEvent(event.id, {
-            startDate: addHours(new Date(event.startDate), hoursDiff),
-            endDate: addHours(new Date(event.endDate), hoursDiff),
-          });
-        } catch (err) {
-          console.error('[DayDrag] Failed:', err);
-          alert('일정 이동 실패: ' + (err instanceof Error ? err.message : String(err)));
+      if (drag.mode === 'resize') {
+        // 종료 시간만 변경
+        if (drag.type === 'shared') {
+          const event = eventsRef.current.find((ev) => ev.id === drag.eventId);
+          if (!event) return;
+          const newEnd = addHours(new Date(event.endDate), hoursDiff);
+          if (newEnd <= new Date(event.startDate)) { showToast('종료 시간이 시작 시간보다 앞설 수 없습니다', 'error'); return; }
+          try {
+            await updateEvent(event.id, { endDate: newEnd });
+            showToast('시간이 변경되었습니다');
+          } catch { showToast('시간 변경에 실패했습니다', 'error'); }
+        } else if (drag.type === 'personal' && user) {
+          const pe = personalEventsRef.current.find((p) => p.id === drag.eventId);
+          if (!pe) return;
+          const newEnd = addHours(new Date(pe.endDate), hoursDiff);
+          if (newEnd <= new Date(pe.startDate)) { showToast('종료 시간이 시작 시간보다 앞설 수 없습니다', 'error'); return; }
+          try {
+            await updatePersonalEvent(user.id, pe.id, { endDate: newEnd });
+            showToast('시간이 변경되었습니다');
+          } catch { showToast('시간 변경에 실패했습니다', 'error'); }
         }
-      } else if (drag.type === 'personal' && user) {
-        const pe = personalEventsRef.current.find((p) => p.id === drag.eventId);
-        if (!pe) return;
-        try {
-          await updatePersonalEvent(user.id, pe.id, {
-            startDate: addHours(new Date(pe.startDate), hoursDiff),
-            endDate: addHours(new Date(pe.endDate), hoursDiff),
-          });
-        } catch (err) {
-          console.error('[DayDrag] Failed:', err);
-          alert('일정 이동 실패: ' + (err instanceof Error ? err.message : String(err)));
+      } else {
+        // 전체 이동
+        if (drag.type === 'shared') {
+          const event = eventsRef.current.find((ev) => ev.id === drag.eventId);
+          if (!event) return;
+          try {
+            await updateEvent(event.id, {
+              startDate: addHours(new Date(event.startDate), hoursDiff),
+              endDate: addHours(new Date(event.endDate), hoursDiff),
+            });
+          } catch (err) {
+            console.error('[DayDrag] Failed:', err);
+            showToast('일정 이동에 실패했습니다', 'error');
+          }
+        } else if (drag.type === 'personal' && user) {
+          const pe = personalEventsRef.current.find((p) => p.id === drag.eventId);
+          if (!pe) return;
+          try {
+            await updatePersonalEvent(user.id, pe.id, {
+              startDate: addHours(new Date(pe.startDate), hoursDiff),
+              endDate: addHours(new Date(pe.endDate), hoursDiff),
+            });
+          } catch (err) {
+            console.error('[DayDrag] Failed:', err);
+            showToast('일정 이동에 실패했습니다', 'error');
+          }
         }
       }
     }
@@ -295,6 +333,7 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
                         ...styles.eventBlock, background: event.adminColor,
                         cursor: isOwner ? 'grab' : 'pointer',
                         opacity: dragRef.current?.eventId === event.id ? 0.4 : 1,
+                        position: 'relative',
                       }}
                       title={formatEventTooltip(event, isOwner)}
                     >
@@ -302,6 +341,13 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
                       <span style={styles.eventTime}>
                         {format(new Date(event.startDate), 'HH:mm')} - {format(new Date(event.endDate), 'HH:mm')}
                       </span>
+                      {isOwner && (
+                        <div
+                          onMouseDown={(e) => handleResizeMouseDown(e, event.id, 'shared', hour)}
+                          style={styles.resizeHandle}
+                          title="드래그하여 시간 늘리기/줄이기"
+                        />
+                      )}
                     </div>
                   );
                 })}
@@ -314,6 +360,7 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
                         ...styles.eventBlock, background: pe.color, opacity: 0.85,
                         borderLeft: '3px solid rgba(255,255,255,0.5)',
                         cursor: canDrag ? 'grab' : 'default',
+                        position: 'relative',
                       }}
                       title={formatPersonalTooltip(pe, canDrag)}
                     >
@@ -321,6 +368,13 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
                       <span style={styles.eventTime}>
                         {format(new Date(pe.startDate), 'HH:mm')} - {format(new Date(pe.endDate), 'HH:mm')} (개인)
                       </span>
+                      {canDrag && (
+                        <div
+                          onMouseDown={(e) => handleResizeMouseDown(e, pe.id, 'personal', hour)}
+                          style={styles.resizeHandle}
+                          title="드래그하여 시간 늘리기/줄이기"
+                        />
+                      )}
                     </div>
                   );
                 })}
@@ -371,4 +425,9 @@ const styles: Record<string, React.CSSProperties> = {
   eventTitle: { fontSize: 'var(--schedule-font-size)', color: '#fff', fontWeight: 600, display: 'block', textShadow: '0 0 2px rgba(0,0,0,0.3)' },
   eventTime: { fontSize: 'calc(var(--schedule-font-size) - 1px)', color: 'rgba(255,255,255,0.85)' },
   emptyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '12px 0', color: 'var(--text-muted)', fontSize: 12, flexShrink: 0 },
+  resizeHandle: {
+    position: 'absolute', left: 0, right: 0, bottom: 0, height: 6,
+    cursor: 'ns-resize', borderRadius: '0 0 4px 4px',
+    background: 'linear-gradient(transparent, rgba(255,255,255,0.3))',
+  },
 };

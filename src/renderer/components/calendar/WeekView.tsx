@@ -9,6 +9,7 @@ import { useAuthStore } from '../../store/authStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useComciganStore } from '../../store/comciganStore';
 import type { CalendarEvent, PersonalEvent, TeacherPeriod } from '@shared/types';
+import { showToast } from '../common/Toast';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
@@ -225,7 +226,7 @@ export function WeekView({ onAddPersonalEvent }: WeekViewProps) {
           await updateEvent(event.id, { startDate: newStart, endDate: newEnd });
         } catch (err) {
           console.error('[WeekDrag] Failed:', err);
-          alert('일정 이동 실패: ' + (err instanceof Error ? err.message : String(err)));
+          showToast('일정 이동에 실패했습니다', 'error');
         }
       } else if (drag.type === 'personal' && user) {
         const pe = personalEventsRef.current.find((p) => p.id === drag.eventId);
@@ -238,7 +239,7 @@ export function WeekView({ onAddPersonalEvent }: WeekViewProps) {
           await updatePersonalEvent(user.id, pe.id, { startDate: newStart, endDate: newEnd });
         } catch (err) {
           console.error('[WeekDrag] Failed:', err);
-          alert('일정 이동 실패: ' + (err instanceof Error ? err.message : String(err)));
+          showToast('일정 이동에 실패했습니다', 'error');
         }
       }
     }

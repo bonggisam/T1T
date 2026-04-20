@@ -39,23 +39,43 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
   }
 
   async function handleApprove(userId: string, role: 'teacher' | 'head_teacher' = 'teacher') {
-    await updateDoc(doc(db, 'users', userId), { status: 'active', role });
-    fetchUsers();
+    try {
+      await updateDoc(doc(db, 'users', userId), { status: 'active', role });
+      fetchUsers();
+    } catch (err) {
+      console.error('Approve failed:', err);
+      alert('승인 처리에 실패했습니다.');
+    }
   }
 
   async function handleReject(userId: string) {
-    await updateDoc(doc(db, 'users', userId), { status: 'rejected' });
-    fetchUsers();
+    try {
+      await updateDoc(doc(db, 'users', userId), { status: 'rejected' });
+      fetchUsers();
+    } catch (err) {
+      console.error('Reject failed:', err);
+      alert('거절 처리에 실패했습니다.');
+    }
   }
 
   async function handleChangeRole(userId: string, role: 'teacher' | 'head_teacher') {
-    await updateDoc(doc(db, 'users', userId), { role });
-    fetchUsers();
+    try {
+      await updateDoc(doc(db, 'users', userId), { role });
+      fetchUsers();
+    } catch (err) {
+      console.error('Role change failed:', err);
+      alert('역할 변경에 실패했습니다.');
+    }
   }
 
   async function handleDeactivate(userId: string) {
-    await updateDoc(doc(db, 'users', userId), { status: 'deactivated' });
-    fetchUsers();
+    try {
+      await updateDoc(doc(db, 'users', userId), { status: 'deactivated' });
+      fetchUsers();
+    } catch (err) {
+      console.error('Deactivate failed:', err);
+      alert('비활성화 처리에 실패했습니다.');
+    }
   }
 
   return (

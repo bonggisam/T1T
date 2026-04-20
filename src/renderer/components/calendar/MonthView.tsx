@@ -10,6 +10,7 @@ import { useNotificationStore } from '../../store/notificationStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useComciganStore } from '../../store/comciganStore';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
+import { showToast } from '../common/Toast';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 const DRAG_THRESHOLD = 5;
@@ -245,7 +246,7 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
           console.log('[Drag] ✅ Success');
         } catch (err) {
           console.error('[Drag] ❌ Failed:', err);
-          alert('일정 이동 실패: ' + (err instanceof Error ? err.message : String(err)));
+          showToast('일정 이동에 실패했습니다', 'error');
         }
       } else if (drag.type === 'personal' && user) {
         const pe = personalEventsRef.current.find((p) => p.id === drag.eventId);
@@ -258,7 +259,7 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
           console.log('[Drag] ✅ Success');
         } catch (err) {
           console.error('[Drag] ❌ Failed:', err);
-          alert('일정 이동 실패: ' + (err instanceof Error ? err.message : String(err)));
+          showToast('일정 이동에 실패했습니다', 'error');
         }
       }
     }

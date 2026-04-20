@@ -53,7 +53,7 @@ export function PersonalEventModal({ onClose }: PersonalEventModalProps) {
     const start = new Date(startDate);
     const end = new Date(endDate);
     if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
-    if (end < start) { alert('종료 시간이 시작 시간보다 앞설 수 없습니다.'); return; }
+    if (end < start) { showToast('종료 시간이 시작 시간보다 앞설 수 없습니다.', 'error'); return; }
 
     setSaving(true);
     try {

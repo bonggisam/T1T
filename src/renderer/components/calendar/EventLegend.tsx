@@ -1,46 +1,37 @@
-import React, { useEffect, useState } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../../utils/firebase';
+import React, { useMemo } from 'react';
+import { useCalendarStore } from '../../store/calendarStore';
 
-interface AdminInfo {
-  id: string;
+interface TeacherColor {
   name: string;
-  profileColor: string;
+  color: string;
 }
 
 export function EventLegend() {
-  const [admins, setAdmins] = useState<AdminInfo[]>([]);
+  const { events } = useCalendarStore();
 
-  useEffect(() => {
-    async function fetchAdmins() {
-      try {
-        const q = query(
-          collection(db, 'users'),
-          where('role', 'in', ['admin', 'super_admin']),
-          where('status', '==', 'active')
-        );
-        const snapshot = await getDocs(q);
-        const list = snapshot.docs.map((d) => ({
-          id: d.id,
-          name: d.data().name,
-          profileColor: d.data().profileColor || '#4A90E2',
-        }));
-        setAdmins(list);
-      } catch {
-        // Firestore not configured yet
+  // 일정에서 고유 교사별 색상 추출
+  const teachers = useMemo<TeacherColor[]>(() => {
+    const map = new Map<string, TeacherColor>();
+    for (const event of events) {
+      if (event.adminName && event.adminColor && !map.has(event.createdBy)) {
+        map.set(event.createdBy, {
+          name: event.adminName,
+          color: event.adminColor,
+        });
       }
     }
-    fetchAdmins();
-  }, []);
+    return Array.from(map.values());
+  }, [events]);
 
-  if (admins.length === 0) return null;
+  if (teachers.length === 0) return null;
 
   return (
     <div style={styles.container}>
-      {admins.map((admin) => (
-        <div key={admin.id} style={styles.item}>
-          <span style={{ ...styles.dot, background: admin.profileColor }} />
-          <span style={styles.label}>{admin.name}</span>
+      <span style={styles.legendTitle}>범례</span>
+      {teachers.map((t, i) => (
+        <div key={i} style={styles.item}>
+          <span style={{ ...styles.dot, background: t.color }} />
+          <span style={styles.label}>{t.name}</span>
         </div>
       ))}
     </div>
@@ -55,6 +46,13 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '6px 12px',
     borderTop: '1px solid var(--border-subtle)',
     flexShrink: 0,
+    alignItems: 'center',
+  },
+  legendTitle: {
+    fontSize: 9,
+    fontWeight: 700,
+    color: 'var(--text-muted)',
+    marginRight: 2,
   },
   item: {
     display: 'flex',

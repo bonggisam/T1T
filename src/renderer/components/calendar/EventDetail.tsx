@@ -15,7 +15,7 @@ import {
 import { db } from '../../utils/firebase';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
-import type { ChecklistItem, EventComment } from '@shared/types';
+import type { ChecklistItem, EventComment, EventCategory } from '@shared/types';
 import { showToast } from '../common/Toast';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -26,11 +26,27 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: '기타',
 };
 
+const CATEGORIES: { key: EventCategory; label: string }[] = [
+  { key: 'event', label: '행사' },
+  { key: 'meeting', label: '회의' },
+  { key: 'deadline', label: '마감일' },
+  { key: 'notice', label: '공지' },
+  { key: 'other', label: '기타' },
+];
+
 export function EventDetail() {
-  const { selectedEvent, setShowEventDetail, setSelectedEvent, deleteEvent, updateChecklist, markAsRead } = useCalendarStore();
+  const { selectedEvent, setShowEventDetail, setSelectedEvent, deleteEvent, updateChecklist, markAsRead, updateEvent } = useCalendarStore();
   const { user } = useAuthStore();
   const [deleting, setDeleting] = useState(false);
   const [showReadList, setShowReadList] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editStart, setEditStart] = useState('');
+  const [editEnd, setEditEnd] = useState('');
+  const [editCategory, setEditCategory] = useState<EventCategory>('event');
+  const [editAllDay, setEditAllDay] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [comments, setComments] = useState<EventComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [sendingComment, setSendingComment] = useState(false);
@@ -139,7 +155,51 @@ export function EventDetail() {
     }
   }
 
+  function formatDTL(d: Date): string {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function startEditing() {
+    if (!selectedEvent) return;
+    setEditTitle(selectedEvent.title);
+    setEditDesc(selectedEvent.description || '');
+    setEditStart(formatDTL(new Date(selectedEvent.startDate)));
+    setEditEnd(formatDTL(new Date(selectedEvent.endDate)));
+    setEditCategory(selectedEvent.category);
+    setEditAllDay(selectedEvent.allDay);
+    setEditing(true);
+  }
+
+  async function handleSaveEdit() {
+    if (!selectedEvent) return;
+    const trimTitle = editTitle.trim().slice(0, 100);
+    if (!trimTitle) return;
+    const start = new Date(editStart);
+    const end = new Date(editEnd);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
+    if (end < start) { showToast('종료 시간이 시작 시간보다 앞설 수 없습니다.', 'error'); return; }
+
+    setSaving(true);
+    try {
+      await updateEvent(selectedEvent.id, {
+        title: trimTitle,
+        description: editDesc.trim().slice(0, 1000),
+        startDate: start,
+        endDate: end,
+        category: editCategory,
+        allDay: editAllDay,
+      });
+      showToast('일정이 수정되었습니다');
+      setEditing(false);
+    } catch (err) {
+      showToast('수정에 실패했습니다', 'error');
+    }
+    setSaving(false);
+  }
+
   function close() {
+    setEditing(false);
     setShowEventDetail(false);
     setSelectedEvent(null);
   }
@@ -157,25 +217,67 @@ export function EventDetail() {
         </div>
 
         {/* Title & creator */}
-        <h3 style={styles.title}>{selectedEvent.title}</h3>
-        <p style={styles.creator}>등록자: {selectedEvent.adminName}</p>
-
-        {/* Date/time */}
-        <div style={styles.info}>
-          <span>📅 {format(new Date(selectedEvent.startDate), 'yyyy.MM.dd (EEE)', { locale: ko })}</span>
-          {!selectedEvent.allDay && (
-            <span>
-              🕐 {format(new Date(selectedEvent.startDate), 'HH:mm')} ~ {format(new Date(selectedEvent.endDate), 'HH:mm')}
-            </span>
-          )}
-          {selectedEvent.allDay && <span>종일</span>}
-        </div>
-
-        {/* Description */}
-        {selectedEvent.description && (
-          <div style={styles.descSection}>
-            <p style={styles.description}>{selectedEvent.description}</p>
+        {editing ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+            <input
+              type="text"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              style={styles.editInput}
+              placeholder="일정 제목"
+              autoFocus
+            />
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <select value={editCategory} onChange={(e) => setEditCategory(e.target.value as EventCategory)} style={styles.editSelect}>
+                {CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+              </select>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, cursor: 'pointer' }}>
+                <input type="checkbox" checked={editAllDay} onChange={(e) => setEditAllDay(e.target.checked)} />
+                종일
+              </label>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input type="datetime-local" value={editStart} onChange={(e) => setEditStart(e.target.value)} style={styles.editDateInput} />
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>~</span>
+              <input type="datetime-local" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} style={styles.editDateInput} />
+            </div>
+            <textarea
+              value={editDesc}
+              onChange={(e) => setEditDesc(e.target.value)}
+              style={styles.editTextarea}
+              rows={3}
+              placeholder="상세 설명"
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+              <button onClick={() => setEditing(false)} style={styles.editCancelBtn}>취소</button>
+              <button onClick={handleSaveEdit} disabled={!editTitle.trim() || saving} style={styles.editSaveBtn}>
+                {saving ? '저장 중...' : '저장'}
+              </button>
+            </div>
           </div>
+        ) : (
+          <>
+            <h3 style={styles.title}>{selectedEvent.title}</h3>
+            <p style={styles.creator}>등록자: {selectedEvent.adminName}</p>
+
+            {/* Date/time */}
+            <div style={styles.info}>
+              <span>📅 {format(new Date(selectedEvent.startDate), 'yyyy.MM.dd (EEE)', { locale: ko })}</span>
+              {!selectedEvent.allDay && (
+                <span>
+                  🕐 {format(new Date(selectedEvent.startDate), 'HH:mm')} ~ {format(new Date(selectedEvent.endDate), 'HH:mm')}
+                </span>
+              )}
+              {selectedEvent.allDay && <span>종일</span>}
+            </div>
+
+            {/* Description */}
+            {selectedEvent.description && (
+              <div style={styles.descSection}>
+                <p style={styles.description}>{selectedEvent.description}</p>
+              </div>
+            )}
+          </>
         )}
 
         {/* Checklist */}
@@ -310,8 +412,9 @@ export function EventDetail() {
         </div>
 
         {/* Actions */}
-        {canEdit && (
+        {canEdit && !editing && (
           <div style={styles.actions}>
+            <button onClick={startEditing} style={styles.editBtn}>✏️ 수정</button>
             <button onClick={handleDelete} disabled={deleting} style={styles.deleteBtn}>
               {deleting ? '삭제 중...' : '삭제'}
             </button>
@@ -602,6 +705,15 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     flexShrink: 0,
   },
+  editBtn: {
+    padding: '6px 16px',
+    fontSize: 12,
+    border: '1px solid var(--accent)',
+    borderRadius: 8,
+    background: 'transparent',
+    color: 'var(--accent)',
+    cursor: 'pointer',
+  },
   deleteBtn: {
     padding: '6px 16px',
     fontSize: 12,
@@ -609,6 +721,67 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 8,
     background: 'transparent',
     color: 'var(--danger)',
+    cursor: 'pointer',
+  },
+  editInput: {
+    width: '100%',
+    padding: '8px 12px',
+    fontSize: 14,
+    fontWeight: 600,
+    border: '1px solid var(--border-color)',
+    borderRadius: 8,
+    background: 'var(--bg-secondary)',
+    color: 'var(--text-primary)',
+    outline: 'none',
+  },
+  editSelect: {
+    padding: '4px 8px',
+    fontSize: 11,
+    border: '1px solid var(--border-color)',
+    borderRadius: 6,
+    background: 'var(--bg-secondary)',
+    color: 'var(--text-primary)',
+    outline: 'none',
+  },
+  editDateInput: {
+    flex: 1,
+    padding: '4px 6px',
+    fontSize: 11,
+    border: '1px solid var(--border-color)',
+    borderRadius: 6,
+    background: 'var(--bg-secondary)',
+    color: 'var(--text-primary)',
+    outline: 'none',
+  },
+  editTextarea: {
+    width: '100%',
+    padding: '8px 12px',
+    fontSize: 12,
+    border: '1px solid var(--border-color)',
+    borderRadius: 8,
+    background: 'var(--bg-secondary)',
+    color: 'var(--text-primary)',
+    outline: 'none',
+    resize: 'vertical',
+    fontFamily: 'inherit',
+  },
+  editCancelBtn: {
+    padding: '6px 14px',
+    fontSize: 11,
+    border: '1px solid var(--border-color)',
+    borderRadius: 6,
+    background: 'transparent',
+    color: 'var(--text-secondary)',
+    cursor: 'pointer',
+  },
+  editSaveBtn: {
+    padding: '6px 14px',
+    fontSize: 11,
+    fontWeight: 600,
+    border: 'none',
+    borderRadius: 6,
+    background: 'var(--accent)',
+    color: '#fff',
     cursor: 'pointer',
   },
 };

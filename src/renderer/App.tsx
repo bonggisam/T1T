@@ -18,6 +18,7 @@ import { TPassView } from './components/tpass/TPassView';
 import { UpdateBanner } from './components/common/UpdateBanner';
 import { ToastContainer } from './components/common/Toast';
 import { useComciganStore } from './store/comciganStore';
+import { useReminder } from './hooks/useReminder';
 
 type AuthScreen = 'login' | 'signup';
 
@@ -34,6 +35,9 @@ export function App() {
   const [showTPass, setShowTPass] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  // 일정 알림 리마인더
+  useReminder();
 
   useEffect(() => {
     const unsub = initialize();
