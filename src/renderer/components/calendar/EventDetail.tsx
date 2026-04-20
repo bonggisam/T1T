@@ -182,14 +182,17 @@ export function EventDetail() {
 
     setSaving(true);
     try {
-      await updateEvent(selectedEvent.id, {
+      const updates = {
         title: trimTitle,
         description: editDesc.trim().slice(0, 1000),
         startDate: start,
         endDate: end,
         category: editCategory,
         allDay: editAllDay,
-      });
+      };
+      await updateEvent(selectedEvent.id, updates);
+      // 편집 후 selectedEvent 갱신
+      setSelectedEvent({ ...selectedEvent, ...updates });
       showToast('일정이 수정되었습니다');
       setEditing(false);
     } catch (err) {

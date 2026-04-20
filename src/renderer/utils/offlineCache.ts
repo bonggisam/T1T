@@ -12,7 +12,18 @@ const STORES = {
   meta: 'meta',
 } as const;
 
+let dbInstance: IDBDatabase | null = null;
+
 function openDB(): Promise<IDBDatabase> {
+  if (dbInstance) {
+    try {
+      // 연결이 살아있는지 확인
+      dbInstance.transaction(STORES.meta, 'readonly');
+      return Promise.resolve(dbInstance);
+    } catch {
+      dbInstance = null;
+    }
+  }
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
@@ -27,7 +38,11 @@ function openDB(): Promise<IDBDatabase> {
         db.createObjectStore(STORES.meta, { keyPath: 'key' });
       }
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      dbInstance = request.result;
+      dbInstance.onclose = () => { dbInstance = null; };
+      resolve(dbInstance);
+    };
     request.onerror = () => reject(request.error);
   });
 }
@@ -63,8 +78,8 @@ async function putAll(storeName: string, items: any[]): Promise<void> {
     store.put(serializeDate(item));
   }
   return new Promise((resolve, reject) => {
-    tx.oncomplete = () => { db.close(); resolve(); };
-    tx.onerror = () => { db.close(); reject(tx.error); };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
   });
 }
 
@@ -74,8 +89,8 @@ async function getAll<T>(storeName: string): Promise<T[]> {
   const store = tx.objectStore(storeName);
   const request = store.getAll();
   return new Promise((resolve, reject) => {
-    request.onsuccess = () => { db.close(); resolve(request.result.map(deserializeDate)); };
-    request.onerror = () => { db.close(); reject(request.error); };
+    request.onsuccess = () => resolve((request.result || []).map(deserializeDate));
+    request.onerror = () => reject(request.error);
   });
 }
 
@@ -120,8 +135,8 @@ async function setMeta(key: string, value: any): Promise<void> {
   const tx = db.transaction(STORES.meta, 'readwrite');
   tx.objectStore(STORES.meta).put({ key, value });
   return new Promise((resolve, reject) => {
-    tx.oncomplete = () => { db.close(); resolve(); };
-    tx.onerror = () => { db.close(); reject(tx.error); };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
   });
 }
 
@@ -130,7 +145,7 @@ export async function getMeta(key: string): Promise<any> {
   const tx = db.transaction(STORES.meta, 'readonly');
   const request = tx.objectStore(STORES.meta).get(key);
   return new Promise((resolve, reject) => {
-    request.onsuccess = () => { db.close(); resolve(request.result?.value ?? null); };
-    request.onerror = () => { db.close(); reject(request.error); };
+    request.onsuccess = () => resolve(request.result?.value ?? null);
+    request.onerror = () => reject(request.error);
   });
 }

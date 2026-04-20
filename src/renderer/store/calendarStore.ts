@@ -115,7 +115,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
     const unsub = onSnapshot(q, (snapshot) => {
       const events = snapshot.docs.map((d) => firestoreToEvent(d.id, d.data()));
       set({ events, loading: false });
-      cacheEvents(events).catch(() => {});
+      cacheEvents(events).catch((err) => console.warn('[CalendarStore] Cache failed:', err));
     }, (error) => {
       console.error('[CalendarStore] Subscription error:', error);
       getCachedEvents<CalendarEvent>().then((cached) => {

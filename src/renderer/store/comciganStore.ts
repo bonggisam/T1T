@@ -37,20 +37,16 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
     try {
       const config = await window.electronAPI?.comciganGetConfig() ?? null;
       let cached = await window.electronAPI?.comciganGetCached() ?? null;
-      console.log('[ComciganStore] config:', config ? config.schoolName : 'null', 'cached:', cached ? `${cached.teacherSchedule.length} periods` : 'null');
 
       // If config exists but no cached data, trigger a fresh fetch
       if (config && !cached) {
-        console.log('[ComciganStore] No cached data, triggering fetch...');
         cached = await window.electronAPI?.comciganFetch() ?? null;
-        console.log('[ComciganStore] Fetch result:', cached ? `${cached.teacherSchedule.length} periods` : 'null');
       }
 
       set({ config, timetableData: cached });
 
       // Subscribe to auto-refresh updates from main process
       const unsub = window.electronAPI?.onComciganUpdate((data) => {
-        console.log('[ComciganStore] Received update:', data ? `${data.teacherSchedule.length} periods` : 'null');
         set({ timetableData: data });
       });
       set({ unsubscribe: unsub ?? null });
@@ -60,11 +56,12 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
       if (prevTimer) clearInterval(prevTimer);
       if (config) {
         const timer = setInterval(async () => {
-          console.log('[ComciganStore] 5분 자동 갱신...');
           try {
             const data = await window.electronAPI?.comciganFetch() ?? null;
             if (data) set({ timetableData: data });
-          } catch {}
+          } catch (err) {
+            console.warn('[ComciganStore] Auto-refresh failed:', err);
+          }
         }, 5 * 60 * 1000);
         set({ refreshTimer: timer });
       }

@@ -26,7 +26,7 @@ function loadConfigFromDisk(): ComciganConfig | null {
     if (fs.existsSync(CONFIG_PATH)) {
       return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
     }
-  } catch {}
+  } catch (err) { console.warn('[Comcigan] Failed to load config:', err); }
   return null;
 }
 
@@ -37,7 +37,7 @@ function saveConfigToDisk(config: ComciganConfig | null): void {
     } else {
       if (fs.existsSync(CONFIG_PATH)) fs.unlinkSync(CONFIG_PATH);
     }
-  } catch {}
+  } catch (err) { console.warn('[Comcigan] Failed to save config:', err); }
 }
 
 const WEEKDAY_STRINGS = ['월', '화', '수', '목', '금'];
@@ -61,9 +61,9 @@ class ComciganService {
         await this.timetable.init({ maxGrade: this.config.maxGrade || 3 });
         this.timetable.setSchool(this.config.schoolCode);
         // Initial fetch (non-blocking)
-        this.fetchTimetable().catch(() => {});
-      } catch {
-        // comcigan may be unreachable — will retry on next refresh
+        this.fetchTimetable().catch((err) => console.warn('[Comcigan] Initial fetch failed:', err));
+      } catch (err) {
+        console.warn('[Comcigan] Init failed, will retry on next refresh:', err);
       }
     }
     this.startAutoRefresh();

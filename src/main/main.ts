@@ -11,6 +11,7 @@ let isWidgetMode = true; // Desktop widget mode (pinned behind windows)
 const isDev = !app.isPackaged;
 
 // macOS 26 (Tahoe) beta workaround: disable sandbox to prevent V8 crash
+// TODO: Electron 42+ 업그레이드 시 이 플래그가 여전히 필요한지 재검증 필요
 if (process.platform === 'darwin') {
   app.commandLine.appendSwitch('no-sandbox');
   app.commandLine.appendSwitch('disable-gpu');
@@ -155,7 +156,9 @@ function setupIPC(): void {
   });
 
   ipcMain.handle('window:set-opacity', (_event, opacity: number) => {
-    mainWindow?.setOpacity(opacity);
+    if (typeof opacity === 'number' && opacity >= 0 && opacity <= 1) {
+      mainWindow?.setOpacity(opacity);
+    }
   });
 
   ipcMain.handle('window:toggle-click-through', (_event, enabled: boolean) => {
@@ -173,7 +176,9 @@ function setupIPC(): void {
   });
 
   ipcMain.handle('window:set-size', (_event, width: number, height: number) => {
-    mainWindow?.setSize(width, height);
+    if (typeof width === 'number' && typeof height === 'number' && width > 0 && height > 0) {
+      mainWindow?.setSize(Math.round(width), Math.round(height));
+    }
   });
 
   ipcMain.handle('window:set-widget-mode', (_event, enabled: boolean) => {
@@ -189,7 +194,7 @@ function setupIPC(): void {
   });
 
   ipcMain.handle('window:set-bounds', (_event, bounds: { x: number; y: number; width: number; height: number }) => {
-    if (mainWindow) {
+    if (mainWindow && bounds && typeof bounds.width === 'number' && typeof bounds.height === 'number' && bounds.width > 0 && bounds.height > 0) {
       // Temporarily allow resize so setBounds works even in widget mode
       const wasResizable = mainWindow.isResizable();
       if (!wasResizable) mainWindow.setResizable(true);
@@ -206,7 +211,7 @@ function setupIPC(): void {
 
   // Auto-updater IPC
   ipcMain.handle('updater:download', () => {
-    autoUpdater.downloadUpdate().catch(() => {});
+    autoUpdater.downloadUpdate().catch((err) => console.error('[Updater] Download failed:', err));
   });
 
   ipcMain.handle('updater:install', () => {
@@ -214,7 +219,7 @@ function setupIPC(): void {
   });
 
   ipcMain.handle('updater:check', () => {
-    autoUpdater.checkForUpdates().catch(() => {});
+    autoUpdater.checkForUpdates().catch((err) => console.warn('[Updater] Check failed:', err));
   });
 
   ipcMain.handle('app:get-version', () => {

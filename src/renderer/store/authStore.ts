@@ -162,7 +162,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
-    try { await signOut(auth); } catch {}
+    try { await signOut(auth); } catch (err) { console.warn('[Auth] Signout failed:', err); }
     set({ firebaseUser: null, user: null, loading: false });
   },
 

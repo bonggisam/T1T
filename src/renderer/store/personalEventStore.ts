@@ -58,7 +58,7 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
       if (cached.length > 0 && get().personalEvents.length === 0) {
         set({ personalEvents: cached });
       }
-    });
+    }).catch((err) => console.warn('[PersonalEventStore] Cache load failed:', err));
 
     const q = query(
       collection(db, 'personal_events', userId, 'events'),
@@ -80,7 +80,7 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
         };
       });
       set({ personalEvents: events });
-      cachePersonalEvents(events);
+      cachePersonalEvents(events).catch((err) => console.warn('[PersonalEventStore] Cache failed:', err));
     });
     set({ unsubscribe: unsub });
   },
@@ -108,10 +108,10 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
     if (syncTimer) clearInterval(syncTimer);
 
     // Initial sync
-    get().syncExternalCalendars();
+    get().syncExternalCalendars().catch((err) => console.warn('[PersonalEventStore] Initial sync failed:', err));
 
     const timer = setInterval(() => {
-      get().syncExternalCalendars();
+      get().syncExternalCalendars().catch((err) => console.warn('[PersonalEventStore] Auto sync failed:', err));
     }, intervalMinutes * 60 * 1000);
     set({ syncTimer: timer });
   },

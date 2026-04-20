@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useCalendarStore } from '../../store/calendarStore';
 
 interface TeacherColor {
+  id: string;
   name: string;
   color: string;
 }
@@ -15,6 +16,7 @@ export function EventLegend() {
     for (const event of events) {
       if (event.adminName && event.adminColor && !map.has(event.createdBy)) {
         map.set(event.createdBy, {
+          id: event.createdBy,
           name: event.adminName,
           color: event.adminColor,
         });
@@ -28,8 +30,8 @@ export function EventLegend() {
   return (
     <div style={styles.container}>
       <span style={styles.legendTitle}>범례</span>
-      {teachers.map((t, i) => (
-        <div key={i} style={styles.item}>
+      {teachers.map((t) => (
+        <div key={t.id} style={styles.item}>
           <span style={{ ...styles.dot, background: t.color }} />
           <span style={styles.label}>{t.name}</span>
         </div>

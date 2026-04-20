@@ -9,6 +9,7 @@ interface TPassViewProps {
 export function TPassView({ onBack }: TPassViewProps) {
   const [loading, setLoading] = useState(true);
   const webviewContainerRef = useRef<HTMLDivElement>(null);
+  // Electron webview는 HTMLElement 확장이지만 reload/goBack 등의 메서드를 가짐. 타입 표준에 없어 any 사용.
   const webviewRef = useRef<any>(null);
 
   useEffect(() => {

@@ -17,7 +17,10 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
     clearError();
     try {
       await login(email, password);
-    } catch {}
+    } catch (err) {
+      console.warn('[Login] Failed:', err);
+      // authStore에서 error state 관리하므로 여기선 로그만
+    }
   }
 
   async function handleReset(e: React.FormEvent) {
@@ -25,7 +28,9 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
     try {
       await resetPassword(email);
       setResetSent(true);
-    } catch {}
+    } catch (err) {
+      console.warn('[Login] Password reset failed:', err);
+    }
   }
 
   if (resetMode) {

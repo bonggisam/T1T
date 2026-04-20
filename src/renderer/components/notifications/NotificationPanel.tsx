@@ -13,7 +13,7 @@ export function NotificationPanel() {
   function handleNotificationClick(notification: typeof notifications[0]) {
     if (!user) return;
     if (!notification.read) {
-      markAsRead(notification.id, user.id).catch(() => {});
+      markAsRead(notification.id, user.id).catch((err) => console.warn('[Notification] markAsRead failed:', err));
     }
     if (notification.eventId) {
       const event = events.find((e) => e.id === notification.eventId);
@@ -32,7 +32,7 @@ export function NotificationPanel() {
           <h4 style={styles.title}>🔔 알림</h4>
           <div style={styles.headerActions}>
             {notifications.some((n) => !n.read) && user && (
-              <button onClick={() => markAllAsRead(user.id).catch(() => {})} style={styles.readAllBtn}>
+              <button onClick={() => markAllAsRead(user.id).catch((err) => console.warn('[Notification] markAllAsRead failed:', err))} style={styles.readAllBtn}>
                 모두 읽음
               </button>
             )}

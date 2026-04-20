@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../../utils/firebase';
+import { showToast } from '../common/Toast';
 import type { User, UserStatus } from '@shared/types';
 
 interface AdminPanelProps {
@@ -44,7 +45,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
       fetchUsers();
     } catch (err) {
       console.error('Approve failed:', err);
-      alert('승인 처리에 실패했습니다.');
+      showToast('승인 처리에 실패했습니다.', 'error');
     }
   }
 
@@ -54,7 +55,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
       fetchUsers();
     } catch (err) {
       console.error('Reject failed:', err);
-      alert('거절 처리에 실패했습니다.');
+      showToast('거절 처리에 실패했습니다.', 'error');
     }
   }
 
@@ -64,7 +65,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
       fetchUsers();
     } catch (err) {
       console.error('Role change failed:', err);
-      alert('역할 변경에 실패했습니다.');
+      showToast('역할 변경에 실패했습니다.', 'error');
     }
   }
 
@@ -74,7 +75,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
       fetchUsers();
     } catch (err) {
       console.error('Deactivate failed:', err);
-      alert('비활성화 처리에 실패했습니다.');
+      showToast('비활성화 처리에 실패했습니다.', 'error');
     }
   }
 

@@ -37,14 +37,19 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
       return;
     }
 
-    await signup(email, password, name);
-    // If user is now active (admin), App.tsx will show calendar directly.
-    // If pending (teacher), show success message.
-    const currentUser = useAuthStore.getState().user;
-    if (!currentUser || currentUser.status === 'pending') {
-      setSuccess(true);
+    try {
+      await signup(email, password, name);
+      // If user is now active (admin), App.tsx will show calendar directly.
+      // If pending (teacher), show success message.
+      const currentUser = useAuthStore.getState().user;
+      if (!currentUser || currentUser.status === 'pending') {
+        setSuccess(true);
+      }
+      // If active → App.tsx re-renders to calendar automatically
+    } catch (err) {
+      console.warn('[Signup] Failed:', err);
+      // authStore에서 error state 관리
     }
-    // If active → App.tsx re-renders to calendar automatically
   }
 
   if (success) {

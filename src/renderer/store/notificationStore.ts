@@ -84,13 +84,18 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   markAllAsRead: async (userId) => {
-    const { notifications } = get();
-    const unread = notifications.filter((n) => !n.read);
-    await Promise.all(
-      unread.map((n) =>
-        updateDoc(doc(db, 'notifications', userId, 'items', n.id), { read: true })
-      )
-    );
+    try {
+      const { notifications } = get();
+      const unread = notifications.filter((n) => !n.read);
+      await Promise.all(
+        unread.map((n) =>
+          updateDoc(doc(db, 'notifications', userId, 'items', n.id), { read: true })
+        )
+      );
+    } catch (err) {
+      console.error('[NotificationStore] markAllAsRead failed:', err);
+      throw err;
+    }
   },
 
   cleanup: () => {
