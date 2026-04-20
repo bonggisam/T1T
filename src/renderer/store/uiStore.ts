@@ -1,13 +1,22 @@
 import { create } from 'zustand';
 import type { EventCategory, School } from '@shared/types';
 
+const VIEWING_SCHOOL_KEY = 'tonet-viewing-school';
+
+function loadViewingSchool(): 'own' | 'all' | School {
+  try {
+    const saved = localStorage.getItem(VIEWING_SCHOOL_KEY);
+    if (saved === 'own' || saved === 'all' || saved === 'taeseong_middle' || saved === 'taeseong_high') {
+      return saved;
+    }
+  } catch {}
+  return 'own';
+}
+
 /**
  * UI 전역 상태.
  * - categoryFilter: 카테고리별 필터
- * - viewingSchool: 현재 어느 학교 공유 일정을 볼지 (본인 학교 외 전환 가능)
- *   - 'own' = 본인 학교만 (+ 전체)
- *   - 'all' = 양쪽 학교 모두
- *   - School 값 = 해당 학교만 (+ 전체)
+ * - viewingSchool: 현재 어느 학교 공유 일정을 볼지 (localStorage 저장)
  */
 interface UIState {
   categoryFilter: EventCategory | 'all';
@@ -19,8 +28,11 @@ interface UIState {
 export const useUIStore = create<UIState>((set) => ({
   categoryFilter: 'all',
   setCategoryFilter: (c) => set({ categoryFilter: c }),
-  viewingSchool: 'own',
-  setViewingSchool: (s) => set({ viewingSchool: s }),
+  viewingSchool: loadViewingSchool(),
+  setViewingSchool: (s) => {
+    try { localStorage.setItem(VIEWING_SCHOOL_KEY, s); } catch {}
+    set({ viewingSchool: s });
+  },
 }));
 
 export function useCategoryFilter() {

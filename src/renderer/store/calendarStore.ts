@@ -152,6 +152,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
       `새 일정: "${event.title}" (${dateStr})`,
       docRef.id,
       event.createdBy,
+      schoolValue, // 해당 학교 사용자에게만 알림
     );
     // 슬랙 알림 (설정된 경우) — 실패해도 무해
     sendSlackNotification(
@@ -181,6 +182,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
         `일정 수정: "${updates.title || event.title}"`,
         id,
         event.createdBy,
+        event.school,
       );
     }
   },
@@ -195,6 +197,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
         `일정 삭제: "${event.title}"`,
         undefined,
         event.createdBy,
+        event.school,
       );
     }
   },

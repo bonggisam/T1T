@@ -15,7 +15,7 @@ import {
 import { db } from '../../utils/firebase';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
-import type { ChecklistItem, EventComment, EventCategory } from '@shared/types';
+import type { ChecklistItem, EventComment, EventCategory, School } from '@shared/types';
 import { showToast } from '../common/Toast';
 import { MentionInput, renderMentions, extractMentions } from '../common/MentionInput';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
@@ -49,6 +49,7 @@ export function EventDetail() {
   const [editStart, setEditStart] = useState('');
   const [editEnd, setEditEnd] = useState('');
   const [editCategory, setEditCategory] = useState<EventCategory>('event');
+  const [editSchool, setEditSchool] = useState<School | 'all'>('all');
   const [editAllDay, setEditAllDay] = useState(false);
   const [saving, setSaving] = useState(false);
   const [comments, setComments] = useState<EventComment[]>([]);
@@ -151,15 +152,18 @@ export function EventDetail() {
         const allUsers = useUsersStore.getState().users;
         for (const name of mentionedNames) {
           const target = allUsers.find((u) => u.name === name);
-          if (target && target.id !== user.id) {
-            notifyUser(
-              target.id,
-              'new_event',
-              `💬 ${user.name}님이 "${selectedEvent.title}"에서 언급했습니다`,
-              selectedEvent.id,
-              user.id,
-            );
-          }
+          if (!target || target.id === user.id) continue;
+          // 일정의 school 범위에 속하는 사용자에게만 멘션 알림
+          // ('all' 일정은 모두 가능, 특정 학교 일정은 해당 학교만)
+          const eventSchool = selectedEvent.school;
+          if (eventSchool !== 'all' && target.school !== eventSchool) continue;
+          notifyUser(
+            target.id,
+            'new_event',
+            `💬 ${user.name}님이 "${selectedEvent.title}"에서 언급했습니다`,
+            selectedEvent.id,
+            user.id,
+          );
         }
       }
       setNewComment('');
@@ -191,6 +195,7 @@ export function EventDetail() {
     setEditStart(formatDTL(new Date(selectedEvent.startDate)));
     setEditEnd(formatDTL(new Date(selectedEvent.endDate)));
     setEditCategory(selectedEvent.category);
+    setEditSchool(selectedEvent.school);
     setEditAllDay(selectedEvent.allDay);
     setEditing(true);
   }
@@ -212,6 +217,7 @@ export function EventDetail() {
         startDate: start,
         endDate: end,
         category: editCategory,
+        school: editSchool,
         allDay: editAllDay,
       };
       await updateEvent(selectedEvent.id, updates);
@@ -257,6 +263,11 @@ export function EventDetail() {
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <select value={editCategory} onChange={(e) => setEditCategory(e.target.value as EventCategory)} style={styles.editSelect}>
                 {CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+              </select>
+              <select value={editSchool} onChange={(e) => setEditSchool(e.target.value as School | 'all')} style={styles.editSelect}>
+                <option value="taeseong_middle">🏫 태성중</option>
+                <option value="taeseong_high">🎓 태성고</option>
+                <option value="all">📢 전체</option>
               </select>
               <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, cursor: 'pointer' }}>
                 <input type="checkbox" checked={editAllDay} onChange={(e) => setEditAllDay(e.target.checked)} />

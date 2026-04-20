@@ -7,7 +7,9 @@ import {
 import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/notificationStore';
 import { useComciganStore } from '../../store/comciganStore';
+import { useUIStore } from '../../store/uiStore';
 import { SCHOOL_LABELS } from '@shared/types';
+import type { School } from '@shared/types';
 
 interface TitleBarProps {
   onToggleSettings: () => void;
@@ -39,6 +41,7 @@ export function TitleBar({
   const { user } = useAuthStore();
   const { unreadCount, setShowPanel, showPanel } = useNotificationStore();
   const { showTimetable, toggleTimetable } = useComciganStore();
+  const { viewingSchool, setViewingSchool } = useUIStore();
   const [widgetMode, setWidgetMode] = useState(true);
 
   useEffect(() => {
@@ -82,6 +85,13 @@ export function TitleBar({
             >
               <span style={styles.tpassIconCompact}>T</span>
             </button>
+          )}
+          {user && (
+            <WidgetSchoolToggle
+              userSchool={user.school}
+              viewingSchool={viewingSchool}
+              setViewingSchool={setViewingSchool}
+            />
           )}
           <IconBtn Icon={BookOpen} active={showTimetable} onClick={toggleTimetable} title={showTimetable ? '시간표 숨기기' : '시간표 보기'} compact />
           <button onClick={handleToggleWidget} style={styles.editBtn} title="편집 모드 (Ctrl+Shift+C)">
@@ -180,6 +190,45 @@ export function TitleBar({
         </button>
       </div>
     </div>
+  );
+}
+
+// 위젯 모드용 미니 학교 토글 (드롭다운 대신 cycle 방식)
+function WidgetSchoolToggle({
+  userSchool,
+  viewingSchool,
+  setViewingSchool,
+}: {
+  userSchool: School;
+  viewingSchool: 'own' | 'all' | School;
+  setViewingSchool: (s: 'own' | 'all' | School) => void;
+}) {
+  const order: ('own' | School | 'all')[] = ['own', 'taeseong_middle', 'taeseong_high', 'all'];
+  const labels: Record<string, string> = {
+    own: userSchool === 'taeseong_high' ? '🎓' : '🏫',
+    taeseong_middle: '🏫중',
+    taeseong_high: '🎓고',
+    all: '🌐',
+  };
+  const currentIdx = order.indexOf(viewingSchool);
+  const currentLabel = labels[viewingSchool];
+  return (
+    <button
+      onClick={() => setViewingSchool(order[(currentIdx + 1) % order.length])}
+      style={{
+        background: 'rgba(139,92,246,0.15)',
+        border: '1px solid rgba(139,92,246,0.3)',
+        cursor: 'pointer',
+        padding: '3px 8px',
+        fontSize: 11,
+        fontWeight: 700,
+        color: '#8B5CF6',
+        borderRadius: 6,
+      }}
+      title={`보는 학교: ${viewingSchool === 'own' ? '우리학교' : viewingSchool === 'all' ? '전체' : SCHOOL_LABELS[viewingSchool as School]}`}
+    >
+      {currentLabel}
+    </button>
   );
 }
 

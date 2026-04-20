@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
+import { useUIStore } from '../../store/uiStore';
 import type { EventCategory, ChecklistItem, School } from '@shared/types';
 import { showToast } from '../common/Toast';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
@@ -16,6 +17,14 @@ const CATEGORIES: { key: EventCategory; label: string }[] = [
 export function EventModal() {
   const { addEvent, setShowEventModal, selectedDate } = useCalendarStore();
   const { user } = useAuthStore();
+  const { viewingSchool } = useUIStore();
+
+  // 현재 보는 학교 뷰에 맞게 기본 공유 범위 계산
+  function defaultScope(): School | 'all' {
+    if (viewingSchool === 'all') return 'all';
+    if (viewingSchool === 'own') return user?.school || 'taeseong_middle';
+    return viewingSchool; // 특정 학교
+  }
 
   // selectedDate에 시간 정보가 있으면 사용, 없으면(0시=월뷰) 9시 기본
   const clickedHour = selectedDate.getHours();
@@ -31,7 +40,7 @@ export function EventModal() {
   const [endDate, setEndDate] = useState(formatDateTimeLocal(defaultEnd));
   const [allDay, setAllDay] = useState(false);
   const [category, setCategory] = useState<EventCategory>('event');
-  const [scope, setScope] = useState<School | 'all'>(user?.school || 'taeseong_middle');
+  const [scope, setScope] = useState<School | 'all'>(defaultScope());
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [newCheckItem, setNewCheckItem] = useState('');
   const [saving, setSaving] = useState(false);
@@ -39,14 +48,11 @@ export function EventModal() {
   // ESC 키로 닫기 (캡처 우선)
   useEscapeKey(() => setShowEventModal(false));
 
-  // user.school이 나중에 로드되면 scope 기본값 동기화 (초기 undefined인 경우 대비)
+  // user 로드 또는 viewingSchool 변경 시 scope 기본값 재계산 (사용자가 직접 바꾼 값이 아닌 경우)
   useEffect(() => {
-    if (user?.school && scope !== 'all' && scope !== user.school) {
-      setScope(user.school);
-    }
-    // scope가 이미 'all'이거나 사용자 선택값이면 유지
+    setScope(defaultScope());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.school]);
+  }, [user?.school, viewingSchool]);
 
   function formatDateTimeLocal(d: Date): string {
     const pad = (n: number) => n.toString().padStart(2, '0');

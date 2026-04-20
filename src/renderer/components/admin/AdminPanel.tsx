@@ -12,13 +12,15 @@ interface AdminPanelProps {
 
 type SchoolFilter = 'all' | 'taeseong_middle' | 'taeseong_high';
 
-function renderActiveUser(
-  u: User,
-  handleChangeRole: (userId: string, role: 'teacher' | 'head_teacher') => void,
-  handleDeactivate: (userId: string) => void,
-): React.ReactNode {
+interface ActiveUserCardProps {
+  u: User;
+  onChangeRole: (userId: string, role: 'teacher' | 'head_teacher') => void;
+  onDeactivate: (userId: string) => void;
+}
+
+function ActiveUserCard({ u, onChangeRole, onDeactivate }: ActiveUserCardProps) {
   return (
-    <div key={u.id} style={styles.userCard}>
+    <div style={styles.userCard}>
       <div style={styles.userInfo}>
         <span style={styles.userName}>
           {u.name}
@@ -39,13 +41,13 @@ function renderActiveUser(
       </div>
       <div style={styles.userActions}>
         {u.role === 'teacher' && (
-          <button onClick={() => handleChangeRole(u.id, 'head_teacher')} style={styles.promoteBtn}>부장 승격</button>
+          <button onClick={() => onChangeRole(u.id, 'head_teacher')} style={styles.promoteBtn}>부장 승격</button>
         )}
         {u.role === 'head_teacher' && (
-          <button onClick={() => handleChangeRole(u.id, 'teacher')} style={styles.demoteBtn}>교사 변경</button>
+          <button onClick={() => onChangeRole(u.id, 'teacher')} style={styles.demoteBtn}>교사 변경</button>
         )}
         {(u.role === 'teacher' || u.role === 'head_teacher') && (
-          <button onClick={() => handleDeactivate(u.id)} style={styles.deactivateBtn}>비활성화</button>
+          <button onClick={() => onDeactivate(u.id)} style={styles.deactivateBtn}>비활성화</button>
         )}
       </div>
     </div>
@@ -144,13 +146,13 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
       {/* Tab buttons */}
       <div style={styles.tabs}>
         <button
-          onClick={() => setTab('pending')}
+          onClick={() => { setTab('pending'); setSchoolFilter('all'); }}
           style={{ ...styles.tab, ...(tab === 'pending' ? styles.tabActive : {}) }}
         >
           승인 대기 ({pendingUsers.length})
         </button>
         <button
-          onClick={() => setTab('active')}
+          onClick={() => { setTab('active'); setSchoolFilter('all'); }}
           style={{ ...styles.tab, ...(tab === 'active' ? styles.tabActive : {}) }}
         >
           활성 사용자 ({activeUsers.length})
@@ -229,19 +231,19 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                   {middle.length > 0 && (
                     <>
                       <div style={styles.groupHeader}>🏫 태성중학교 ({middle.length})</div>
-                      {middle.map((u) => renderActiveUser(u, handleChangeRole, handleDeactivate))}
+                      {middle.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} />)}
                     </>
                   )}
                   {high.length > 0 && (
                     <>
                       <div style={styles.groupHeader}>🎓 태성고등학교 ({high.length})</div>
-                      {high.map((u) => renderActiveUser(u, handleChangeRole, handleDeactivate))}
+                      {high.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} />)}
                     </>
                   )}
                   {other.length > 0 && (
                     <>
                       <div style={styles.groupHeader}>⚠️ 학교 미지정 ({other.length})</div>
-                      {other.map((u) => renderActiveUser(u, handleChangeRole, handleDeactivate))}
+                      {other.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} />)}
                     </>
                   )}
                 </>
@@ -249,7 +251,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
             }
 
             // 특정 학교 선택 시: 플랫 리스트
-            return filteredActive.map((u) => renderActiveUser(u, handleChangeRole, handleDeactivate));
+            return filteredActive.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} />);
           })()
         )}
       </div>

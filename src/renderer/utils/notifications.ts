@@ -8,7 +8,7 @@ import {
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { db } from './firebase';
-import type { NotificationType } from '@shared/types';
+import type { NotificationType, School } from '@shared/types';
 
 /**
  * Send a notification to all active teachers (and other admins).
@@ -19,6 +19,7 @@ export async function notifyAllUsers(
   message: string,
   eventId: string | undefined,
   createdBy: string,
+  eventSchool?: School | 'all',
 ): Promise<void> {
   // 스푸핑 방지: 실제 현재 로그인 uid와 일치하는지 확인
   const currentUid = getAuth().currentUser?.uid;
@@ -33,19 +34,27 @@ export async function notifyAllUsers(
     );
     const snapshot = await getDocs(q);
 
+    const targets = snapshot.docs.filter((d) => {
+      if (d.id === createdBy) return false;
+      // 일정의 school 값에 따라 대상 필터링
+      // 'all' → 모든 활성 사용자
+      // 특정 school → 해당 학교 사용자만
+      if (!eventSchool || eventSchool === 'all') return true;
+      const userSchool = d.data().school;
+      return userSchool === eventSchool;
+    });
+
     const results = await Promise.allSettled(
-      snapshot.docs
-        .filter((d) => d.id !== createdBy)
-        .map((d) =>
-          addDoc(collection(db, 'notifications', d.id, 'items'), {
-            type,
-            eventId: eventId || null,
-            message,
-            read: false,
-            createdAt: serverTimestamp(),
-            createdBy,
-          }),
-        ),
+      targets.map((d) =>
+        addDoc(collection(db, 'notifications', d.id, 'items'), {
+          type,
+          eventId: eventId || null,
+          message,
+          read: false,
+          createdAt: serverTimestamp(),
+          createdBy,
+        }),
+      ),
     );
     const failed = results.filter((r) => r.status === 'rejected').length;
     if (failed > 0) console.warn(`[Notifications] ${failed}/${results.length} notifications failed`);

@@ -35,11 +35,15 @@ service cloud.firestore {
     }
 
     // Shared events — all active users can create; edit/delete own only; admin can manage all
+    // school 값 whitelist 검증 (스푸핑 방지)
     match /events/{eventId} {
       allow read: if isActive();
-      allow create: if isActive();
+      allow create: if isActive()
+        && request.resource.data.school in ['taeseong_middle', 'taeseong_high', 'all'];
       allow update, delete: if isActive()
-        && (resource.data.createdBy == request.auth.uid || isAdmin());
+        && (resource.data.createdBy == request.auth.uid || isAdmin())
+        && (!('school' in request.resource.data.diff(resource.data).affectedKeys())
+            || request.resource.data.school in ['taeseong_middle', 'taeseong_high', 'all']);
     }
 
     // Personal events
