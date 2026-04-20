@@ -27,10 +27,17 @@ service cloud.firestore {
       allow read: if isAuth() && request.auth.uid == userId;
       allow read: if isAdmin();
       // Signup: just require auth + own uid (role logic handled by client + app_meta)
-      allow create: if isAuth() && request.auth.uid == userId;
+      allow create: if isAuth() && request.auth.uid == userId
+        && (!('school' in request.resource.data) || request.resource.data.school in ['taeseong_middle', 'taeseong_high']);
+      // 본인이 프로필 일부 수정 (role/status 변경 불가)
       allow update: if isAuth() && request.auth.uid == userId
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status']);
-      allow update: if isAdmin();
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status'])
+        && (!('school' in request.resource.data.diff(resource.data).affectedKeys())
+            || request.resource.data.school in ['taeseong_middle', 'taeseong_high']);
+      // 관리자 수정 — school 값 whitelist 강제
+      allow update: if isAdmin()
+        && (!('school' in request.resource.data.diff(resource.data).affectedKeys())
+            || request.resource.data.school in ['taeseong_middle', 'taeseong_high']);
       allow delete: if isSuperAdmin();
     }
 

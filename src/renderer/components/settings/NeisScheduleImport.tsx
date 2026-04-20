@@ -15,6 +15,14 @@ export function NeisScheduleImport() {
   if (!isAdmin) {
     return <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>관리자만 학사일정을 가져올 수 있습니다.</p>;
   }
+  if (user.school !== 'taeseong_middle' && user.school !== 'taeseong_high') {
+    return (
+      <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+        학교가 미지정되어 학사일정을 가져올 수 없습니다.
+        <br />본인 계정의 학교를 먼저 지정해주세요.
+      </p>
+    );
+  }
 
   const currentConfig = getNeisConfig(user.school);
   const schoolLabel = SCHOOL_LABELS[user.school];

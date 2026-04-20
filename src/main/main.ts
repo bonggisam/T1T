@@ -426,7 +426,7 @@ app.whenReady().then(() => {
   });
 
   // Register global shortcut: Ctrl+Shift+C to toggle edit/widget mode
-  globalShortcut.register('CommandOrControl+Shift+C', () => {
+  const widgetShortcutOk = globalShortcut.register('CommandOrControl+Shift+C', () => {
     if (mainWindow?.isVisible()) {
       applyWidgetMode(!isWidgetMode);
       mainWindow?.webContents.send('widget-mode-changed', isWidgetMode);
@@ -434,12 +434,18 @@ app.whenReady().then(() => {
       mainWindow?.show();
     }
   });
+  if (!widgetShortcutOk) {
+    console.warn('[Shortcut] Failed to register Ctrl+Shift+C — may conflict with another app');
+  }
 
   // Register global shortcut: Ctrl+Shift+X to toggle click-through
-  // (UI 클릭 불가 상태에서 빠져나오는 비상 단축키)
-  globalShortcut.register('CommandOrControl+Shift+X', () => {
+  // (UI 클릭 불가 상태에서 복구용 단축키)
+  const clickThroughShortcutOk = globalShortcut.register('CommandOrControl+Shift+X', () => {
     toggleClickThrough();
   });
+  if (!clickThroughShortcutOk) {
+    console.warn('[Shortcut] Failed to register Ctrl+Shift+X — may conflict with another app');
+  }
 });
 
 app.on('will-quit', () => {

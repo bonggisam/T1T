@@ -50,8 +50,8 @@ function ActiveUserCard({ u, onChangeRole, onDeactivate, onChangeSchool }: Activ
         {/* 학교 미지정이면 눈에 띄게 배정 버튼 표시 */}
         {!isSchoolAssigned && (
           <>
-            <button onClick={() => onChangeSchool(u.id, 'taeseong_middle')} style={styles.assignMiddleBtn}>🏫 중 배정</button>
-            <button onClick={() => onChangeSchool(u.id, 'taeseong_high')} style={styles.assignHighBtn}>🎓 고 배정</button>
+            <button onClick={() => onChangeSchool(u.id, 'taeseong_middle')} style={styles.assignMiddleBtn} aria-label={`${u.name}을 태성중으로 배정`}>🏫 중 배정</button>
+            <button onClick={() => onChangeSchool(u.id, 'taeseong_high')} style={styles.assignHighBtn} aria-label={`${u.name}을 태성고로 배정`}>🎓 고 배정</button>
           </>
         )}
         {/* 학교 배정된 경우 변경 버튼 (반대편 학교로) */}
@@ -63,6 +63,7 @@ function ActiveUserCard({ u, onChangeRole, onDeactivate, onChangeSchool }: Activ
             )}
             style={styles.switchSchoolBtn}
             title="학교 변경"
+            aria-label={`${u.name}의 학교를 ${u.school === 'taeseong_high' ? '태성중' : '태성고'}으로 변경`}
           >
             {u.school === 'taeseong_high' ? '→🏫중' : '→🎓고'}
           </button>
@@ -124,42 +125,54 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
   }
 
   async function handleApprove(userId: string, role: 'teacher' | 'head_teacher' = 'teacher') {
+    // 학교 미지정 교사 승인 시 경고
+    const target = pendingUsers.find((u) => u.id === userId);
+    if (target && target.school !== 'taeseong_middle' && target.school !== 'taeseong_high') {
+      const ok = window.confirm(
+        `${target.name} 교사의 학교가 미지정되어 있습니다.\n먼저 학교를 배정한 후 승인하는 것을 권장합니다.\n\n그래도 승인하시겠습니까?`
+      );
+      if (!ok) return;
+    }
     try {
       await updateDoc(doc(db, 'users', userId), { status: 'active', role });
-      fetchUsers();
     } catch (err) {
       console.error('Approve failed:', err);
       showToast('승인 처리에 실패했습니다.', 'error');
+    } finally {
+      fetchUsers();
     }
   }
 
   async function handleReject(userId: string) {
     try {
       await updateDoc(doc(db, 'users', userId), { status: 'rejected' });
-      fetchUsers();
     } catch (err) {
       console.error('Reject failed:', err);
       showToast('거절 처리에 실패했습니다.', 'error');
+    } finally {
+      fetchUsers();
     }
   }
 
   async function handleChangeRole(userId: string, role: 'teacher' | 'head_teacher') {
     try {
       await updateDoc(doc(db, 'users', userId), { role });
-      fetchUsers();
     } catch (err) {
       console.error('Role change failed:', err);
       showToast('역할 변경에 실패했습니다.', 'error');
+    } finally {
+      fetchUsers();
     }
   }
 
   async function handleDeactivate(userId: string) {
     try {
       await updateDoc(doc(db, 'users', userId), { status: 'deactivated' });
-      fetchUsers();
     } catch (err) {
       console.error('Deactivate failed:', err);
       showToast('비활성화 처리에 실패했습니다.', 'error');
+    } finally {
+      fetchUsers();
     }
   }
 
@@ -167,10 +180,11 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
     try {
       await updateDoc(doc(db, 'users', userId), { school });
       showToast(`${school === 'taeseong_high' ? '태성고' : '태성중'}으로 배정했습니다.`);
-      fetchUsers();
     } catch (err) {
       console.error('School change failed:', err);
       showToast('학교 배정에 실패했습니다.', 'error');
+    } finally {
+      fetchUsers(); // 성공/실패 관계없이 UI 동기화
     }
   }
 
@@ -226,27 +240,37 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
           pendingUsers.length === 0 ? (
             <p style={styles.emptyMsg}>대기 중인 요청이 없습니다.</p>
           ) : (
-            pendingUsers.map((u) => (
-              <div key={u.id} style={styles.userCard}>
-                <div style={styles.userInfo}>
-                  <span style={styles.userName}>
-                    {u.name}
-                    <span style={{
-                      ...styles.schoolBadge,
-                      background: u.school === 'taeseong_high' ? '#8B5CF6' : '#10B981',
-                    }}>
-                      {u.school === 'taeseong_high' ? '🎓 고' : '🏫 중'}
+            pendingUsers.map((u) => {
+              const isSchoolAssigned = u.school === 'taeseong_middle' || u.school === 'taeseong_high';
+              const badgeBg = u.school === 'taeseong_high'
+                ? '#8B5CF6'
+                : u.school === 'taeseong_middle'
+                  ? '#10B981'
+                  : '#9CA3AF'; // 미지정 회색
+              const badgeText = u.school === 'taeseong_high' ? '🎓 고' : u.school === 'taeseong_middle' ? '🏫 중' : '❓ 미지정';
+              return (
+                <div key={u.id} style={styles.userCard}>
+                  <div style={styles.userInfo}>
+                    <span style={styles.userName}>
+                      {u.name}
+                      <span style={{ ...styles.schoolBadge, background: badgeBg }}>{badgeText}</span>
                     </span>
-                  </span>
-                  <span style={styles.userEmail}>{u.email} · {SCHOOL_LABELS[u.school] || '미지정'}</span>
+                    <span style={styles.userEmail}>{u.email} · {SCHOOL_LABELS[u.school] || '미지정'}</span>
+                  </div>
+                  <div style={styles.userActions}>
+                    {!isSchoolAssigned && (
+                      <>
+                        <button onClick={() => handleChangeSchool(u.id, 'taeseong_middle')} style={styles.assignMiddleBtn} aria-label={`${u.name}을 태성중으로 배정`}>🏫 중</button>
+                        <button onClick={() => handleChangeSchool(u.id, 'taeseong_high')} style={styles.assignHighBtn} aria-label={`${u.name}을 태성고로 배정`}>🎓 고</button>
+                      </>
+                    )}
+                    <button onClick={() => handleApprove(u.id, 'teacher')} style={styles.approveBtn}>교사</button>
+                    <button onClick={() => handleApprove(u.id, 'head_teacher')} style={styles.approveHeadBtn}>부장</button>
+                    <button onClick={() => handleReject(u.id)} style={styles.rejectBtn}>거절</button>
+                  </div>
                 </div>
-                <div style={styles.userActions}>
-                  <button onClick={() => handleApprove(u.id, 'teacher')} style={styles.approveBtn}>교사</button>
-                  <button onClick={() => handleApprove(u.id, 'head_teacher')} style={styles.approveHeadBtn}>부장</button>
-                  <button onClick={() => handleReject(u.id)} style={styles.rejectBtn}>거절</button>
-                </div>
-              </div>
-            ))
+              );
+            })
           )
         ) : (
           (() => {
@@ -266,6 +290,13 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
 
               return (
                 <>
+                  {/* 관리자는 미지정 교사를 먼저 처리할 수 있게 맨 위 노출 */}
+                  {other.length > 0 && (
+                    <>
+                      <div style={{ ...styles.groupHeader, color: '#EF4444' }}>⚠️ 학교 미지정 ({other.length}) — 배정이 필요합니다</div>
+                      {other.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} onChangeSchool={handleChangeSchool} />)}
+                    </>
+                  )}
                   {middle.length > 0 && (
                     <>
                       <div style={styles.groupHeader}>🏫 태성중학교 ({middle.length})</div>
@@ -276,12 +307,6 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                     <>
                       <div style={styles.groupHeader}>🎓 태성고등학교 ({high.length})</div>
                       {high.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} onChangeSchool={handleChangeSchool} />)}
-                    </>
-                  )}
-                  {other.length > 0 && (
-                    <>
-                      <div style={styles.groupHeader}>⚠️ 학교 미지정 ({other.length})</div>
-                      {other.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} onChangeSchool={handleChangeSchool} />)}
                     </>
                   )}
                 </>

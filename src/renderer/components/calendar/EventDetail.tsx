@@ -195,7 +195,7 @@ export function EventDetail() {
     setEditStart(formatDTL(new Date(selectedEvent.startDate)));
     setEditEnd(formatDTL(new Date(selectedEvent.endDate)));
     setEditCategory(selectedEvent.category);
-    setEditSchool(selectedEvent.school);
+    setEditSchool(selectedEvent.school || 'all');
     setEditAllDay(selectedEvent.allDay);
     setEditing(true);
   }

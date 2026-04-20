@@ -47,13 +47,16 @@ export function TodosView({ onBack }: TodosViewProps) {
 
     setSaving(true);
     try {
+      // school이 유효한 값이면 사용, 미지정이면 'all' 폴백 (본인 todos는 userId로만 필터)
+      const schoolValue = (user.school === 'taeseong_middle' || user.school === 'taeseong_high')
+        ? user.school : 'all';
       await addTodo({
         userId: user.id,
         title: trimmed.slice(0, 200),
         completed: false,
         priority,
         dueDate: dueDate ? new Date(dueDate) : undefined,
-        school: user.school || 'all',
+        school: schoolValue,
       });
       setTitle('');
       setDueDate('');

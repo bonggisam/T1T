@@ -122,7 +122,7 @@ export function MentionInput({ value, onChange, onSubmit, placeholder, disabled,
                 background: u.profileColor || 'var(--accent)',
               }}>{u.name.charAt(0)}</span>
               <span style={mStyles.name}>{u.name}</span>
-              <span style={mStyles.school}>{u.school === 'taeseong_high' ? '고' : '중'}</span>
+              <span style={mStyles.school}>{u.school === 'taeseong_high' ? '고' : u.school === 'taeseong_middle' ? '중' : '?'}</span>
             </div>
           ))}
         </div>
