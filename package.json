@@ -1,6 +1,6 @@
 {
   "name": "tonet",
-  "version": "1.7.4",
+  "version": "1.7.5",
   "description": "ToneT - 학교 일정 공유 시스템",
   "main": "dist/main/main.js",
   "scripts": {

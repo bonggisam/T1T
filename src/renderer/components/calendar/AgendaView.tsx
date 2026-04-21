@@ -4,6 +4,7 @@ import { ko } from 'date-fns/locale';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { useUIStore } from '../../store/uiStore';
+import { getSchoolTag } from '../../utils/calendarHelpers';
 import type { CalendarEvent } from '@shared/types';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -71,7 +72,7 @@ export function AgendaView() {
                     </div>
                     <div style={styles.contentCol}>
                       <div style={styles.titleRow}>
-                        <span style={styles.eventTitle}>{e.title}</span>
+                        <span style={styles.eventTitle}>{getSchoolTag(e.school)} {e.title}</span>
                         <span style={{ ...styles.categoryBadge, background: e.adminColor }}>
                           {CATEGORY_LABELS[e.category] || e.category}
                         </span>

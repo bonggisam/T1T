@@ -3,6 +3,7 @@ import { useCalendarStore } from '../../store/calendarStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { getSchoolTag } from '../../utils/calendarHelpers';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
@@ -25,6 +26,7 @@ interface SearchResult {
   category?: string;
   adminName?: string;
   color?: string;
+  school?: string;
 }
 
 interface SearchPanelProps {
@@ -68,6 +70,7 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
         category: e.category,
         adminName: e.adminName,
         color: e.adminColor,
+        school: e.school,
       }));
 
     const personalResults: SearchResult[] = allPersonal
@@ -186,6 +189,7 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                   {r.color && (
                     <span style={{ ...styles.colorDot, background: r.color }} />
                   )}
+                  {r.school && <span style={{ fontSize: 10, color: 'var(--text-muted)', marginRight: 4 }}>{getSchoolTag(r.school)}</span>}
                   {highlightMatch(r.title, query.trim())}
                 </div>
                 {r.description && (

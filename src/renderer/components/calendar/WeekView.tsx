@@ -10,7 +10,7 @@ import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useComciganStore } from '../../store/comciganStore';
 import type { CalendarEvent, PersonalEvent, TeacherPeriod } from '@shared/types';
 import { showToast } from '../common/Toast';
-import { formatEventTooltip, formatPersonalTooltip } from '../../utils/calendarHelpers';
+import { formatEventTooltip, formatPersonalTooltip, getSchoolTag } from '../../utils/calendarHelpers';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -326,7 +326,7 @@ export function WeekView({ onAddPersonalEvent }: WeekViewProps) {
                           title={formatEventTooltip(event, isOwner)}
                         >
                           <span style={styles.eventText}>
-                            {format(new Date(event.startDate), 'HH:mm')} {event.title}
+                            {format(new Date(event.startDate), 'HH:mm')} {getSchoolTag(event.school)} {event.title}
                           </span>
                         </div>
                       );

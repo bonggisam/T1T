@@ -4,6 +4,7 @@ import { ko } from 'date-fns/locale';
 import { useCalendarStore } from '../../store/calendarStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
+import { getSchoolTag } from '../../utils/calendarHelpers';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -142,7 +143,7 @@ export function PrintView({ onClose }: PrintViewProps) {
                       {dayEvents.slice(0, 4).map((e) => (
                         <div key={e.id} style={styles.eventDot}>
                           <span style={{ ...styles.dot, background: e.adminColor }} />
-                          <span style={styles.eventTitle}>{e.title}</span>
+                          <span style={styles.eventTitle}>{getSchoolTag(e.school)} {e.title}</span>
                         </div>
                       ))}
                       {dayPersonal.slice(0, 2).map((e) => (
@@ -186,7 +187,7 @@ export function PrintView({ onClose }: PrintViewProps) {
                     <tr key={e.id}>
                       <td style={styles.detailTd}>{format(start, 'M/d(EEE)', { locale: ko })}</td>
                       <td style={styles.detailTd}>{CATEGORY_LABELS[e.category] || e.category}</td>
-                      <td style={{ ...styles.detailTd, fontWeight: 600 }}>{e.title}</td>
+                      <td style={{ ...styles.detailTd, fontWeight: 600 }}>{getSchoolTag(e.school)} {e.title}</td>
                       <td style={styles.detailTd}>
                         {e.allDay ? '종일' : `${format(start, 'HH:mm')}~${format(end, 'HH:mm')}`}
                       </td>

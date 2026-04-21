@@ -17,6 +17,7 @@ import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
 import type { ChecklistItem, EventComment, EventCategory, School } from '@shared/types';
 import { showToast } from '../common/Toast';
+import { getSchoolTag } from '../../utils/calendarHelpers';
 import { MentionInput, renderMentions, extractMentions } from '../common/MentionInput';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useUsersStore } from '../../store/usersStore';
@@ -295,7 +296,7 @@ export function EventDetail() {
           </div>
         ) : (
           <>
-            <h3 style={styles.title}>{selectedEvent.title}</h3>
+            <h3 style={styles.title}>{getSchoolTag(selectedEvent.school)} {selectedEvent.title}</h3>
             <p style={styles.creator}>등록자: {selectedEvent.adminName}</p>
 
             {/* Date/time */}

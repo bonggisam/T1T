@@ -44,6 +44,23 @@ export const CATEGORY_LABELS: Record<string, string> = {
   other: '기타',
 };
 
+/**
+ * 일정의 school 값에 따라 '[중]', '[고]', '[공통]' 같은 접두 태그 반환.
+ * 'all' (전체 공유)은 공통, undefined/invalid는 빈 문자열.
+ */
+export function getSchoolTag(school?: string | null): string {
+  if (school === 'taeseong_middle') return '[중]';
+  if (school === 'taeseong_high') return '[고]';
+  if (school === 'all') return '[공통]';
+  return '';
+}
+
+/** 이벤트 제목 앞에 학교 태그 붙이기 */
+export function formatTitleWithSchool(title: string, school?: string | null): string {
+  const tag = getSchoolTag(school);
+  return tag ? `${tag} ${title}` : title;
+}
+
 export function formatEventTooltip(event: CalendarEvent, isOwner: boolean): string {
   const lines: string[] = [event.title];
   const start = new Date(event.startDate);

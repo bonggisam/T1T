@@ -15,6 +15,7 @@ import { db } from '../utils/firebase';
 import { notifyAllUsers } from '../utils/notifications';
 import { cacheEvents, getCachedEvents } from '../utils/offlineCache';
 import { sendSlackNotification } from '../utils/slackNotify';
+import { getSchoolTag } from '../utils/calendarHelpers';
 import type { CalendarEvent, CalendarView, ChecklistItem, ReadReceipt, School } from '@shared/types';
 
 interface CalendarState {
@@ -147,16 +148,17 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
     });
     // Notify all users
     const dateStr = event.startDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
+    const schoolTag = getSchoolTag(schoolValue);
     notifyAllUsers(
       'new_event',
-      `새 일정: "${event.title}" (${dateStr})`,
+      `새 일정: ${schoolTag} "${event.title}" (${dateStr})`,
       docRef.id,
       event.createdBy,
       schoolValue, // 해당 학교 사용자에게만 알림
     );
     // 슬랙 알림 (설정된 경우) — 실패해도 무해
     sendSlackNotification(
-      `📅 새 일정 등록: *${event.title}* (${dateStr})\n작성자: ${event.adminName || '알 수 없음'}`,
+      `📅 새 일정 등록: ${schoolTag} *${event.title}* (${dateStr})\n작성자: ${event.adminName || '알 수 없음'}`,
     ).catch((err) => console.warn('[CalendarStore] Slack notify failed:', err));
     return docRef.id;
   },

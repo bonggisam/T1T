@@ -5,7 +5,7 @@ import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
 import { showToast } from '../common/Toast';
-import { formatEventTooltip, formatPersonalTooltip } from '../../utils/calendarHelpers';
+import { formatEventTooltip, formatPersonalTooltip, getSchoolTag } from '../../utils/calendarHelpers';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { useComciganStore } from '../../store/comciganStore';
 import { hasTimetableOverlap } from '../../utils/timetableOverlap';
@@ -275,7 +275,7 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
               onClick={() => { setSelectedEvent(event); setShowEventDetail(true); }}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedEvent(event); setShowEventDetail(true); } }}
               style={{ ...styles.allDayEvent, background: event.adminColor }}>
-              <span style={styles.eventTextSmall}>{event.title}</span>
+              <span style={styles.eventTextSmall}>{getSchoolTag(event.school)} {event.title}</span>
             </div>
           ))}
         </div>
@@ -363,7 +363,7 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
                     >
                       <span style={styles.eventTitle}>
                         {overlaps.length > 0 && <span style={styles.overlapBadge} title="수업 시간과 겹침">⚠️</span>}
-                        {event.title}
+                        {getSchoolTag(event.school)} {event.title}
                       </span>
                       <span style={styles.eventTime}>
                         {format(new Date(event.startDate), 'HH:mm')} - {format(new Date(event.endDate), 'HH:mm')}
