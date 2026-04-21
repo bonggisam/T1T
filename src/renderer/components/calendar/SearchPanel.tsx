@@ -3,7 +3,7 @@ import { useCalendarStore } from '../../store/calendarStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
-import { getSchoolTag } from '../../utils/calendarHelpers';
+import { getSchoolTag, PERSONAL_SUFFIX } from '../../utils/calendarHelpers';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
@@ -189,8 +189,11 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                   {r.color && (
                     <span style={{ ...styles.colorDot, background: r.color }} />
                   )}
-                  {r.school && <span style={{ fontSize: 10, color: 'var(--text-muted)', marginRight: 4 }}>{getSchoolTag(r.school)}</span>}
+                  {r.school && getSchoolTag(r.school) && (
+                    <span style={{ fontSize: 10, color: 'var(--text-muted)', marginRight: 4 }}>{getSchoolTag(r.school)}</span>
+                  )}
                   {highlightMatch(r.title, query.trim())}
+                  {r.type === 'personal' && <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 4 }}>{PERSONAL_SUFFIX}</span>}
                 </div>
                 {r.description && (
                   <div style={styles.resultDesc}>

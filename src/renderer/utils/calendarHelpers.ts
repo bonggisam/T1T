@@ -45,14 +45,28 @@ export const CATEGORY_LABELS: Record<string, string> = {
 };
 
 /**
- * 일정의 school 값에 따라 '[중]', '[고]', '[공통]' 같은 접두 태그 반환.
- * 'all' (전체 공유)은 공통, undefined/invalid는 빈 문자열.
+ * 일정 **작성자**의 학교에 따라 'M', 'H' 접두 태그 반환.
+ * - creatorSchool 'taeseong_middle' → 'M'
+ * - creatorSchool 'taeseong_high' → 'H'
+ * - 기타 (super_admin 등) → ''
+ *
+ * 하위 호환: 기존 event.school 기반 호출도 동작 (이전 데이터용).
  */
 export function getSchoolTag(school?: string | null): string {
-  if (school === 'taeseong_middle') return '[중]';
-  if (school === 'taeseong_high') return '[고]';
-  if (school === 'all') return '[공통]';
-  return '';
+  if (school === 'taeseong_middle') return 'M';
+  if (school === 'taeseong_high') return 'H';
+  return ''; // 'all' 또는 미지정은 태그 없음
+}
+
+/** 개인 일정 접미 태그 */
+export const PERSONAL_SUFFIX = 'P';
+
+/**
+ * 공유 일정 작성자 태그 추출.
+ * creatorSchool이 있으면 그것 우선, 없으면 event.school fallback (이전 데이터).
+ */
+export function getCreatorTag(event: { creatorSchool?: string; school?: string }): string {
+  return getSchoolTag(event.creatorSchool || event.school);
 }
 
 /**
@@ -80,7 +94,7 @@ export function canManageEvent(
 }
 
 export function formatEventTooltip(event: CalendarEvent, isOwner: boolean): string {
-  const tag = getSchoolTag(event.school);
+  const tag = getCreatorTag(event);
   const lines: string[] = [tag ? `${tag} ${event.title}` : event.title];
   const start = new Date(event.startDate);
   const end = new Date(event.endDate);
@@ -97,7 +111,7 @@ export function formatEventTooltip(event: CalendarEvent, isOwner: boolean): stri
 }
 
 export function formatPersonalTooltip(pe: PersonalEvent, canDrag: boolean): string {
-  const lines: string[] = [`${pe.title} (개인)`];
+  const lines: string[] = [`${pe.title} ${PERSONAL_SUFFIX} (개인)`];
   const start = new Date(pe.startDate);
   const end = new Date(pe.endDate);
   lines.push(`${format(start, 'M/d HH:mm')} ~ ${format(end, 'M/d HH:mm')}`);

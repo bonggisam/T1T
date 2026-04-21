@@ -5,7 +5,7 @@ import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
 import { showToast } from '../common/Toast';
-import { formatEventTooltip, formatPersonalTooltip, getSchoolTag, canManageEvent } from '../../utils/calendarHelpers';
+import { formatEventTooltip, formatPersonalTooltip, getCreatorTag, canManageEvent, PERSONAL_SUFFIX } from '../../utils/calendarHelpers';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { useComciganStore } from '../../store/comciganStore';
 import { hasTimetableOverlap } from '../../utils/timetableOverlap';
@@ -276,7 +276,7 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
               onClick={() => { setSelectedEvent(event); setShowEventDetail(true); }}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedEvent(event); setShowEventDetail(true); } }}
               style={{ ...styles.allDayEvent, background: event.adminColor }}>
-              <span style={styles.eventTextSmall}>{getSchoolTag(event.school)} {event.title}</span>
+              <span style={styles.eventTextSmall}>{getCreatorTag(event) && `${getCreatorTag(event)} `}{event.title}</span>
             </div>
           ))}
         </div>
@@ -364,7 +364,7 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
                     >
                       <span style={styles.eventTitle}>
                         {overlaps.length > 0 && <span style={styles.overlapBadge} title="수업 시간과 겹침">⚠️</span>}
-                        {getSchoolTag(event.school)} {event.title}
+                        {getCreatorTag(event) && `${getCreatorTag(event)} `}{event.title}
                       </span>
                       <span style={styles.eventTime}>
                         {format(new Date(event.startDate), 'HH:mm')} - {format(new Date(event.endDate), 'HH:mm')}
@@ -392,7 +392,7 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
                       }}
                       title={formatPersonalTooltip(pe, canDrag)}
                     >
-                      <span style={styles.eventTitle}>{pe.title}</span>
+                      <span style={styles.eventTitle}>{pe.title} {PERSONAL_SUFFIX}</span>
                       <span style={styles.eventTime}>
                         {format(new Date(pe.startDate), 'HH:mm')} - {format(new Date(pe.endDate), 'HH:mm')} (개인)
                       </span>

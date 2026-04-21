@@ -11,7 +11,7 @@ import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useComciganStore } from '../../store/comciganStore';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
 import { showToast } from '../common/Toast';
-import { formatEventTooltip, formatPersonalTooltip, isEventOnDate, getSchoolTag, canManageEvent } from '../../utils/calendarHelpers';
+import { formatEventTooltip, formatPersonalTooltip, isEventOnDate, getCreatorTag, canManageEvent, PERSONAL_SUFFIX } from '../../utils/calendarHelpers';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -329,7 +329,7 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
                         display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         textShadow: '0 1px 2px rgba(0,0,0,0.5)',
                       }}>
-                        {getSchoolTag(event.school)} {event.title}
+                        {getCreatorTag(event) && `${getCreatorTag(event)} `}{event.title}
                       </span>
                     </div>
                   );
@@ -356,7 +356,7 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
                         display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         textShadow: '0 1px 2px rgba(0,0,0,0.5)',
                       }}>
-                        {pe.title}
+                        {pe.title} {PERSONAL_SUFFIX}
                       </span>
                     </div>
                   );

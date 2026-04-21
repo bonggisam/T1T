@@ -101,6 +101,7 @@ export function EventModal() {
         allDay,
         category,
         school: scope,
+        creatorSchool: (user.school === 'taeseong_middle' || user.school === 'taeseong_high') ? user.school : undefined,
         createdBy: user.id,
         adminName: user.name,
         adminColor: user.profileColor || '#4A90E2',

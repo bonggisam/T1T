@@ -62,7 +62,8 @@ export interface CalendarEvent {
   endDate: Date;
   allDay: boolean;
   category: EventCategory;
-  school: School | 'all'; // 'all' = 양교 공통
+  school: School | 'all'; // 공유 범위: 'all' = 양교 공통
+  creatorSchool?: School; // 작성자의 학교 (태그 표시용; 기존 데이터는 fallback으로 school 사용)
   createdBy: string; // userId
   adminName?: string;
   adminColor: string;

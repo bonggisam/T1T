@@ -15,7 +15,7 @@ import { db } from '../utils/firebase';
 import { notifyAllUsers } from '../utils/notifications';
 import { cacheEvents, getCachedEvents } from '../utils/offlineCache';
 import { sendSlackNotification } from '../utils/slackNotify';
-import { getSchoolTag } from '../utils/calendarHelpers';
+import { getSchoolTag, getCreatorTag } from '../utils/calendarHelpers';
 import type { CalendarEvent, CalendarView, ChecklistItem, ReadReceipt, School } from '@shared/types';
 
 interface CalendarState {
@@ -55,6 +55,7 @@ function firestoreToEvent(id: string, data: any): CalendarEvent {
     allDay: data.allDay ?? false,
     category: data.category || 'other',
     school: (data.school as School | 'all') || 'all',
+    creatorSchool: data.creatorSchool as School | undefined,
     createdBy: data.createdBy || '',
     adminName: data.adminName || '',
     adminColor: data.adminColor || '#4A90E2',
@@ -148,17 +149,19 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
     });
     // Notify all users
     const dateStr = event.startDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
-    const schoolTag = getSchoolTag(schoolValue);
+    // 작성자 학교 기반 태그 (M/H)
+    const creatorTag = getCreatorTag({ creatorSchool: event.creatorSchool, school: schoolValue });
+    const tagPrefix = creatorTag ? `${creatorTag} ` : '';
     notifyAllUsers(
       'new_event',
-      `새 일정: ${schoolTag} "${event.title}" (${dateStr})`,
+      `새 일정: ${tagPrefix}"${event.title}" (${dateStr})`,
       docRef.id,
       event.createdBy,
       schoolValue, // 해당 학교 사용자에게만 알림
     );
     // 슬랙 알림 (설정된 경우) — 실패해도 무해
     sendSlackNotification(
-      `📅 새 일정 등록: ${schoolTag} *${event.title}* (${dateStr})\n작성자: ${event.adminName || '알 수 없음'}`,
+      `📅 새 일정 등록: ${tagPrefix}*${event.title}* (${dateStr})\n작성자: ${event.adminName || '알 수 없음'}`,
     ).catch((err) => console.warn('[CalendarStore] Slack notify failed:', err));
     return docRef.id;
   },
