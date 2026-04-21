@@ -3,15 +3,18 @@ import type { EventCategory, School } from '@shared/types';
 
 const VIEWING_SCHOOL_KEY = 'tonet-viewing-school';
 
-function loadViewingSchool(): 'own' | 'all' | School {
+function loadViewingSchool(): 'all' | School {
   try {
     const saved = localStorage.getItem(VIEWING_SCHOOL_KEY);
-    // 'own'은 레거시 — 그대로 로드하되 UI 표시는 user.school로 매핑됨
-    if (saved === 'own' || saved === 'all' || saved === 'taeseong_middle' || saved === 'taeseong_high') {
+    // 레거시 'own' → 'all'로 마이그레이션 (우리학교 버튼 제거됨)
+    if (saved === 'own') {
+      localStorage.setItem(VIEWING_SCHOOL_KEY, 'all');
+      return 'all';
+    }
+    if (saved === 'all' || saved === 'taeseong_middle' || saved === 'taeseong_high') {
       return saved;
     }
   } catch {}
-  // 기본값: 전체 (사용자 학교 로드 후 useVisibleEvents가 처리)
   return 'all';
 }
 
@@ -23,8 +26,8 @@ function loadViewingSchool(): 'own' | 'all' | School {
 interface UIState {
   categoryFilter: EventCategory | 'all';
   setCategoryFilter: (c: EventCategory | 'all') => void;
-  viewingSchool: 'own' | 'all' | School;
-  setViewingSchool: (s: 'own' | 'all' | School) => void;
+  viewingSchool: 'all' | School;
+  setViewingSchool: (s: 'all' | School) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({

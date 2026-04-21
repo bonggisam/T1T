@@ -54,6 +54,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
   const gridRef = useRef<HTMLDivElement>(null);
   const [dragOverDayStr, setDragOverDayStr] = useState<string | null>(null);
   const [quickAdd, setQuickAdd] = useState<QuickAddPopup | null>(null);
+  const justFinishedDragRef = useRef(0); // 드래그 종료 후 클릭 무시용 타임스탬프
 
   // 최신 데이터를 ref로 유지 (드래그 콜백 stale closure 방지)
   const eventsRef = useRef(events);
@@ -102,12 +103,14 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
   function handleEventClick(e: React.MouseEvent, event: CalendarEvent) {
     e.stopPropagation();
     if (dragRef.current?.activated) return;
+    if (Date.now() - justFinishedDragRef.current < 200) return;
     setSelectedEvent(event);
     setShowEventDetail(true);
   }
 
   function handleDayCellClick(e: React.MouseEvent, day: Date, dayStr: string) {
     if (dragRef.current?.activated) return;
+    if (Date.now() - justFinishedDragRef.current < 200) return;
     setSelectedDate(day);
     if (user) {
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -176,6 +179,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
       const drag = dragRef.current;
       dragRef.current = null;
       if (!drag || !drag.activated) { setDragOverDayStr(null); return; }
+      justFinishedDragRef.current = Date.now(); // 클릭 경합 방지
 
       // 그리드 좌표로 타겟 날짜 계산
       const targetDayStr = getDayStrFromMousePos(e.clientX, e.clientY);
@@ -345,6 +349,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                       onMouseDown={(e) => handlePersonalMouseDown(e, pe, dayStr)}
                       onClick={(e) => {
                         if (dragRef.current?.activated) return;
+                        if (Date.now() - justFinishedDragRef.current < 200) return;
                         e.stopPropagation();
                         onPersonalClick?.(pe);
                       }}

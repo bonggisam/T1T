@@ -212,8 +212,8 @@ function WidgetSchoolToggle({
   setViewingSchool,
 }: {
   userSchool: School;
-  viewingSchool: 'own' | 'all' | School;
-  setViewingSchool: (s: 'own' | 'all' | School) => void;
+  viewingSchool: 'all' | School;
+  setViewingSchool: (s: 'all' | School) => void;
 }) {
   const order: (School | 'all')[] = ['taeseong_middle', 'taeseong_high', 'all'];
   const labels: Record<string, string> = {
@@ -221,10 +221,8 @@ function WidgetSchoolToggle({
     taeseong_high: '🎓고',
     all: '🌐',
   };
-  // viewingSchool이 'own'이면 userSchool로 매핑
-  const effective = viewingSchool === 'own' ? userSchool : viewingSchool;
-  const currentIdx = order.indexOf(effective);
-  const currentLabel = labels[effective];
+  const currentIdx = order.indexOf(viewingSchool);
+  const currentLabel = labels[viewingSchool] ?? '🌐';
   return (
     <button
       onClick={() => setViewingSchool(order[(currentIdx + 1) % order.length])}
@@ -238,7 +236,7 @@ function WidgetSchoolToggle({
         color: '#8B5CF6',
         borderRadius: 6,
       }}
-      title={`보는 학교: ${effective === 'all' ? '전체' : SCHOOL_LABELS[effective as School]}`}
+      title={`보는 학교: ${viewingSchool === 'all' ? '전체' : SCHOOL_LABELS[viewingSchool as School]}`}
     >
       {currentLabel}
     </button>

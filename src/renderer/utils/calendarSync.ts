@@ -67,6 +67,10 @@ export async function fetchGoogleCalendarEvents(
     if (!res.ok) {
       if (res.status === 401) {
         disconnectGoogle();
+        // 토큰 만료 안내 이벤트 발송 (UI에서 listen 가능)
+        window.dispatchEvent(new CustomEvent('google:auth-expired'));
+      } else {
+        console.warn(`[Google Sync] fetch failed ${res.status}`);
       }
       return [];
     }

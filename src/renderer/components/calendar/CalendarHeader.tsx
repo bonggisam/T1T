@@ -29,7 +29,7 @@ export function CalendarHeader({ onAddPersonalEvent, onToggleSearch, onPrint, ca
   const { viewingSchool, setViewingSchool } = useUIStore();
   const isLoggedIn = !!user;
 
-  const schoolButtons: { key: 'own' | 'all' | School; label: string; icon: string }[] = [
+  const schoolButtons: { key: 'all' | School; label: string; icon: string }[] = [
     { key: 'taeseong_middle', label: '태성중', icon: '🏫' },
     { key: 'taeseong_high', label: '태성고', icon: '🎓' },
     { key: 'all', label: '전체', icon: '🌐' },

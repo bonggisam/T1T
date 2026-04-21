@@ -70,7 +70,7 @@ export function TodosView({ onBack }: TodosViewProps) {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('이 할 일을 삭제하시겠습니까?')) return;
+    if (!window.confirm('이 할 일을 삭제하시겠습니까?')) return;
     try {
       await deleteTodo(id);
       showToast('삭제되었습니다');
@@ -111,11 +111,11 @@ export function TodosView({ onBack }: TodosViewProps) {
           />
           <button
             type="submit"
-            disabled={saving || title.length === 0}
+            disabled={saving || title.trim().length === 0}
             style={{
               ...styles.addBtn,
-              opacity: (saving || title.length === 0) ? 0.5 : 1,
-              cursor: (saving || title.length === 0) ? 'not-allowed' : 'pointer',
+              opacity: (saving || title.trim().length === 0) ? 0.5 : 1,
+              cursor: (saving || title.trim().length === 0) ? 'not-allowed' : 'pointer',
             }}
           >
             {saving ? '추가 중...' : '+ 추가'}

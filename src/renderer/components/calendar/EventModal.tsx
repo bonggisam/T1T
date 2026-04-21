@@ -20,16 +20,15 @@ export function EventModal() {
   const { viewingSchool } = useUIStore();
 
   // 현재 보는 학교 뷰에 맞게 기본 공유 범위 계산
-  // user.school이 유효한 School 값일 때만 해당 학교로 기본 설정, 아니면 'all'로 안전하게
   function defaultScope(): School | 'all' {
-    if (viewingSchool === 'all') return 'all';
-    if (viewingSchool === 'own') {
+    if (viewingSchool === 'all') {
+      // 전체 뷰 → 본인 학교가 유효하면 본인 학교, 아니면 'all'
       if (user?.school === 'taeseong_middle' || user?.school === 'taeseong_high') {
         return user.school;
       }
-      return 'all'; // 미지정 사용자는 '전체' 기본
+      return 'all';
     }
-    return viewingSchool; // 특정 학교
+    return viewingSchool; // 특정 학교 뷰
   }
 
   // selectedDate에 시간 정보가 있으면 사용, 없으면(0시=월뷰) 9시 기본

@@ -2,6 +2,13 @@ import { format } from 'date-fns';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
 
 /**
+ * 타임존 정책: 모든 날짜는 사용자의 로컬 타임존 기준으로 표시.
+ * Firestore Timestamp는 내부적으로 UTC 저장되지만, toDate()는 로컬 Date 반환.
+ * new Date(string/number)도 로컬 타임존 해석.
+ * 다국가 환경에서는 Intl.DateTimeFormat 적용 고려 필요 (현재 범위 아님).
+ */
+
+/**
  * 이벤트(시작~종료 범위)가 주어진 날짜에 걸쳐있는지 확인.
  * 모든 뷰에서 공통으로 사용.
  */

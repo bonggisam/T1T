@@ -6,7 +6,7 @@ import { useAuthStore } from '../../store/authStore';
 import { showToast } from '../common/Toast';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { PERSONAL_SUFFIX } from '../../utils/calendarHelpers';
-import type { PersonalEvent } from '@shared/types';
+import type { PersonalEvent, ChecklistItem } from '@shared/types';
 
 interface PersonalEventDetailProps {
   event: PersonalEvent;
@@ -21,8 +21,35 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
   const [description, setDescription] = useState(event.description);
   const [startDate, setStartDate] = useState(formatDTL(event.startDate));
   const [endDate, setEndDate] = useState(formatDTL(event.endDate));
+  const [color, setColor] = useState(event.color);
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(event.checklist || []);
+  const [newCheckItem, setNewCheckItem] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  function addCheckItem() {
+    const text = newCheckItem.trim();
+    if (!text) return;
+    setChecklist([...checklist, {
+      id: Date.now().toString(),
+      text: text.slice(0, 200),
+      checked: false,
+      order: checklist.length,
+    }]);
+    setNewCheckItem('');
+  }
+
+  function toggleCheck(id: string) {
+    setChecklist(checklist.map((item) =>
+      item.id === id ? { ...item, checked: !item.checked } : item
+    ));
+  }
+
+  function removeCheckItem(id: string) {
+    setChecklist(checklist.filter((item) => item.id !== id));
+  }
+
+  const COLOR_OPTIONS = ['#2ECC71', '#E74C3C', '#F39C12', '#8E44AD', '#3498DB', '#1ABC9C', '#E91E63', '#795548'];
 
   useEscapeKey(onClose);
 
@@ -49,6 +76,8 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
         description: description.trim().slice(0, 1000),
         startDate: start,
         endDate: end,
+        color,
+        checklist,
       });
       showToast('수정되었습니다');
       setEditing(false);
@@ -112,6 +141,56 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
               style={styles.textarea}
               rows={3}
             />
+            <div style={styles.colorRow}>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', marginRight: 4 }}>색상:</span>
+              {COLOR_OPTIONS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setColor(c)}
+                  style={{
+                    width: 20, height: 20, borderRadius: '50%',
+                    background: c,
+                    border: color === c ? '2px solid #000' : '2px solid transparent',
+                    cursor: 'pointer',
+                  }}
+                  aria-label={`색상 ${c}`}
+                />
+              ))}
+            </div>
+
+            {/* 체크리스트 편집 */}
+            <div style={styles.checklistSection}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>체크리스트</span>
+              {checklist.map((item) => (
+                <div key={item.id} style={styles.checkItem}>
+                  <input
+                    type="checkbox"
+                    checked={item.checked}
+                    onChange={() => toggleCheck(item.id)}
+                  />
+                  <span style={{
+                    flex: 1, fontSize: 11, color: 'var(--text-primary)',
+                    textDecoration: item.checked ? 'line-through' : 'none',
+                    opacity: item.checked ? 0.6 : 1,
+                  }}>{item.text}</span>
+                  <button type="button" onClick={() => removeCheckItem(item.id)} style={styles.removeCheckBtn}>✕</button>
+                </div>
+              ))}
+              <div style={styles.addCheckRow}>
+                <input
+                  type="text"
+                  placeholder="항목 추가..."
+                  value={newCheckItem}
+                  onChange={(e) => setNewCheckItem(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCheckItem(); } }}
+                  style={styles.checkInput}
+                  maxLength={200}
+                />
+                <button type="button" onClick={addCheckItem} style={styles.addCheckBtn} disabled={!newCheckItem.trim()}>+</button>
+              </div>
+            </div>
+
             <div style={styles.actions}>
               <button onClick={() => setEditing(false)} style={styles.cancelBtn}>취소</button>
               <button onClick={handleSave} disabled={saving} style={styles.saveBtn}>
@@ -133,6 +212,37 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
               <div style={{ ...styles.row, alignItems: 'flex-start' }}>
                 <span style={styles.label}>설명</span>
                 <p style={styles.value}>{event.description}</p>
+              </div>
+            )}
+            {event.checklist && event.checklist.length > 0 && (
+              <div style={{ ...styles.row, alignItems: 'flex-start' }}>
+                <span style={styles.label}>체크리스트</span>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {event.checklist.map((item) => (
+                    <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <input
+                        type="checkbox"
+                        checked={item.checked}
+                        onChange={async () => {
+                          if (!canEdit || !user) return;
+                          const updated = event.checklist.map((c) =>
+                            c.id === item.id ? { ...c, checked: !c.checked } : c
+                          );
+                          try {
+                            await updatePersonalEvent(user.id, event.id, { checklist: updated });
+                          } catch (err) {
+                            showToast('체크 상태 저장 실패', 'error');
+                          }
+                        }}
+                      />
+                      <span style={{
+                        fontSize: 11, color: 'var(--text-primary)',
+                        textDecoration: item.checked ? 'line-through' : 'none',
+                        opacity: item.checked ? 0.6 : 1,
+                      }}>{item.text}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             {canEdit && (
@@ -188,6 +298,28 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--border-color)', borderRadius: 8,
     background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none',
     resize: 'vertical', fontFamily: 'inherit',
+  },
+  colorRow: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' },
+  checklistSection: { display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 },
+  checkItem: {
+    display: 'flex', alignItems: 'center', gap: 6,
+    padding: '3px 6px',
+    background: 'var(--bg-secondary)', borderRadius: 4,
+  },
+  removeCheckBtn: {
+    background: 'none', border: 'none', cursor: 'pointer',
+    color: 'var(--danger)', fontSize: 10, padding: '0 4px',
+  },
+  addCheckRow: { display: 'flex', gap: 4 },
+  checkInput: {
+    flex: 1, padding: '4px 8px', fontSize: 11,
+    border: '1px solid var(--border-color)', borderRadius: 4,
+    background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none',
+  },
+  addCheckBtn: {
+    padding: '4px 10px', fontSize: 12, fontWeight: 700,
+    border: 'none', borderRadius: 4,
+    background: 'var(--accent)', color: '#fff', cursor: 'pointer',
   },
   actions: { display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 8 },
   cancelBtn: {

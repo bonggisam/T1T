@@ -47,6 +47,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
 
   const gridRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragInfo | null>(null);
+  const justFinishedDragRef = useRef(0);
   const eventsRef = useRef(events);
   const personalEventsRef = useRef(personalEvents);
   const [dragOver, setDragOver] = useState<{ col: number; hour: number } | null>(null);
@@ -186,6 +187,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
       const drag = dragRef.current;
       dragRef.current = null;
       if (!drag || !drag.activated) { setDragOver(null); return; }
+      justFinishedDragRef.current = Date.now();
 
       const pos = getGridPos(e.clientX, e.clientY);
       setDragOver(null);
@@ -301,6 +303,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
                   <div key={`${dayIdx}-${hour}`}
                     onClick={(e) => {
                       if (dragRef.current?.activated) return;
+                      if (Date.now() - justFinishedDragRef.current < 200) return;
                       if (user) {
                         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                         setQuickAdd({ dayIdx, hour, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
@@ -340,6 +343,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
                           onMouseDown={(e) => handleEventMouseDown(e, pe.id, 'personal', dayIdx, hour)}
                           onClick={(e) => {
                             if (dragRef.current?.activated) return;
+                      if (Date.now() - justFinishedDragRef.current < 200) return;
                             e.stopPropagation();
                             onPersonalClick?.(pe);
                           }}

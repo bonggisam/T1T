@@ -25,12 +25,6 @@ export function useVisibleEvents(): CalendarEvent[] {
     let filtered: CalendarEvent[];
     if (viewingSchool === 'all') {
       filtered = events; // 양쪽 학교 + 전체
-    } else if (viewingSchool === 'own') {
-      // 미지정 사용자는 전체 공유 일정만 표시
-      const validSchool = user.school === 'taeseong_middle' || user.school === 'taeseong_high';
-      filtered = validSchool
-        ? events.filter((e) => e.school === 'all' || e.school === user.school)
-        : events.filter((e) => e.school === 'all');
     } else {
       // 특정 학교 뷰
       filtered = events.filter((e) => e.school === 'all' || e.school === viewingSchool);

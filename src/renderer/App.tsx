@@ -57,11 +57,19 @@ export function App() {
   useEffect(() => {
     const goOffline = () => setIsOffline(true);
     const goOnline = () => setIsOffline(false);
+    const googleAuthExpired = () => {
+      // 동적 import로 순환 방지
+      import('./components/common/Toast').then(({ showToast }) => {
+        showToast('Google Calendar 인증이 만료되었습니다. 설정에서 다시 연동해주세요.', 'error');
+      });
+    };
     window.addEventListener('offline', goOffline);
     window.addEventListener('online', goOnline);
+    window.addEventListener('google:auth-expired', googleAuthExpired);
     return () => {
       window.removeEventListener('offline', goOffline);
       window.removeEventListener('online', goOnline);
+      window.removeEventListener('google:auth-expired', googleAuthExpired);
     };
   }, []);
 

@@ -31,14 +31,17 @@ export function useReminder() {
 
     const timer = setInterval(() => {
       const now = Date.now();
+      // 성능 최적화: 미래 일정 + 리마인더 범위 내만 필터 (큰 이벤트 목록 대응)
+      const windowMax = now + reminderMs;
+      const windowMin = now + (reminderMs - 60000);
 
       for (const event of eventsRef.current) {
         const start = event.startDate instanceof Date ? event.startDate.getTime() : new Date(event.startDate).getTime();
+        if (start < windowMin || start > windowMax) continue; // 범위 밖 빠른 skip
         const diff = start - now;
         const key = `${event.id}-${reminderMs}`;
 
-        // 리마인더 시간 범위 내 (±1분) + 미래 일정만
-        if (diff > 0 && diff <= reminderMs && diff > reminderMs - 60000 && !notifiedRef.current.has(key)) {
+        if (diff > 0 && !notifiedRef.current.has(key)) {
           notifiedRef.current.add(key);
 
           const minutesBefore = Math.round(diff / 60000);
