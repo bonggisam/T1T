@@ -20,12 +20,19 @@ interface ActiveUserCardProps {
 }
 
 function ActiveUserCard({ u, onChangeRole, onDeactivate, onChangeSchool }: ActiveUserCardProps) {
+  const isSuperAdmin = u.role === 'super_admin';
   const isSchoolAssigned = u.school === 'taeseong_middle' || u.school === 'taeseong_high';
-  const schoolBadgeBg = u.school === 'taeseong_high'
-    ? '#8B5CF6'
-    : u.school === 'taeseong_middle'
-      ? '#10B981'
-      : '#9CA3AF'; // 미지정: 회색
+  // 슈퍼관리자는 학교 구분 없이 전체 관리
+  const schoolBadgeBg = isSuperAdmin
+    ? '#F59E0B'
+    : u.school === 'taeseong_high'
+      ? '#8B5CF6'
+      : u.school === 'taeseong_middle'
+        ? '#10B981'
+        : '#9CA3AF';
+  const schoolBadgeText = isSuperAdmin
+    ? '👑 전체'
+    : u.school === 'taeseong_high' ? '🎓 고' : u.school === 'taeseong_middle' ? '🏫 중' : '❓ 미지정';
   return (
     <div style={styles.userCard}>
       <div style={styles.userInfo}>
@@ -35,7 +42,7 @@ function ActiveUserCard({ u, onChangeRole, onDeactivate, onChangeSchool }: Activ
             ...styles.schoolBadge,
             background: schoolBadgeBg,
           }}>
-            {u.school === 'taeseong_high' ? '🎓 고' : u.school === 'taeseong_middle' ? '🏫 중' : '❓ 미지정'}
+            {schoolBadgeText}
           </span>
           <span style={{
             ...styles.roleBadge,
@@ -47,15 +54,15 @@ function ActiveUserCard({ u, onChangeRole, onDeactivate, onChangeSchool }: Activ
         <span style={styles.userEmail}>{u.email} · {SCHOOL_LABELS[u.school] || '미지정'}</span>
       </div>
       <div style={styles.userActions}>
-        {/* 학교 미지정이면 눈에 띄게 배정 버튼 표시 */}
-        {!isSchoolAssigned && (
+        {/* 슈퍼관리자는 학교 배정 불필요 */}
+        {!isSuperAdmin && !isSchoolAssigned && (
           <>
             <button onClick={() => onChangeSchool(u.id, 'taeseong_middle')} style={styles.assignMiddleBtn} aria-label={`${u.name}을 태성중으로 배정`}>🏫 중 배정</button>
             <button onClick={() => onChangeSchool(u.id, 'taeseong_high')} style={styles.assignHighBtn} aria-label={`${u.name}을 태성고로 배정`}>🎓 고 배정</button>
           </>
         )}
         {/* 학교 배정된 경우 변경 버튼 (반대편 학교로) */}
-        {isSchoolAssigned && (
+        {!isSuperAdmin && isSchoolAssigned && (
           <button
             onClick={() => onChangeSchool(
               u.id,
@@ -282,15 +289,24 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
               return <p style={styles.emptyMsg}>해당 학교에 활성 사용자가 없습니다.</p>;
             }
 
-            // 전체일 때는 학교별 그룹핑
+            // 전체일 때는 학교별 그룹핑 (슈퍼관리자는 별도 그룹)
             if (schoolFilter === 'all') {
-              const middle = activeUsers.filter((u) => u.school === 'taeseong_middle');
-              const high = activeUsers.filter((u) => u.school === 'taeseong_high');
-              const other = activeUsers.filter((u) => u.school !== 'taeseong_middle' && u.school !== 'taeseong_high');
+              const superAdmins = activeUsers.filter((u) => u.role === 'super_admin');
+              const normalUsers = activeUsers.filter((u) => u.role !== 'super_admin');
+              const middle = normalUsers.filter((u) => u.school === 'taeseong_middle');
+              const high = normalUsers.filter((u) => u.school === 'taeseong_high');
+              const other = normalUsers.filter((u) => u.school !== 'taeseong_middle' && u.school !== 'taeseong_high');
 
               return (
                 <>
-                  {/* 관리자는 미지정 교사를 먼저 처리할 수 있게 맨 위 노출 */}
+                  {/* 슈퍼관리자는 학교 구분 없이 상단 표시 */}
+                  {superAdmins.length > 0 && (
+                    <>
+                      <div style={{ ...styles.groupHeader, color: '#F59E0B' }}>👑 전체 관리자 ({superAdmins.length})</div>
+                      {superAdmins.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} onChangeSchool={handleChangeSchool} />)}
+                    </>
+                  )}
+                  {/* 미지정 교사를 먼저 처리할 수 있게 맨 위 노출 */}
                   {other.length > 0 && (
                     <>
                       <div style={{ ...styles.groupHeader, color: '#EF4444' }}>⚠️ 학교 미지정 ({other.length}) — 배정이 필요합니다</div>

@@ -114,19 +114,31 @@ export function TitleBar({
           <Calendar size={18} strokeWidth={2.2} color="var(--accent)" />
           <span style={styles.title}>ToneT</span>
         </button>
-        {user && (
+        {user && (user.role === 'super_admin' ? (
           <span style={{
             ...styles.schoolPill,
-            background: user.school === 'taeseong_high' ? 'rgba(139,92,246,0.15)' : 'rgba(16,185,129,0.15)',
-            color: user.school === 'taeseong_high' ? '#8B5CF6' : '#10B981',
+            background: 'rgba(245, 158, 11, 0.15)',
+            color: '#F59E0B',
           }}>
-            {user.school === 'taeseong_high' ? (
-              <><GraduationCap size={11} strokeWidth={2.5} style={{ verticalAlign: '-1px' }} /> 태성고</>
-            ) : (
-              <><SchoolIcon size={11} strokeWidth={2.5} style={{ verticalAlign: '-1px' }} /> 태성중</>
-            )}
+            👑 전체 관리자
           </span>
-        )}
+        ) : user.school === 'taeseong_high' ? (
+          <span style={{
+            ...styles.schoolPill,
+            background: 'rgba(139,92,246,0.15)',
+            color: '#8B5CF6',
+          }}>
+            <GraduationCap size={11} strokeWidth={2.5} style={{ verticalAlign: '-1px' }} /> 태성고
+          </span>
+        ) : (
+          <span style={{
+            ...styles.schoolPill,
+            background: 'rgba(16,185,129,0.15)',
+            color: '#10B981',
+          }}>
+            <SchoolIcon size={11} strokeWidth={2.5} style={{ verticalAlign: '-1px' }} /> 태성중
+          </span>
+        ))}
       </div>
 
       <div style={styles.right}>

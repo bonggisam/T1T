@@ -183,6 +183,14 @@ export function App() {
     setShowTodos(false); setShowReserv(false); setShowMeal(false);
   }
 
+  // ToneT 로고 클릭 — 모든 탭 닫고 월간 달력으로 이동
+  function goHome() {
+    closeAllTabs();
+    useCalendarStore.getState().setView('month');
+    useCalendarStore.getState().setCurrentMonth(new Date());
+    useCalendarStore.getState().setSelectedDate(new Date());
+  }
+
   return (
     <div className="glass" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <TitleBar
@@ -200,7 +208,7 @@ export function App() {
         showMeal={showMeal}
         theme={theme}
         onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-        onGoHome={closeAllTabs}
+        onGoHome={goHome}
       />
       <UpdateBanner />
       {isOffline && (
