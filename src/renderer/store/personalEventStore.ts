@@ -76,6 +76,7 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
           description: data.description || '',
           startDate: data.startDate instanceof Timestamp ? data.startDate.toDate() : new Date(data.startDate),
           endDate: data.endDate instanceof Timestamp ? data.endDate.toDate() : new Date(data.endDate),
+          allDay: data.allDay ?? false,
           source: data.source || 'local',
           externalId: data.externalId || null,
           checklist: data.checklist || [],

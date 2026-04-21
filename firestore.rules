@@ -64,10 +64,10 @@ service cloud.firestore {
       allow create: if isAuth();
     }
 
-    // Notifications — 본인만 읽고 업데이트 가능. 생성은 active 사용자 (멘션 알림용)
+    // Notifications — 본인만 읽고 업데이트/삭제 가능. 생성은 active 사용자 (멘션 알림용)
     match /notifications/{userId}/items/{notificationId} {
       allow read: if isAuth() && request.auth.uid == userId;
-      allow update: if isAuth() && request.auth.uid == userId;
+      allow update, delete: if isAuth() && request.auth.uid == userId;
       // createdBy를 본인 uid로만 생성 가능 (스푸핑 방지)
       allow create: if isActive() && request.resource.data.createdBy == request.auth.uid;
     }

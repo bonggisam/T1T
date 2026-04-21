@@ -4,6 +4,7 @@ import {
   query,
   onSnapshot,
   updateDoc,
+  deleteDoc,
   doc,
   orderBy,
   where,
@@ -22,6 +23,7 @@ interface NotificationState {
   subscribeToNotifications: (userId: string) => void;
   markAsRead: (notificationId: string, userId: string) => Promise<void>;
   markAllAsRead: (userId: string) => Promise<void>;
+  deleteNotification: (notificationId: string, userId: string) => Promise<void>;
   cleanup: () => void;
 }
 
@@ -94,6 +96,15 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       );
     } catch (err) {
       console.error('[NotificationStore] markAllAsRead failed:', err);
+      throw err;
+    }
+  },
+
+  deleteNotification: async (notificationId, userId) => {
+    try {
+      await deleteDoc(doc(db, 'notifications', userId, 'items', notificationId));
+    } catch (err) {
+      console.error('[NotificationStore] deleteNotification failed:', err);
       throw err;
     }
   },

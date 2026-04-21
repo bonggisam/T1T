@@ -76,6 +76,10 @@ export interface CalendarEvent {
 
 export type EventCategory = 'event' | 'meeting' | 'deadline' | 'notice' | 'other';
 
+/**
+ * 반복 일정 설정 (아직 UI 미노출 — 향후 구현 예정).
+ * CalendarEvent.repeat은 항상 null로 저장되며, UI에서 편집 불가.
+ */
 export interface RepeatConfig {
   type: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
   interval: number;
@@ -105,7 +109,7 @@ export interface PersonalEvent {
   description: string;
   startDate: Date;
   endDate: Date;
-  allDay?: boolean; // 종일 이벤트 (구글 동기화 시 date vs dateTime)
+  allDay: boolean; // 종일 이벤트 (구글 동기화 시 date vs dateTime)
   source: 'local' | 'google' | 'apple' | 'notion' | 'outlook';
   externalId: string | null;
   checklist: ChecklistItem[];

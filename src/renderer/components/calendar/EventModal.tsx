@@ -145,7 +145,17 @@ export function EventModal() {
               <option value="all">📢 전체</option>
             </select>
             <label style={styles.checkbox}>
-              <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
+              <input type="checkbox" checked={allDay} onChange={(e) => {
+                const checked = e.target.checked;
+                setAllDay(checked);
+                // 종일 토글 시 startDate는 당일 0시, endDate는 당일 23:59로 자동 조정
+                if (checked) {
+                  const s = new Date(startDate); s.setHours(0, 0, 0, 0);
+                  const ed = new Date(endDate); ed.setHours(23, 59, 0, 0);
+                  setStartDate(formatDateTimeLocal(s));
+                  setEndDate(formatDateTimeLocal(ed));
+                }
+              }} />
               <span style={{ fontSize: 12 }}>종일</span>
             </label>
           </div>

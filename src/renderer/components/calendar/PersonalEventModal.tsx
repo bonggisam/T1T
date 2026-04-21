@@ -59,6 +59,7 @@ export function PersonalEventModal({ onClose }: PersonalEventModalProps) {
         description: trimDesc,
         startDate: start,
         endDate: end,
+        allDay: false, // 개인 일정은 기본 시간 지정
         source: 'local',
         externalId: null,
         checklist: [],

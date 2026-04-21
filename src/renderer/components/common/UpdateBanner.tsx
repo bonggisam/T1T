@@ -34,7 +34,8 @@ export function UpdateBanner() {
           break;
         case 'updater:error':
           setStatus('error');
-          setInfo((prev) => ({ ...prev, error: typeof data === 'string' ? data : 'Unknown error' }));
+          // error 진입 시 이전 다운로드 진행률 초기화
+          setInfo({ error: typeof data === 'string' ? data : 'Unknown error' });
           // Auto-dismiss error after 5 seconds
           setTimeout(() => setStatus('idle'), 5000);
           break;

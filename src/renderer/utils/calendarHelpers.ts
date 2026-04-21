@@ -55,14 +55,19 @@ export function getSchoolTag(school?: string | null): string {
   return '';
 }
 
-/** 이벤트 제목 앞에 학교 태그 붙이기 */
+/**
+ * 이벤트 제목 앞에 학교 태그 붙이기 (문자열 반환).
+ * JSX에서는 {getSchoolTag(e.school)} {e.title} 패턴 사용 권장 — 조건부 렌더링 유리.
+ * 이 함수는 알림 메시지/툴팁/export 등 string 컨텍스트에서 유용.
+ */
 export function formatTitleWithSchool(title: string, school?: string | null): string {
   const tag = getSchoolTag(school);
   return tag ? `${tag} ${title}` : title;
 }
 
 export function formatEventTooltip(event: CalendarEvent, isOwner: boolean): string {
-  const lines: string[] = [event.title];
+  const tag = getSchoolTag(event.school);
+  const lines: string[] = [tag ? `${tag} ${event.title}` : event.title];
   const start = new Date(event.startDate);
   const end = new Date(event.endDate);
   if (event.allDay) {

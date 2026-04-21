@@ -232,6 +232,7 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
                 description: pe.description,
                 startDate: newStart,
                 endDate: newEnd,
+                allDay: pe.allDay ?? false,
                 source: 'local',
                 externalId: null,
                 checklist: [],

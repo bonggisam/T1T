@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
@@ -52,6 +52,7 @@ export function EventDetail() {
   const [editCategory, setEditCategory] = useState<EventCategory>('event');
   const [editSchool, setEditSchool] = useState<School | 'all'>('all');
   const [editAllDay, setEditAllDay] = useState(false);
+  const editStartedAtRef = useRef<Date | null>(null); // 편집 시작 시점 updatedAt
   const [saving, setSaving] = useState(false);
   const [comments, setComments] = useState<EventComment[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -71,20 +72,26 @@ export function EventDetail() {
     }
   }, [selectedEvent?.id, user?.id]);
 
-  // 댓글 실시간 구독
+  // 댓글 실시간 구독 — cleanup 시 pending 콜백 무시
   useEffect(() => {
-    if (!selectedEvent) return;
+    if (!selectedEvent) {
+      setComments([]);
+      return;
+    }
+    let active = true;
+    const eventId = selectedEvent.id;
     const q = query(
-      collection(db, 'events', selectedEvent.id, 'comments'),
+      collection(db, 'events', eventId, 'comments'),
       orderBy('createdAt', 'asc'),
     );
     const unsub = onSnapshot(q, (snapshot) => {
+      if (!active) return; // unmount 후 setState 방지
       const list: EventComment[] = snapshot.docs
         .map((d) => {
           const data = d.data();
           return {
             id: d.id,
-            eventId: selectedEvent.id,
+            eventId,
             userId: data.userId || '',
             userName: data.userName || '',
             userColor: data.userColor || '#4A90E2',
@@ -92,12 +99,15 @@ export function EventDetail() {
             createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
           };
         })
-        .filter((c) => c.userId); // userId 없는 손상된 댓글 skip
+        .filter((c) => c.userId);
       setComments(list);
     }, (err) => {
       console.warn('[EventDetail] Comments subscription error:', err);
     });
-    return () => unsub();
+    return () => {
+      active = false;
+      unsub();
+    };
   }, [selectedEvent?.id]);
 
   if (!selectedEvent) return null;
@@ -198,6 +208,9 @@ export function EventDetail() {
     setEditCategory(selectedEvent.category);
     setEditSchool(selectedEvent.school || 'all');
     setEditAllDay(selectedEvent.allDay);
+    editStartedAtRef.current = selectedEvent.updatedAt instanceof Date
+      ? new Date(selectedEvent.updatedAt.getTime())
+      : null;
     setEditing(true);
   }
 
@@ -209,6 +222,22 @@ export function EventDetail() {
     const end = new Date(editEnd);
     if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
     if (end < start) { showToast('종료 시간이 시작 시간보다 앞설 수 없습니다.', 'error'); return; }
+
+    // 편집 중 다른 사용자가 수정한 경우 감지 (updatedAt이 달라졌으면 경고)
+    if (editStartedAtRef.current && selectedEvent.updatedAt instanceof Date) {
+      const startedAt = editStartedAtRef.current.getTime();
+      const currentAt = selectedEvent.updatedAt.getTime();
+      if (currentAt > startedAt + 1000) { // 1초 여유
+        const ok = window.confirm(
+          '⚠️ 편집 중 다른 사용자가 이 일정을 수정했습니다.\n\n덮어쓰시겠습니까?\n(취소를 누르면 편집을 중단하고 최신 내용을 확인하세요.)'
+        );
+        if (!ok) {
+          setSaving(false);
+          setEditing(false);
+          return;
+        }
+      }
+    }
 
     setSaving(true);
     try {

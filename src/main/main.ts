@@ -7,6 +7,7 @@ let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isClickThrough = false;
 let isWidgetMode = true; // Desktop widget mode (pinned behind windows)
+let updaterInterval: NodeJS.Timeout | null = null;
 
 // 클릭 통과 모드 토글 (단축키/트레이/IPC 공통 호출)
 function setClickThrough(enabled: boolean): void {
@@ -293,9 +294,10 @@ function setupAutoUpdater(): void {
     sendToRenderer('updater:error', err?.message || 'Update error');
   });
 
-  // Check for updates every 30 minutes
+  // Check for updates every 30 minutes (앱 종료 시 interval 정리)
   autoUpdater.checkForUpdates().catch(() => {});
-  setInterval(() => {
+  if (updaterInterval) clearInterval(updaterInterval);
+  updaterInterval = setInterval(() => {
     autoUpdater.checkForUpdates().catch(() => {});
   }, 30 * 60 * 1000);
 }
@@ -451,6 +453,7 @@ app.whenReady().then(() => {
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   comciganService.stopAutoRefresh();
+  if (updaterInterval) { clearInterval(updaterInterval); updaterInterval = null; }
 });
 
 app.on('window-all-closed', () => {
