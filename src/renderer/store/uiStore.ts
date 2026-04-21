@@ -6,11 +6,13 @@ const VIEWING_SCHOOL_KEY = 'tonet-viewing-school';
 function loadViewingSchool(): 'own' | 'all' | School {
   try {
     const saved = localStorage.getItem(VIEWING_SCHOOL_KEY);
+    // 'own'은 레거시 — 그대로 로드하되 UI 표시는 user.school로 매핑됨
     if (saved === 'own' || saved === 'all' || saved === 'taeseong_middle' || saved === 'taeseong_high') {
       return saved;
     }
   } catch {}
-  return 'own';
+  // 기본값: 전체 (사용자 학교 로드 후 useVisibleEvents가 처리)
+  return 'all';
 }
 
 /**

@@ -35,9 +35,10 @@ interface QuickAddPopup {
 
 interface MonthViewProps {
   onAddPersonalEvent?: () => void;
+  onPersonalClick?: (pe: PersonalEvent) => void;
 }
 
-export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
+export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProps) {
   const {
     currentMonth, selectedDate,
     setSelectedDate, setSelectedEvent, setShowEventDetail, setShowEventModal, updateEvent,
@@ -342,12 +343,17 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
                     <div
                       key={pe.id}
                       onMouseDown={(e) => handlePersonalMouseDown(e, pe, dayStr)}
+                      onClick={(e) => {
+                        if (dragRef.current?.activated) return;
+                        e.stopPropagation();
+                        onPersonalClick?.(pe);
+                      }}
                       style={{
                         borderRadius: 3, padding: '1px 4px',
                         background: pe.color || '#2ECC71',
                         opacity: dragRef.current?.eventId === pe.id ? 0.4 : 0.85,
                         borderLeft: '2px solid rgba(255,255,255,0.5)',
-                        cursor: canDrag ? 'grab' : 'default',
+                        cursor: canDrag ? 'grab' : 'pointer',
                       }}
                       title={formatPersonalTooltip(pe, canDrag)}
                     >

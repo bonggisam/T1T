@@ -95,6 +95,7 @@ export function TodosView({ onBack }: TodosViewProps) {
           onChange={(e) => setTitle(e.target.value)}
           style={styles.input}
           maxLength={200}
+          autoFocus
         />
         <div style={styles.formRow}>
           <select value={priority} onChange={(e) => setPriority(e.target.value as any)} style={styles.select}>
@@ -108,8 +109,16 @@ export function TodosView({ onBack }: TodosViewProps) {
             onChange={(e) => setDueDate(e.target.value)}
             style={styles.dateInput}
           />
-          <button type="submit" disabled={!title.trim() || saving} style={styles.addBtn}>
-            {saving ? '...' : '+ 추가'}
+          <button
+            type="submit"
+            disabled={saving || title.length === 0}
+            style={{
+              ...styles.addBtn,
+              opacity: (saving || title.length === 0) ? 0.5 : 1,
+              cursor: (saving || title.length === 0) ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {saving ? '추가 중...' : '+ 추가'}
           </button>
         </div>
       </form>

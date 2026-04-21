@@ -4,6 +4,7 @@ import { ko } from 'date-fns/locale';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
+import type { PersonalEvent } from '@shared/types';
 import { showToast } from '../common/Toast';
 import { formatEventTooltip, formatPersonalTooltip, getCreatorTag, canManageEvent, PERSONAL_SUFFIX } from '../../utils/calendarHelpers';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
@@ -20,6 +21,7 @@ interface QuickAdd {
 
 interface DayViewProps {
   onAddPersonalEvent?: () => void;
+  onPersonalClick?: (pe: PersonalEvent) => void;
 }
 
 interface DragInfo {
@@ -33,7 +35,7 @@ interface DragInfo {
   copy: boolean; // Alt 키 눌린 상태 = 복사
 }
 
-export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
+export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = {}) {
   const { selectedDate, setSelectedDate, setSelectedEvent, setShowEventDetail, setShowEventModal, updateEvent, addEvent } = useCalendarStore();
   const events = useVisibleEvents();
   const { getPeriodsForWeekday } = useComciganStore();
@@ -384,10 +386,15 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
                   return (
                     <div key={pe.id}
                       onMouseDown={(e) => handleEventMouseDown(e, pe.id, 'personal', hour)}
+                      onClick={(e) => {
+                        if (dragRef.current?.activated) return;
+                        e.stopPropagation();
+                        onPersonalClick?.(pe);
+                      }}
                       style={{
                         ...styles.eventBlock, background: pe.color, opacity: 0.85,
                         borderLeft: '3px solid rgba(255,255,255,0.5)',
-                        cursor: canDrag ? 'grab' : 'default',
+                        cursor: canDrag ? 'grab' : 'pointer',
                         position: 'relative',
                       }}
                       title={formatPersonalTooltip(pe, canDrag)}

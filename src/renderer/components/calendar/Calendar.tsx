@@ -11,6 +11,8 @@ import { CalendarHeader } from './CalendarHeader';
 import { EventLegend } from './EventLegend';
 import { SearchPanel } from './SearchPanel';
 import { PrintView } from './PrintView';
+import { PersonalEventDetail } from './PersonalEventDetail';
+import type { PersonalEvent } from '@shared/types';
 
 interface CalendarProps {
   onAddPersonalEvent?: () => void;
@@ -21,6 +23,7 @@ export function Calendar({ onAddPersonalEvent }: CalendarProps = {}) {
   const { categoryFilter, setCategoryFilter } = useUIStore();
   const [showSearch, setShowSearch] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
+  const [selectedPersonal, setSelectedPersonal] = useState<PersonalEvent | null>(null);
 
   if (showPrint) {
     return <PrintView onClose={() => setShowPrint(false)} />;
@@ -36,15 +39,18 @@ export function Calendar({ onAddPersonalEvent }: CalendarProps = {}) {
         setCategoryFilter={setCategoryFilter}
       />
       <div style={styles.viewContainer}>
-        {view === 'month' && <MonthView onAddPersonalEvent={onAddPersonalEvent} />}
-        {view === 'week' && <WeekView onAddPersonalEvent={onAddPersonalEvent} />}
-        {view === 'day' && <DayView onAddPersonalEvent={onAddPersonalEvent} />}
+        {view === 'month' && <MonthView onAddPersonalEvent={onAddPersonalEvent} onPersonalClick={setSelectedPersonal} />}
+        {view === 'week' && <WeekView onAddPersonalEvent={onAddPersonalEvent} onPersonalClick={setSelectedPersonal} />}
+        {view === 'day' && <DayView onAddPersonalEvent={onAddPersonalEvent} onPersonalClick={setSelectedPersonal} />}
         {view === 'year' && <YearView />}
         {view === 'agenda' && <AgendaView />}
         {view === 'stats' && <StatsView />}
       </div>
       <EventLegend />
       {showSearch && <SearchPanel onClose={() => setShowSearch(false)} />}
+      {selectedPersonal && (
+        <PersonalEventDetail event={selectedPersonal} onClose={() => setSelectedPersonal(null)} />
+      )}
     </div>
   );
 }

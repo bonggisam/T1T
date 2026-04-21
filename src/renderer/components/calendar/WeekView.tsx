@@ -34,9 +34,10 @@ interface QuickAdd {
 
 interface WeekViewProps {
   onAddPersonalEvent?: () => void;
+  onPersonalClick?: (pe: PersonalEvent) => void;
 }
 
-export function WeekView({ onAddPersonalEvent }: WeekViewProps) {
+export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps) {
   const { selectedDate, setSelectedDate, setSelectedEvent, setShowEventDetail, setShowEventModal, updateEvent } = useCalendarStore();
   const events = useVisibleEvents();
   const { user } = useAuthStore();
@@ -337,10 +338,15 @@ export function WeekView({ onAddPersonalEvent }: WeekViewProps) {
                         <div
                           key={pe.id}
                           onMouseDown={(e) => handleEventMouseDown(e, pe.id, 'personal', dayIdx, hour)}
+                          onClick={(e) => {
+                            if (dragRef.current?.activated) return;
+                            e.stopPropagation();
+                            onPersonalClick?.(pe);
+                          }}
                           style={{
                             ...styles.eventBlock, background: pe.color, opacity: 0.85,
                             borderLeft: '2px solid rgba(255,255,255,0.5)',
-                            cursor: canDrag ? 'grab' : 'default',
+                            cursor: canDrag ? 'grab' : 'pointer',
                           }}
                           title={formatPersonalTooltip(pe, canDrag)}
                         >
