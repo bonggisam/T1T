@@ -10,7 +10,7 @@ import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useComciganStore } from '../../store/comciganStore';
 import type { CalendarEvent, PersonalEvent, TeacherPeriod } from '@shared/types';
 import { showToast } from '../common/Toast';
-import { formatEventTooltip, formatPersonalTooltip, getSchoolTag } from '../../utils/calendarHelpers';
+import { formatEventTooltip, formatPersonalTooltip, getSchoolTag, canManageEvent } from '../../utils/calendarHelpers';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -159,7 +159,7 @@ export function WeekView({ onAddPersonalEvent }: WeekViewProps) {
   function handleEventMouseDown(e: React.MouseEvent, eventId: string, type: 'shared' | 'personal', dayIdx: number, hour: number) {
     if (type === 'shared') {
       const ev = events.find((x) => x.id === eventId);
-      if (!ev || ev.createdBy !== user?.id) return;
+      if (!ev || !canManageEvent(ev, user)) return;
     } else {
       const pe = personalEvents.find((x) => x.id === eventId);
       if (!pe || pe.source !== 'local') return;
@@ -312,7 +312,7 @@ export function WeekView({ onAddPersonalEvent }: WeekViewProps) {
                     outlineOffset: -1,
                   }}>
                     {dayEvents.map((event) => {
-                      const isOwner = event.createdBy === user?.id;
+                      const isOwner = canManageEvent(event, user);
                       return (
                         <div
                           key={event.id}

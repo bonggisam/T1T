@@ -5,7 +5,7 @@ import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
 import { showToast } from '../common/Toast';
-import { formatEventTooltip, formatPersonalTooltip, getSchoolTag } from '../../utils/calendarHelpers';
+import { formatEventTooltip, formatPersonalTooltip, getSchoolTag, canManageEvent } from '../../utils/calendarHelpers';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { useComciganStore } from '../../store/comciganStore';
 import { hasTimetableOverlap } from '../../utils/timetableOverlap';
@@ -121,7 +121,7 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
   function handleEventMouseDown(e: React.MouseEvent, eventId: string, type: 'shared' | 'personal', hour: number) {
     if (type === 'shared') {
       const ev = events.find((x) => x.id === eventId);
-      if (!ev || ev.createdBy !== user?.id) return;
+      if (!ev || !canManageEvent(ev, user)) return;
     } else {
       const pe = personalEvents.find((x) => x.id === eventId);
       if (!pe || pe.source !== 'local') return;
@@ -134,7 +134,7 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
   function handleResizeMouseDown(e: React.MouseEvent, eventId: string, type: 'shared' | 'personal', hour: number) {
     if (type === 'shared') {
       const ev = events.find((x) => x.id === eventId);
-      if (!ev || ev.createdBy !== user?.id) return;
+      if (!ev || !canManageEvent(ev, user)) return;
     } else {
       const pe = personalEvents.find((x) => x.id === eventId);
       if (!pe || pe.source !== 'local') return;
@@ -339,7 +339,7 @@ export function DayView({ onAddPersonalEvent }: DayViewProps = {}) {
               <div style={styles.timeLabel}>{hour.toString().padStart(2, '0')}:00</div>
               <div style={styles.hourContent}>
                 {hourEvents.map((event) => {
-                  const isOwner = event.createdBy === user?.id;
+                  const isOwner = canManageEvent(event, user);
                   const weekday = new Date(event.startDate).getDay();
                   const weekdayMon1 = weekday === 0 ? 7 : weekday;
                   const periods = weekdayMon1 >= 1 && weekdayMon1 <= 5 ? getPeriodsForWeekday(weekdayMon1) : [];

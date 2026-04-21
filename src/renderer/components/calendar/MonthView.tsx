@@ -11,7 +11,7 @@ import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useComciganStore } from '../../store/comciganStore';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
 import { showToast } from '../common/Toast';
-import { formatEventTooltip, formatPersonalTooltip, isEventOnDate, getSchoolTag } from '../../utils/calendarHelpers';
+import { formatEventTooltip, formatPersonalTooltip, isEventOnDate, getSchoolTag, canManageEvent } from '../../utils/calendarHelpers';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -144,7 +144,7 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
 
   // ─── 드래그 핸들러 ───
   function handleSharedMouseDown(e: React.MouseEvent, event: CalendarEvent, dayStr: string) {
-    if (event.createdBy !== user?.id) return;
+    if (!canManageEvent(event, user)) return;
     e.preventDefault();
     e.stopPropagation();
     dragRef.current = { eventId: event.id, type: 'shared', startX: e.clientX, startY: e.clientY, activated: false, originDayStr: dayStr };
@@ -310,7 +310,7 @@ export function MonthView({ onAddPersonalEvent }: MonthViewProps) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {/* 공유 일정 */}
                 {dayEvents.slice(0, MAX_VISIBLE).map((event) => {
-                  const isOwner = event.createdBy === user?.id;
+                  const isOwner = canManageEvent(event, user);
                   return (
                     <div
                       key={event.id}

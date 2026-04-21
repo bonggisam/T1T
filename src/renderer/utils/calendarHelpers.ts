@@ -65,6 +65,20 @@ export function formatTitleWithSchool(title: string, school?: string | null): st
   return tag ? `${tag} ${title}` : title;
 }
 
+/**
+ * 일정을 수정/삭제할 수 있는 권한 체크.
+ * - 작성자 본인
+ * - admin / super_admin은 모든 일정 관리 가능
+ */
+export function canManageEvent(
+  event: { createdBy: string },
+  user?: { id: string; role?: string } | null,
+): boolean {
+  if (!user) return false;
+  if (user.id === event.createdBy) return true;
+  return user.role === 'admin' || user.role === 'super_admin';
+}
+
 export function formatEventTooltip(event: CalendarEvent, isOwner: boolean): string {
   const tag = getSchoolTag(event.school);
   const lines: string[] = [tag ? `${tag} ${event.title}` : event.title];

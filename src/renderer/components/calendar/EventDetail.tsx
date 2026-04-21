@@ -113,7 +113,9 @@ export function EventDetail() {
   if (!selectedEvent) return null;
 
   const isCreator = user?.id === selectedEvent.createdBy;
-  const canEdit = isCreator;
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  // 작성자 본인 또는 관리자(admin/super_admin)는 수정/삭제 가능
+  const canEdit = isCreator || isAdmin;
 
   const checkedCount = selectedEvent.checklist.filter((i) => i.checked).length;
   const totalCount = selectedEvent.checklist.length;
@@ -130,6 +132,13 @@ export function EventDetail() {
 
   async function handleDelete() {
     if (!canEdit) return;
+    // 관리자가 다른 사람 일정 삭제 시 확인 대화상자
+    if (!isCreator && isAdmin) {
+      const ok = window.confirm(
+        `⚠️ 다른 사용자(${selectedEvent!.adminName || '알 수 없음'})가 만든 일정을 관리자 권한으로 삭제합니다.\n\n계속하시겠습니까?`
+      );
+      if (!ok) return;
+    }
     setDeleting(true);
     try {
       await deleteEvent(selectedEvent!.id);
@@ -443,11 +452,11 @@ export function EventDetail() {
                     <span style={styles.commentTime}>
                       {format(c.createdAt, 'M/d HH:mm', { locale: ko })}
                     </span>
-                    {user?.id === c.userId && (
+                    {(user?.id === c.userId || isAdmin) && (
                       <button
                         onClick={() => handleDeleteComment(c.id)}
                         style={styles.commentDeleteBtn}
-                        title="삭제"
+                        title={user?.id === c.userId ? '삭제' : '관리자 권한으로 삭제'}
                       >
                         ✕
                       </button>
@@ -484,6 +493,16 @@ export function EventDetail() {
         {/* Actions */}
         {canEdit && !editing && (
           <div style={styles.actions}>
+            {!isCreator && isAdmin && (
+              <span style={{
+                fontSize: 10, color: '#F59E0B', fontWeight: 600,
+                padding: '2px 8px', borderRadius: 4,
+                background: 'rgba(245, 158, 11, 0.1)',
+                marginRight: 'auto',
+              }}>
+                👑 관리자 권한으로 편집
+              </span>
+            )}
             <button onClick={startEditing} style={styles.editBtn}>✏️ 수정</button>
             <button onClick={handleDelete} disabled={deleting} style={styles.deleteBtn}>
               {deleting ? '삭제 중...' : '삭제'}
