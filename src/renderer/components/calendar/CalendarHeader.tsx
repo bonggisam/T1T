@@ -48,6 +48,7 @@ export function CalendarHeader({ onAddPersonalEvent, onToggleSearch, onPrint, ca
   ];
 
   const viewButtons: { key: CalendarView; label: string }[] = [
+    { key: 'today', label: '오늘' },
     { key: 'month', label: '월' },
     { key: 'week', label: '주' },
     { key: 'day', label: '일' },
@@ -55,6 +56,16 @@ export function CalendarHeader({ onAddPersonalEvent, onToggleSearch, onPrint, ca
     { key: 'agenda', label: '📋' },
     { key: 'stats', label: '📊' },
   ];
+
+  const handleViewClick = (key: CalendarView) => {
+    // '오늘' 뷰 클릭 시 날짜를 today로 리셋
+    if (key === 'today') {
+      const today = new Date();
+      setCurrentMonth(today);
+      setSelectedDate(today);
+    }
+    setView(key);
+  };
 
   return (
     <>
@@ -90,7 +101,7 @@ export function CalendarHeader({ onAddPersonalEvent, onToggleSearch, onPrint, ca
           {viewButtons.map(({ key, label }) => (
             <button
               key={key}
-              onClick={() => setView(key)}
+              onClick={() => handleViewClick(key)}
               style={{
                 ...styles.viewBtn,
                 ...(view === key ? styles.viewBtnActive : {}),

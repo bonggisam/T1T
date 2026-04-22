@@ -40,7 +40,7 @@ export interface UserSettings {
   multiReminders?: ReminderTime[]; // 예: ['10min', '1hour', '1day']
 }
 
-export type CalendarView = 'month' | 'week' | 'day' | 'year' | 'agenda' | 'stats';
+export type CalendarView = 'month' | 'week' | 'day' | 'year' | 'agenda' | 'stats' | 'today';
 export type ReminderTime = '10min' | '30min' | '1hour' | '1day' | 'none';
 
 export interface ConnectedCalendar {

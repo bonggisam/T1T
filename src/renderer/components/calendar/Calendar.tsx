@@ -4,6 +4,7 @@ import { useUIStore } from '../../store/uiStore';
 import { MonthView } from './MonthView';
 import { WeekView } from './WeekView';
 import { DayView } from './DayView';
+import { TodayView } from './TodayView';
 import { YearView } from './YearView';
 import { AgendaView } from './AgendaView';
 import { StatsView } from './StatsView';
@@ -49,6 +50,7 @@ export function Calendar({ onAddPersonalEvent }: CalendarProps = {}) {
         {view === 'month' && <MonthView onAddPersonalEvent={onAddPersonalEvent} onPersonalClick={setSelectedPersonal} />}
         {view === 'week' && <WeekView onAddPersonalEvent={onAddPersonalEvent} onPersonalClick={setSelectedPersonal} />}
         {view === 'day' && <DayView onAddPersonalEvent={onAddPersonalEvent} onPersonalClick={setSelectedPersonal} />}
+        {view === 'today' && <TodayView onAddPersonalEvent={onAddPersonalEvent} onPersonalClick={setSelectedPersonal} />}
         {view === 'year' && <YearView />}
         {view === 'agenda' && <AgendaView />}
         {view === 'stats' && <StatsView />}
