@@ -21,6 +21,11 @@ export function getNeisConfig(schoolKey: string): NeisConfig | null {
   }
 }
 
+export function removeNeisConfig(schoolKey: string): void {
+  try { localStorage.removeItem(`tonet-neis-${schoolKey}`); }
+  catch (err) { console.warn('[NEIS] removeNeisConfig failed:', err); }
+}
+
 export function setNeisConfig(schoolKey: string, cfg: NeisConfig): void {
   try { localStorage.setItem(`tonet-neis-${schoolKey}`, JSON.stringify(cfg)); }
   catch (err) { console.warn('[NEIS] setNeisConfig failed:', err); }

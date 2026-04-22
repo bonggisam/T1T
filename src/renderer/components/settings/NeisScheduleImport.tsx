@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
-import { importNeisScheduleToFirestore, getNeisConfig, setNeisConfig } from '../../utils/neisSchedule';
+import { importNeisScheduleToFirestore, getNeisConfig, setNeisConfig, removeNeisConfig } from '../../utils/neisSchedule';
 import { showToast } from '../common/Toast';
 import { SCHOOL_LABELS } from '@shared/types';
 import type { School } from '@shared/types';
@@ -127,9 +127,10 @@ export function NeisScheduleImport() {
             {isSuperAdmin && (
               <button
                 onClick={() => {
-                  setNeisConfig(activeSchool, { education: '', school: '' });
+                  if (!window.confirm(`${schoolLabel} NEIS 설정을 초기화하시겠습니까?`)) return;
+                  removeNeisConfig(activeSchool);
                   setConfigVersion((v) => v + 1);
-                  showToast('설정 초기화됨');
+                  showToast(`${schoolLabel} 설정 초기화됨`);
                 }}
                 style={styles.resetBtn}
               >재설정</button>
