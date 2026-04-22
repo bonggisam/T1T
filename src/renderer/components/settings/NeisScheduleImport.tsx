@@ -1,18 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAuthStore } from '../../store/authStore';
-import { importNeisScheduleToFirestore, getNeisConfig, setNeisConfig, removeNeisConfig } from '../../utils/neisSchedule';
+import {
+  importNeisScheduleToFirestore, getNeisConfig, setNeisConfig, removeNeisConfig,
+  lookupSchoolByCode, searchSchoolByName, hasCustomNeisConfig,
+} from '../../utils/neisSchedule';
 import { showToast } from '../common/Toast';
 import { SCHOOL_LABELS } from '@shared/types';
 import type { School } from '@shared/types';
 
+interface SchoolSearchResult {
+  code: string;
+  name: string;
+  education: string;
+  region: string;
+  kind: string;
+}
+
 export function NeisScheduleImport() {
   const { user } = useAuthStore();
   const [importing, setImporting] = useState(false);
-  const [eduCode, setEduCode] = useState('');
-  const [schoolCode, setSchoolCode] = useState('');
+  const [lookingUp, setLookingUp] = useState(false);
+  const [schoolCodeInput, setSchoolCodeInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<SchoolSearchResult[]>([]);
   const [configVersion, setConfigVersion] = useState(0);
+  const [forceEdit, setForceEdit] = useState(false);
 
-  // 슈퍼관리자는 중/고 모두 설정 가능 → 어떤 학교 설정할지 선택
   const isSuperAdmin = user?.role === 'super_admin';
   const defaultSchool: School =
     user?.school === 'taeseong_high' || user?.school === 'taeseong_middle'
@@ -25,7 +39,6 @@ export function NeisScheduleImport() {
   if (!isAdmin) {
     return <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>관리자만 학사일정을 가져올 수 있습니다.</p>;
   }
-  // 일반 관리자는 본인 학교 미지정 시 차단, 슈퍼관리자는 선택 가능
   if (!isSuperAdmin && user.school !== 'taeseong_middle' && user.school !== 'taeseong_high') {
     return (
       <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
@@ -35,26 +48,62 @@ export function NeisScheduleImport() {
     );
   }
 
-  // 표시/조작 대상 학교 (슈퍼는 선택값, 일반은 본인 학교)
   const activeSchool: School = isSuperAdmin ? targetSchool : (user.school as School);
-  const currentConfig = React.useMemo(
+  const currentConfig = useMemo(
     () => getNeisConfig(activeSchool),
+    [activeSchool, configVersion],
+  );
+  const isCustom = useMemo(
+    () => hasCustomNeisConfig(activeSchool),
     [activeSchool, configVersion],
   );
   const schoolLabel = SCHOOL_LABELS[activeSchool];
 
-  function handleSaveCode() {
-    if (!eduCode.trim() || !schoolCode.trim()) return;
-    setNeisConfig(activeSchool, { education: eduCode.trim(), school: schoolCode.trim() });
-    showToast(`${schoolLabel} 학교 코드 저장됨`);
-    setEduCode('');
-    setSchoolCode('');
+  async function handleSaveByCode() {
+    const code = schoolCodeInput.trim();
+    if (!code) { showToast('학교 코드를 입력하세요', 'error'); return; }
+    setLookingUp(true);
+    try {
+      const info = await lookupSchoolByCode(code);
+      if (!info) {
+        showToast('해당 학교 코드를 찾을 수 없습니다', 'error');
+        return;
+      }
+      setNeisConfig(activeSchool, { education: info.education, school: code });
+      showToast(`${info.name} 설정 저장됨 (${info.education})`);
+      setSchoolCodeInput('');
+      setForceEdit(false);
+      setConfigVersion((v) => v + 1);
+    } finally {
+      setLookingUp(false);
+    }
+  }
+
+  async function handleSearch() {
+    const q = searchQuery.trim();
+    if (q.length < 2) { showToast('학교 이름을 2글자 이상 입력하세요', 'error'); return; }
+    setSearching(true);
+    try {
+      const results = await searchSchoolByName(q);
+      setSearchResults(results);
+      if (results.length === 0) showToast('검색 결과가 없습니다', 'info');
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  function handlePickResult(r: SchoolSearchResult) {
+    setNeisConfig(activeSchool, { education: r.education, school: r.code });
+    showToast(`${r.name} 설정 저장됨`);
+    setSearchQuery('');
+    setSearchResults([]);
+    setForceEdit(false);
     setConfigVersion((v) => v + 1);
   }
 
   async function handleImport() {
     const cfg = getNeisConfig(activeSchool);
-    if (!cfg) { showToast('먼저 학교 코드를 설정하세요', 'error'); return; }
+    if (!cfg) { showToast('먼저 학교를 설정하세요', 'error'); return; }
 
     const year = new Date().getFullYear();
     const from = new Date(year, 0, 1);
@@ -73,49 +122,95 @@ export function NeisScheduleImport() {
 
   return (
     <div style={styles.container}>
-      {/* 슈퍼관리자 전용 학교 선택 탭 */}
       {isSuperAdmin && (
         <div style={styles.schoolTabs}>
           <button
             onClick={() => setTargetSchool('taeseong_middle')}
-            style={{
-              ...styles.tabBtn,
-              ...(targetSchool === 'taeseong_middle' ? styles.tabBtnActive : {}),
-            }}
+            style={{ ...styles.tabBtn, ...(targetSchool === 'taeseong_middle' ? styles.tabBtnActive : {}) }}
           >🏫 태성중</button>
           <button
             onClick={() => setTargetSchool('taeseong_high')}
-            style={{
-              ...styles.tabBtn,
-              ...(targetSchool === 'taeseong_high' ? styles.tabBtnActive : {}),
-            }}
+            style={{ ...styles.tabBtn, ...(targetSchool === 'taeseong_high' ? styles.tabBtnActive : {}) }}
           >🎓 태성고</button>
         </div>
       )}
 
       <p style={styles.desc}>
-        📚 {schoolLabel} 학사일정을 NEIS에서 자동으로 가져옵니다.
+        📚 {schoolLabel} 학사일정을 NEIS에서 가져옵니다.
         <br />
-        <a href="https://open.neis.go.kr/portal/guide/actKnowHow.do" target="_blank" rel="noreferrer" style={styles.link}>
-          학교 코드 조회 →
-        </a>
+        <span style={{ color: 'var(--text-muted)' }}>학교 코드만 입력하면 자동으로 교육청이 조회됩니다.</span>
       </p>
 
-      {!currentConfig ? (
+      {(!currentConfig || forceEdit) ? (
         <>
-          <input
-            type="text" placeholder="교육청 코드 (예: K10)"
-            value={eduCode} onChange={(e) => setEduCode(e.target.value)}
-            style={styles.input}
-          />
-          <input
-            type="text" placeholder="학교 코드 (7자리 숫자)"
-            value={schoolCode} onChange={(e) => setSchoolCode(e.target.value)}
-            style={styles.input}
-          />
-          <button onClick={handleSaveCode} disabled={!eduCode.trim() || !schoolCode.trim()} style={styles.primaryBtn}>
-            {schoolLabel} 학교 코드 저장
-          </button>
+          {/* 방법 1: 학교 코드 직접 입력 */}
+          <div style={styles.methodSection}>
+            <span style={styles.methodLabel}>1️⃣ 학교 코드 직접 입력</span>
+            <div style={styles.inputRow}>
+              <input
+                type="text"
+                placeholder="학교 코드 (7자리, 예: 7530209)"
+                value={schoolCodeInput}
+                onChange={(e) => setSchoolCodeInput(e.target.value.replace(/[^0-9]/g, ''))}
+                maxLength={7}
+                style={styles.input}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSaveByCode(); } }}
+              />
+              <button onClick={handleSaveByCode} disabled={lookingUp || !schoolCodeInput.trim()} style={styles.primaryBtn}>
+                {lookingUp ? '조회 중...' : '저장'}
+              </button>
+            </div>
+          </div>
+
+          {/* 방법 2: 학교 이름 검색 */}
+          <div style={styles.methodSection}>
+            <span style={styles.methodLabel}>2️⃣ 학교 이름으로 검색</span>
+            <div style={styles.inputRow}>
+              <input
+                type="text"
+                placeholder="학교 이름 (예: 태성)"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={styles.input}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearch(); } }}
+              />
+              <button onClick={handleSearch} disabled={searching || searchQuery.trim().length < 2} style={styles.primaryBtn}>
+                {searching ? '검색 중...' : '🔍 검색'}
+              </button>
+            </div>
+            {searchResults.length > 0 && (
+              <div style={styles.resultsList}>
+                {searchResults.map((r) => (
+                  <button
+                    key={r.code}
+                    onClick={() => handlePickResult(r)}
+                    style={styles.resultItem}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>{r.name}</span>
+                      <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'var(--accent)', color: '#fff' }}>
+                        {r.kind}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>{r.region} · {r.code}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <p style={styles.hint}>
+            💡 학교 코드는{' '}
+            <a href="https://open.neis.go.kr/portal/guide/actKnowHow.do" target="_blank" rel="noreferrer" style={styles.link}>
+              NEIS 교육정보개방포털
+            </a>에서 조회 가능합니다.
+          </p>
+
+          {forceEdit && currentConfig && (
+            <button onClick={() => setForceEdit(false)} style={styles.cancelEditBtn}>
+              ← 현재 설정으로 돌아가기
+            </button>
+          )}
         </>
       ) : (
         <>
@@ -124,17 +219,24 @@ export function NeisScheduleImport() {
             <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)' }}>
               {currentConfig.education} / {currentConfig.school}
             </span>
-            {isSuperAdmin && (
-              <button
-                onClick={() => {
-                  if (!window.confirm(`${schoolLabel} NEIS 설정을 초기화하시겠습니까?`)) return;
+            {!isCustom && (
+              <span style={styles.defaultBadge}>기본값</span>
+            )}
+            <button
+              onClick={() => {
+                if (isCustom) {
+                  // 커스텀 설정 → 기본값으로 복원
+                  if (!window.confirm(`${schoolLabel} NEIS 설정을 초기화하시겠습니까?\n(내장 기본값으로 되돌아갑니다)`)) return;
                   removeNeisConfig(activeSchool);
                   setConfigVersion((v) => v + 1);
-                  showToast(`${schoolLabel} 설정 초기화됨`);
-                }}
-                style={styles.resetBtn}
-              >재설정</button>
-            )}
+                  showToast(`${schoolLabel} 기본값으로 복원됨`);
+                } else {
+                  // 기본값 → 변경 모드 (입력 폼 표시)
+                  setForceEdit(true);
+                }
+              }}
+              style={styles.resetBtn}
+            >{isCustom ? '재설정' : '변경'}</button>
           </div>
           <button onClick={handleImport} disabled={importing} style={styles.primaryBtn}>
             {importing ? '가져오는 중...' : `📥 ${schoolLabel} 학사일정 가져오기`}
@@ -147,28 +249,44 @@ export function NeisScheduleImport() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  container: { display: 'flex', flexDirection: 'column', gap: 6 },
-  desc: { fontSize: 11, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 },
-  link: { color: 'var(--accent)', textDecoration: 'none', fontSize: 10 },
+  container: { display: 'flex', flexDirection: 'column', gap: 8 },
+  desc: { fontSize: 11, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 },
+  link: { color: 'var(--accent)', textDecoration: 'none' },
+  methodSection: {
+    display: 'flex', flexDirection: 'column', gap: 4,
+    padding: '8px 10px', borderRadius: 6,
+    background: 'var(--bg-secondary)',
+  },
+  methodLabel: { fontSize: 10, fontWeight: 700, color: 'var(--text-muted)' },
+  inputRow: { display: 'flex', gap: 4 },
   input: {
-    padding: '6px 10px', fontSize: 11,
+    flex: 1, padding: '6px 10px', fontSize: 11,
     border: '1px solid var(--border-color)', borderRadius: 6,
-    background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none',
+    background: 'var(--bg-primary, #fff)', color: 'var(--text-primary)', outline: 'none',
+  },
+  resultsList: {
+    display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4,
+    maxHeight: 200, overflowY: 'auto',
+  },
+  resultItem: {
+    display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2,
+    padding: '6px 8px', borderRadius: 4,
+    background: 'var(--bg-primary, #fff)', border: '1px solid var(--border-subtle)',
+    cursor: 'pointer', textAlign: 'left',
   },
   currentConfig: {
     display: 'flex', gap: 6, alignItems: 'center',
-    padding: '4px 8px', borderRadius: 6,
+    padding: '6px 10px', borderRadius: 6,
     background: 'var(--bg-secondary)',
   },
   primaryBtn: {
     padding: '6px 12px', fontSize: 11, fontWeight: 600,
     border: 'none', borderRadius: 6,
     background: 'var(--accent)', color: '#fff', cursor: 'pointer',
+    whiteSpace: 'nowrap',
   },
   hint: { fontSize: 10, color: 'var(--text-muted)', margin: 0 },
-  schoolTabs: {
-    display: 'flex', gap: 4, marginBottom: 4,
-  },
+  schoolTabs: { display: 'flex', gap: 4 },
   tabBtn: {
     flex: 1, padding: '5px 0', fontSize: 11, fontWeight: 600,
     border: '1px solid var(--border-subtle)', borderRadius: 6,
@@ -176,6 +294,17 @@ const styles: Record<string, React.CSSProperties> = {
   },
   tabBtnActive: {
     background: 'var(--accent)', color: '#fff', border: '1px solid var(--accent)',
+  },
+  cancelEditBtn: {
+    padding: '4px 10px', fontSize: 10,
+    border: '1px solid var(--border-color)', borderRadius: 4,
+    background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer',
+  },
+  defaultBadge: {
+    fontSize: 9, fontWeight: 700,
+    padding: '1px 6px', borderRadius: 3,
+    background: 'rgba(16,185,129,0.15)',
+    color: '#10B981',
   },
   resetBtn: {
     marginLeft: 'auto', padding: '2px 8px', fontSize: 10,

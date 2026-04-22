@@ -5,6 +5,17 @@
 
 interface NeisConfig { education: string; school: string; }
 
+/**
+ * 태성중/태성고 기본 NEIS 코드 (내장 기본값).
+ * 사용자가 별도 설정하지 않으면 자동 적용.
+ * - 태성중학교: 경기도교육청 J10 / 7751042
+ * - 태성고등학교: 경기도교육청 J10 / 7530209
+ */
+const DEFAULT_CONFIGS: Record<string, NeisConfig> = {
+  taeseong_middle: { education: 'J10', school: '7751042' },
+  taeseong_high: { education: 'J10', school: '7530209' },
+};
+
 interface NeisScheduleItem {
   date: string; // YYYY-MM-DD
   title: string;
@@ -14,16 +25,71 @@ interface NeisScheduleItem {
 export function getNeisConfig(schoolKey: string): NeisConfig | null {
   try {
     const raw = localStorage.getItem(`tonet-neis-${schoolKey}`);
-    return raw ? JSON.parse(raw) : null;
+    if (raw) return JSON.parse(raw);
   } catch (err) {
     console.warn('[NEIS] getNeisConfig failed:', err);
-    return null;
   }
+  // 저장된 값 없으면 내장 기본값 사용 (태성중/고 바로 동작)
+  return DEFAULT_CONFIGS[schoolKey] || null;
+}
+
+/** 사용자가 실제로 커스텀 설정했는지 확인 */
+export function hasCustomNeisConfig(schoolKey: string): boolean {
+  try {
+    return localStorage.getItem(`tonet-neis-${schoolKey}`) !== null;
+  } catch { return false; }
 }
 
 export function removeNeisConfig(schoolKey: string): void {
   try { localStorage.removeItem(`tonet-neis-${schoolKey}`); }
   catch (err) { console.warn('[NEIS] removeNeisConfig failed:', err); }
+}
+
+/**
+ * NEIS schoolInfo API로 학교코드 → 교육청 코드 + 이름 조회.
+ * 학교코드만 있으면 교육청 코드는 자동 파악 가능.
+ */
+export async function lookupSchoolByCode(schoolCode: string): Promise<{ education: string; name: string } | null> {
+  if (!schoolCode.trim()) return null;
+  try {
+    const url = `https://open.neis.go.kr/hub/schoolInfo?Type=json&SD_SCHUL_CODE=${encodeURIComponent(schoolCode.trim())}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const json = await res.json();
+    const row = json?.schoolInfo?.[1]?.row?.[0];
+    if (!row || !row.ATPT_OFCDC_SC_CODE) return null;
+    return {
+      education: row.ATPT_OFCDC_SC_CODE,
+      name: row.SCHUL_NM || '',
+    };
+  } catch (err) {
+    console.warn('[NEIS] lookupSchoolByCode failed:', err);
+    return null;
+  }
+}
+
+/**
+ * 학교 이름으로 검색 (자동완성용).
+ */
+export async function searchSchoolByName(name: string): Promise<Array<{ code: string; name: string; education: string; region: string; kind: string }>> {
+  if (!name.trim() || name.trim().length < 2) return [];
+  try {
+    const url = `https://open.neis.go.kr/hub/schoolInfo?Type=json&pIndex=1&pSize=20&SCHUL_NM=${encodeURIComponent(name.trim())}`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const json = await res.json();
+    const rows = json?.schoolInfo?.[1]?.row || [];
+    return rows.map((r: any) => ({
+      code: r.SD_SCHUL_CODE,
+      name: r.SCHUL_NM,
+      education: r.ATPT_OFCDC_SC_CODE,
+      region: r.LCTN_SC_NM || '',
+      kind: r.SCHUL_KND_SC_NM || '',
+    }));
+  } catch (err) {
+    console.warn('[NEIS] searchSchoolByName failed:', err);
+    return [];
+  }
 }
 
 export function setNeisConfig(schoolKey: string, cfg: NeisConfig): void {
