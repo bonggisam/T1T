@@ -12,6 +12,7 @@ import { EventLegend } from './EventLegend';
 import { SearchPanel } from './SearchPanel';
 import { PrintView } from './PrintView';
 import { PersonalEventDetail } from './PersonalEventDetail';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import type { PersonalEvent } from '@shared/types';
 
 interface CalendarProps {
@@ -24,6 +25,12 @@ export function Calendar({ onAddPersonalEvent }: CalendarProps = {}) {
   const [showSearch, setShowSearch] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
   const [selectedPersonal, setSelectedPersonal] = useState<PersonalEvent | null>(null);
+
+  // 전역 단축키
+  useKeyboardShortcuts({
+    onSearch: () => setShowSearch(true),
+    onAddPersonal: onAddPersonalEvent,
+  });
 
   if (showPrint) {
     return <PrintView onClose={() => setShowPrint(false)} />;

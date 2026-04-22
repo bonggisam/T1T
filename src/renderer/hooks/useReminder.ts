@@ -26,28 +26,36 @@ export function useReminder() {
   useEffect(() => {
     if (!user) return;
 
-    const reminderMs = REMINDER_INTERVALS[user.settings?.reminderDefault || '30min'];
-    if (!reminderMs) return; // 'none' 설정
+    // 다중 알림 목록 (설정 없으면 기본 reminderDefault 1개 사용)
+    const reminders = user.settings?.multiReminders && user.settings.multiReminders.length > 0
+      ? user.settings.multiReminders
+      : (user.settings?.reminderDefault ? [user.settings.reminderDefault] : []);
+    const reminderMsList = reminders
+      .map((r) => REMINDER_INTERVALS[r])
+      .filter((ms): ms is number => !!ms);
+    if (reminderMsList.length === 0) return;
 
     const timer = setInterval(() => {
       const now = Date.now();
-      // 성능 최적화: 미래 일정 + 리마인더 범위 내만 필터 (큰 이벤트 목록 대응)
-      const windowMax = now + reminderMs;
-      const windowMin = now + (reminderMs - 60000);
 
       for (const event of eventsRef.current) {
         const start = event.startDate instanceof Date ? event.startDate.getTime() : new Date(event.startDate).getTime();
-        if (start < windowMin || start > windowMax) continue; // 범위 밖 빠른 skip
         const diff = start - now;
-        const key = `${event.id}-${reminderMs}`;
+        if (diff <= 0) continue; // 과거/현재 skip
 
-        if (diff > 0 && !notifiedRef.current.has(key)) {
+        // 각 리마인더별 확인
+        for (const reminderMs of reminderMsList) {
+          if (diff > reminderMs || diff <= reminderMs - 60000) continue; // 해당 시점 아님
+          const key = `${event.id}-${reminderMs}`;
+          if (notifiedRef.current.has(key)) continue;
           notifiedRef.current.add(key);
 
           const minutesBefore = Math.round(diff / 60000);
-          const timeLabel = minutesBefore >= 60
-            ? `${Math.round(minutesBefore / 60)}시간`
-            : `${minutesBefore}분`;
+          const timeLabel = minutesBefore >= 1440
+            ? `${Math.round(minutesBefore / 1440)}일`
+            : minutesBefore >= 60
+              ? `${Math.round(minutesBefore / 60)}시간`
+              : `${minutesBefore}분`;
 
           showToast(`⏰ ${timeLabel} 후: ${event.title}`, 'info');
 

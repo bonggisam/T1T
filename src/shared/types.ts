@@ -36,6 +36,8 @@ export interface UserSettings {
   syncInterval: number; // minutes
   connectedCalendars: ConnectedCalendar[];
   reminderDefault: ReminderTime;
+  /** 다중 알림 — 활성화된 알림 시점 (복수 선택 가능) */
+  multiReminders?: ReminderTime[]; // 예: ['10min', '1hour', '1day']
 }
 
 export type CalendarView = 'month' | 'week' | 'day' | 'year' | 'agenda' | 'stats';

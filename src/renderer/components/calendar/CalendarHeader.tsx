@@ -2,6 +2,8 @@ import React from 'react';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
+import { useVisibleEvents } from '../../hooks/useVisibleEvents';
+import { downloadICS } from '../../utils/icsExport';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import type { CalendarView, EventCategory, School } from '@shared/types';
@@ -27,7 +29,17 @@ export function CalendarHeader({ onAddPersonalEvent, onToggleSearch, onPrint, ca
   const { currentMonth, view, setView, navigateMonth, setShowEventModal, setCurrentMonth, setSelectedDate } = useCalendarStore();
   const { user } = useAuthStore();
   const { viewingSchool, setViewingSchool } = useUIStore();
+  const visibleEvents = useVisibleEvents();
   const isLoggedIn = !!user;
+
+  const handleExportICS = () => {
+    if (visibleEvents.length === 0) {
+      alert('내보낼 일정이 없습니다.');
+      return;
+    }
+    const ym = format(currentMonth, 'yyyy-MM');
+    downloadICS(visibleEvents, `tonet-${ym}.ics`);
+  };
 
   const schoolButtons: { key: 'all' | School; label: string; icon: string }[] = [
     { key: 'taeseong_middle', label: '태성중', icon: '🏫' },
@@ -71,6 +83,9 @@ export function CalendarHeader({ onAddPersonalEvent, onToggleSearch, onPrint, ca
             🖨️
           </button>
         )}
+        <button onClick={handleExportICS} style={styles.searchBtn} title=".ics 파일로 내보내기 (Google/Apple 캘린더 호환)">
+          📤
+        </button>
         <div style={styles.viewToggle}>
           {viewButtons.map(({ key, label }) => (
             <button

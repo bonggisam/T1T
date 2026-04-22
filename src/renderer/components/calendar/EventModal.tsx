@@ -2,9 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
+import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import type { EventCategory, ChecklistItem, School } from '@shared/types';
 import { showToast } from '../common/Toast';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { parseNaturalDate, stripDateText } from '../../utils/naturalDateParse';
+import { COMMON_EVENT_TEMPLATES } from '../../utils/schoolColors';
 
 const CATEGORIES: { key: EventCategory; label: string }[] = [
   { key: 'event', label: '행사' },
@@ -18,6 +21,7 @@ export function EventModal() {
   const { addEvent, setShowEventModal, selectedDate } = useCalendarStore();
   const { user } = useAuthStore();
   const { viewingSchool } = useUIStore();
+  const visibleEvents = useVisibleEvents();
 
   // 현재 보는 학교 뷰에 맞게 기본 공유 범위 계산
   function defaultScope(): School | 'all' {
@@ -59,6 +63,36 @@ export function EventModal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.school, viewingSchool]);
 
+  /** 제목에서 "내일 3시" 등 자연어 추출 → 시작 시간 자동 설정 */
+  function applyNaturalDate() {
+    const parsed = parseNaturalDate(title);
+    if (!parsed) {
+      showToast('인식할 수 있는 날짜/시간 표현이 없습니다', 'info');
+      return;
+    }
+    const newStart = new Date(parsed.date);
+    if (!parsed.hasTime) {
+      newStart.setHours(9, 0, 0, 0);
+    }
+    const newEnd = new Date(newStart);
+    newEnd.setHours(newStart.getHours() + 1);
+    setStartDate(formatDateTimeLocal(newStart));
+    setEndDate(formatDateTimeLocal(newEnd));
+    const cleaned = stripDateText(title, parsed.matchedText);
+    setTitle(cleaned || title);
+    showToast(`📅 ${parsed.matchedText} → ${newStart.toLocaleString('ko-KR')}`, 'success');
+  }
+
+  /** 공통 템플릿 적용 */
+  function applyTemplate(key: string) {
+    const t = COMMON_EVENT_TEMPLATES.find((x) => x.key === key);
+    if (!t) return;
+    setTitle(t.title);
+    setDescription(t.description);
+    setCategory(t.category);
+    setScope(t.school);
+  }
+
   function formatDateTimeLocal(d: Date): string {
     const pad = (n: number) => n.toString().padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -89,6 +123,23 @@ export function EventModal() {
     const end = new Date(endDate);
     if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
     if (end < start) { showToast('종료 시간이 시작 시간보다 앞설 수 없습니다.', 'error'); return; }
+
+    // 시간 충돌 경고 (같은 학교 범위 + 종일 아닌 경우)
+    if (!allDay) {
+      const conflicts = visibleEvents.filter((e) => {
+        if (e.allDay) return false;
+        const eStart = new Date(e.startDate).getTime();
+        const eEnd = new Date(e.endDate).getTime();
+        return eStart < end.getTime() && eEnd > start.getTime();
+      });
+      if (conflicts.length > 0) {
+        const list = conflicts.slice(0, 3).map((c) => `• ${c.title}`).join('\n');
+        const ok = window.confirm(
+          `⚠️ 같은 시간대에 ${conflicts.length}개 일정이 겹칩니다:\n${list}${conflicts.length > 3 ? `\n...외 ${conflicts.length - 3}개` : ''}\n\n그래도 등록하시겠습니까?`
+        );
+        if (!ok) return;
+      }
+    }
 
     setSaving(true);
     try {
@@ -126,14 +177,35 @@ export function EventModal() {
         </div>
 
         <form onSubmit={handleSubmit} style={styles.form}>
-          <input
-            type="text"
-            placeholder="일정 제목"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            style={styles.input}
-            autoFocus
-          />
+          <select
+            value=""
+            onChange={(e) => { if (e.target.value) applyTemplate(e.target.value); e.target.value = ''; }}
+            style={styles.select}
+            title="공통 행사 템플릿"
+          >
+            <option value="">📋 공통 템플릿 선택…</option>
+            {COMMON_EVENT_TEMPLATES.map((t) => (
+              <option key={t.key} value={t.key}>{t.title}</option>
+            ))}
+          </select>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input
+              type="text"
+              placeholder="일정 제목 (예: 내일 3시 회의)"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              style={{ ...styles.input, flex: 1 }}
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={applyNaturalDate}
+              style={styles.magicBtn}
+              title="자연어 날짜 인식 — 제목의 '내일 3시' 같은 표현을 시작 시간으로 설정"
+            >
+              🪄
+            </button>
+          </div>
 
           <div style={styles.row}>
             <select value={category} onChange={(e) => setCategory(e.target.value as EventCategory)} style={styles.select}>
@@ -264,6 +336,16 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
+  },
+  magicBtn: {
+    background: 'linear-gradient(135deg, #8B5CF6, #4A90E2)',
+    color: '#fff',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '0 12px',
+    fontSize: 18,
+    borderRadius: 8,
+    transition: 'opacity 0.15s',
   },
   select: {
     flex: 1,
