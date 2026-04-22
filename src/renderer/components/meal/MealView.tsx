@@ -40,6 +40,18 @@ export function MealView({ onBack }: MealViewProps) {
     fetchMeals();
   }, [weekStart, user?.school, configVersion]);
 
+  // 다른 컴포넌트에서 NEIS 설정 변경 시 자동 재로드
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.schoolKey === user?.school) {
+        setConfigVersion((v) => v + 1);
+      }
+    };
+    window.addEventListener('neis:config-changed', handler);
+    return () => window.removeEventListener('neis:config-changed', handler);
+  }, [user?.school]);
+
   async function fetchMeals() {
     if (!schoolConfig) return;
     setLoading(true);

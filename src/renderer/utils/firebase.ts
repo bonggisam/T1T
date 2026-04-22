@@ -17,38 +17,5 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export default app;
 
-// Debug: expose to window for console access
-if (import.meta.env.DEV) {
-  (window as any).__fb_auth = auth;
-  (window as any).__fb_db = db;
-
-  // Helper to create admin doc for current user
-  (window as any).__createAdminDoc = async () => {
-    const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
-    const user = auth.currentUser;
-    if (!user) { console.log('No user'); return; }
-    await setDoc(doc(db, 'users', user.uid), {
-      email: user.email,
-      name: '관리자',
-      role: 'super_admin',
-      status: 'active',
-      profileColor: '#FF6B6B',
-      createdAt: serverTimestamp(),
-      lastLogin: serverTimestamp(),
-      settings: {
-        notificationSound: true,
-        notificationBadge: true,
-        transparency: 80,
-        alwaysOnTop: true,
-        clickThrough: false,
-        defaultView: 'month',
-        theme: 'light',
-        syncInterval: 5,
-        connectedCalendars: [],
-        reminderDefault: '30min',
-      },
-    });
-    console.log('Admin doc created for', user.uid);
-    location.reload();
-  };
-}
+// 보안: 이전 버전의 __createAdminDoc/__fb_auth/__fb_db 디버그 코드 제거됨.
+// 관리자는 Firestore Console 또는 gh CLI로 직접 관리.

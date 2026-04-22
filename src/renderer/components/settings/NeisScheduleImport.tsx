@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import {
   importNeisScheduleToFirestore, getNeisConfig, setNeisConfig, removeNeisConfig,
@@ -49,6 +49,14 @@ export function NeisScheduleImport() {
   }
 
   const activeSchool: School = isSuperAdmin ? targetSchool : (user.school as School);
+
+  // 탭 전환 시 입력/검색 상태 초기화
+  useEffect(() => {
+    setForceEdit(false);
+    setSchoolCodeInput('');
+    setSearchQuery('');
+    setSearchResults([]);
+  }, [activeSchool]);
   const currentConfig = useMemo(
     () => getNeisConfig(activeSchool),
     [activeSchool, configVersion],
@@ -65,13 +73,17 @@ export function NeisScheduleImport() {
     setLookingUp(true);
     try {
       const info = await lookupSchoolByCode(code);
-      if (!info) {
-        showToast('해당 학교 코드를 찾을 수 없습니다', 'error');
+      if ('error' in info) {
+        const msg = info.error === 'timeout' ? 'NEIS 서버 응답 시간 초과. 잠시 후 다시 시도하세요.'
+          : info.error === 'not_found' ? '해당 학교 코드를 찾을 수 없습니다. 코드를 다시 확인해주세요.'
+          : '네트워크 오류. 인터넷 연결을 확인하세요.';
+        showToast(msg, 'error');
         return;
       }
       setNeisConfig(activeSchool, { education: info.education, school: code });
       showToast(`${info.name} 설정 저장됨 (${info.education})`);
       setSchoolCodeInput('');
+      setSearchResults([]);
       setForceEdit(false);
       setConfigVersion((v) => v + 1);
     } finally {

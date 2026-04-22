@@ -41,30 +41,58 @@ export function hasCustomNeisConfig(schoolKey: string): boolean {
 }
 
 export function removeNeisConfig(schoolKey: string): void {
-  try { localStorage.removeItem(`tonet-neis-${schoolKey}`); }
+  try {
+    localStorage.removeItem(`tonet-neis-${schoolKey}`);
+    // 다른 컴포넌트(MealView 등)에 설정 변경 알림
+    window.dispatchEvent(new CustomEvent('neis:config-changed', { detail: { schoolKey } }));
+  }
   catch (err) { console.warn('[NEIS] removeNeisConfig failed:', err); }
+}
+
+/**
+ * 10초 타임아웃 fetch 헬퍼.
+ */
+async function fetchWithTimeout(url: string, timeoutMs = 10000): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
  * NEIS schoolInfo API로 학교코드 → 교육청 코드 + 이름 조회.
  * 학교코드만 있으면 교육청 코드는 자동 파악 가능.
+ * 에러 시 { error: 'timeout' | 'not_found' | 'network' } 반환.
  */
-export async function lookupSchoolByCode(schoolCode: string): Promise<{ education: string; name: string } | null> {
-  if (!schoolCode.trim()) return null;
+export async function lookupSchoolByCode(
+  schoolCode: string,
+): Promise<{ education: string; name: string } | { error: 'timeout' | 'not_found' | 'network' }> {
+  if (!schoolCode.trim()) return { error: 'not_found' };
   try {
     const url = `https://open.neis.go.kr/hub/schoolInfo?Type=json&SD_SCHUL_CODE=${encodeURIComponent(schoolCode.trim())}`;
-    const res = await fetch(url);
-    if (!res.ok) return null;
+    const res = await fetchWithTimeout(url, 10000);
+    if (!res.ok) {
+      console.warn('[NEIS] lookupSchoolByCode HTTP error:', res.status);
+      return { error: 'network' };
+    }
     const json = await res.json();
+    // NEIS API: 데이터 없을 때 INFO-200
+    if (json?.RESULT?.CODE && json.RESULT.CODE !== 'INFO-000') {
+      return { error: 'not_found' };
+    }
     const row = json?.schoolInfo?.[1]?.row?.[0];
-    if (!row || !row.ATPT_OFCDC_SC_CODE) return null;
+    if (!row || !row.ATPT_OFCDC_SC_CODE) return { error: 'not_found' };
     return {
       education: row.ATPT_OFCDC_SC_CODE,
       name: row.SCHUL_NM || '',
     };
-  } catch (err) {
+  } catch (err: any) {
     console.warn('[NEIS] lookupSchoolByCode failed:', err);
-    return null;
+    if (err?.name === 'AbortError') return { error: 'timeout' };
+    return { error: 'network' };
   }
 }
 
@@ -74,10 +102,11 @@ export async function lookupSchoolByCode(schoolCode: string): Promise<{ educatio
 export async function searchSchoolByName(name: string): Promise<Array<{ code: string; name: string; education: string; region: string; kind: string }>> {
   if (!name.trim() || name.trim().length < 2) return [];
   try {
-    const url = `https://open.neis.go.kr/hub/schoolInfo?Type=json&pIndex=1&pSize=20&SCHUL_NM=${encodeURIComponent(name.trim())}`;
-    const res = await fetch(url);
+    const url = `https://open.neis.go.kr/hub/schoolInfo?Type=json&pIndex=1&pSize=50&SCHUL_NM=${encodeURIComponent(name.trim())}`;
+    const res = await fetchWithTimeout(url, 10000);
     if (!res.ok) return [];
     const json = await res.json();
+    if (json?.RESULT?.CODE && json.RESULT.CODE !== 'INFO-000') return [];
     const rows = json?.schoolInfo?.[1]?.row || [];
     return rows.map((r: any) => ({
       code: r.SD_SCHUL_CODE,
@@ -86,14 +115,17 @@ export async function searchSchoolByName(name: string): Promise<Array<{ code: st
       region: r.LCTN_SC_NM || '',
       kind: r.SCHUL_KND_SC_NM || '',
     }));
-  } catch (err) {
+  } catch (err: any) {
     console.warn('[NEIS] searchSchoolByName failed:', err);
     return [];
   }
 }
 
 export function setNeisConfig(schoolKey: string, cfg: NeisConfig): void {
-  try { localStorage.setItem(`tonet-neis-${schoolKey}`, JSON.stringify(cfg)); }
+  try {
+    localStorage.setItem(`tonet-neis-${schoolKey}`, JSON.stringify(cfg));
+    window.dispatchEvent(new CustomEvent('neis:config-changed', { detail: { schoolKey } }));
+  }
   catch (err) { console.warn('[NEIS] setNeisConfig failed:', err); }
 }
 
@@ -110,17 +142,23 @@ export async function fetchNeisSchedule(
 
   const fmt = (d: Date) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
 
-  const url = `https://open.neis.go.kr/hub/SchoolSchedule?Type=json&pIndex=1&pSize=300&ATPT_OFCDC_SC_CODE=${cfg.education}&SD_SCHUL_CODE=${cfg.school}&AA_FROM_YMD=${fmt(from)}&AA_TO_YMD=${fmt(to)}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`NEIS HTTP ${res.status}`);
-  const json = await res.json();
+  // 페이지네이션: 300개씩 최대 5페이지(1500개)까지 조회 (학사일정 충분)
+  const PAGE_SIZE = 300;
+  const MAX_PAGES = 5;
+  const all: any[] = [];
 
-  if (json?.RESULT && json.RESULT.CODE !== 'INFO-000') {
-    return [];
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const url = `https://open.neis.go.kr/hub/SchoolSchedule?Type=json&pIndex=${page}&pSize=${PAGE_SIZE}&ATPT_OFCDC_SC_CODE=${cfg.education}&SD_SCHUL_CODE=${cfg.school}&AA_FROM_YMD=${fmt(from)}&AA_TO_YMD=${fmt(to)}`;
+    const res = await fetchWithTimeout(url, 15000);
+    if (!res.ok) throw new Error(`NEIS HTTP ${res.status}`);
+    const json = await res.json();
+    if (json?.RESULT && json.RESULT.CODE !== 'INFO-000') break; // 데이터 없음
+    const rows = json?.SchoolSchedule?.[1]?.row || [];
+    all.push(...rows);
+    if (rows.length < PAGE_SIZE) break; // 마지막 페이지
   }
 
-  const rows = json?.SchoolSchedule?.[1]?.row || [];
-  return rows.map((r: any) => ({
+  return all.map((r: any) => ({
     date: r.AA_YMD, // YYYYMMDD
     title: (r.EVENT_NM || '').trim(),
     content: (r.EVENT_CNTNT || '').trim(),

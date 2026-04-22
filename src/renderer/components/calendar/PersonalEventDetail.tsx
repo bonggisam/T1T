@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { usePersonalEventStore } from '../../store/personalEventStore';
@@ -26,6 +26,31 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
   const [newCheckItem, setNewCheckItem] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // event prop 변경 시 state 동기화 (실시간 구독으로 event.checklist 업데이트 반영)
+  useEffect(() => {
+    if (!editing) {
+      // 편집 중이 아닐 때만 외부 변경사항 반영
+      setTitle(event.title);
+      setDescription(event.description);
+      setStartDate(formatDTL(event.startDate));
+      setEndDate(formatDTL(event.endDate));
+      setColor(event.color);
+      setChecklist(event.checklist || []);
+    }
+  }, [event, editing]);
+
+  // 편집 취소: 원본 값으로 복원
+  const cancelEdit = useCallback(() => {
+    setTitle(event.title);
+    setDescription(event.description);
+    setStartDate(formatDTL(event.startDate));
+    setEndDate(formatDTL(event.endDate));
+    setColor(event.color);
+    setChecklist(event.checklist || []);
+    setNewCheckItem('');
+    setEditing(false);
+  }, [event]);
 
   function addCheckItem() {
     const text = newCheckItem.trim();
@@ -192,7 +217,7 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
             </div>
 
             <div style={styles.actions}>
-              <button onClick={() => setEditing(false)} style={styles.cancelBtn}>취소</button>
+              <button onClick={cancelEdit} style={styles.cancelBtn}>취소</button>
               <button onClick={handleSave} disabled={saving} style={styles.saveBtn}>
                 {saving ? '저장 중...' : '저장'}
               </button>
