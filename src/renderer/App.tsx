@@ -23,6 +23,7 @@ import { ToastContainer } from './components/common/Toast';
 import { useComciganStore } from './store/comciganStore';
 import { useTodosStore } from './store/todosStore';
 import { useUsersStore } from './store/usersStore';
+import { useUIStore } from './store/uiStore';
 import { useReminder } from './hooks/useReminder';
 
 type AuthScreen = 'login' | 'signup';
@@ -90,6 +91,8 @@ export function App() {
 
   useEffect(() => {
     if (user?.status === 'active') {
+      // 최초 로그인 시 viewingSchool을 본인 학교로 초기화 (저장값 없을 때만)
+      useUIStore.getState().initViewingSchoolForUser(user.school);
       subscribeToEvents();
       subscribeToNotifications(user.id);
       subscribeToPersonalEvents(user.id);

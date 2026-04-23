@@ -13,6 +13,7 @@ import type { CalendarEvent, PersonalEvent } from '@shared/types';
 import { showToast } from '../common/Toast';
 import { formatEventTooltip, formatPersonalTooltip, isEventOnDate, getCreatorTag, canManageEvent, PERSONAL_SUFFIX } from '../../utils/calendarHelpers';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
+import { SchoolBadge } from '../common/SchoolBadge';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 const DRAG_THRESHOLD = 5;
@@ -294,6 +295,9 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                 opacity: inMonth ? 1 : 0.35,
                 outline: selected ? '2px solid var(--accent)' : isDropTarget ? '2px dashed var(--accent)' : 'none',
                 outlineOffset: -2,
+                // 일정 제목이 길어도 그리드 셀이 늘어나지 않도록 강제
+                minWidth: 0,
+                overflow: 'hidden',
                 ...(isDropTarget ? { background: 'rgba(74,144,226,0.2)' } : {}),
               }}
             >
@@ -312,7 +316,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
               </div>
 
               {/* 일정 + 시간표 */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
                 {/* 공유 일정 */}
                 {dayEvents.slice(0, MAX_VISIBLE).map((event) => {
                   const isOwner = canManageEvent(event, user);
@@ -326,6 +330,10 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                         background: event.adminColor || '#4A90E2',
                         opacity: dragRef.current?.eventId === event.id ? 0.4 : 1,
                         cursor: isOwner ? 'grab' : 'pointer',
+                        // 셀 너비 일정 유지: 긴 제목이 줄바꿈/스트레치 안 되도록
+                        minWidth: 0,
+                        maxWidth: '100%',
+                        overflow: 'hidden',
                       }}
                       title={formatEventTooltip(event, isOwner)}
                     >
@@ -333,8 +341,9 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                         fontSize: 'var(--schedule-font-size)', fontWeight: 600, color: '#fff', lineHeight: 1.4,
                         display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                        minWidth: 0,
                       }}>
-                        {getCreatorTag(event) && `${getCreatorTag(event)} `}{event.title}
+                        <SchoolBadge school={event.creatorSchool || event.school} size="xs" />{event.title}
                       </span>
                     </div>
                   );
@@ -359,6 +368,9 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                         opacity: dragRef.current?.eventId === pe.id ? 0.4 : 0.85,
                         borderLeft: '2px solid rgba(255,255,255,0.5)',
                         cursor: canDrag ? 'grab' : 'pointer',
+                        minWidth: 0,
+                        maxWidth: '100%',
+                        overflow: 'hidden',
                       }}
                       title={formatPersonalTooltip(pe, canDrag)}
                     >
@@ -366,6 +378,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                         fontSize: 'var(--schedule-font-size)', fontWeight: 600, color: '#fff', lineHeight: 1.4,
                         display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                        minWidth: 0,
                       }}>
                         {pe.title} {PERSONAL_SUFFIX}
                       </span>

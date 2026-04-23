@@ -12,6 +12,7 @@ import type { CalendarEvent, PersonalEvent, TeacherPeriod } from '@shared/types'
 import { showToast } from '../common/Toast';
 import { formatEventTooltip, formatPersonalTooltip, getCreatorTag, canManageEvent, PERSONAL_SUFFIX } from '../../utils/calendarHelpers';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
+import { SchoolBadge } from '../common/SchoolBadge';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
@@ -330,7 +331,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
                           title={formatEventTooltip(event, isOwner)}
                         >
                           <span style={styles.eventText}>
-                            {format(new Date(event.startDate), 'HH:mm')} {getCreatorTag(event) && `${getCreatorTag(event)} `}{event.title}
+                            {format(new Date(event.startDate), 'HH:mm')} <SchoolBadge school={event.creatorSchool || event.school} size="xs" />{event.title}
                           </span>
                         </div>
                       );
