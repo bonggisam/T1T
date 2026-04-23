@@ -38,7 +38,7 @@ export function CalendarHeader({ onAddPersonalEvent, onToggleSearch, onPrint, ca
       return;
     }
     const ym = format(currentMonth, 'yyyy-MM');
-    downloadICS(visibleEvents, `tonet-${ym}.ics`);
+    downloadICS(visibleEvents, `t1t-${ym}.ics`);
   };
 
   const schoolButtons: { key: 'all' | School; label: string; icon: string }[] = [

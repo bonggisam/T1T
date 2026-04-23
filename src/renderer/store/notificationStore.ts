@@ -68,7 +68,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         const newest = notifications.find((n) => !n.read);
         if (newest) {
           playNotificationSound();
-          showDesktopNotification('ToneT', newest.message);
+          showDesktopNotification('T1T', newest.message);
         }
       }
       isFirstLoad = false;

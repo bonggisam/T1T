@@ -4,11 +4,11 @@ import type { CalendarEvent } from '@shared/types';
  * CalendarEvent 배열을 iCalendar (.ics) 형식 문자열로 변환.
  * Google/Apple/Outlook 등 모든 캘린더 앱에서 import 가능.
  */
-export function exportToICS(events: CalendarEvent[], calendarName = 'ToneT'): string {
+export function exportToICS(events: CalendarEvent[], calendarName = 'T1T'): string {
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//ToneT//KR',
+    'PRODID:-//T1T//KR',
     'CALSCALE:GREGORIAN',
     `X-WR-CALNAME:${escapeICS(calendarName)}`,
   ];
@@ -17,7 +17,7 @@ export function exportToICS(events: CalendarEvent[], calendarName = 'ToneT'): st
     const start = e.startDate instanceof Date ? e.startDate : new Date(e.startDate);
     const end = e.endDate instanceof Date ? e.endDate : new Date(e.endDate);
     lines.push('BEGIN:VEVENT');
-    lines.push(`UID:${e.id}@tonet`);
+    lines.push(`UID:${e.id}@t1t`);
     lines.push(`DTSTAMP:${toICSDate(new Date(), false)}`);
     if (e.allDay) {
       lines.push(`DTSTART;VALUE=DATE:${toICSDate(start, true)}`);
@@ -30,7 +30,7 @@ export function exportToICS(events: CalendarEvent[], calendarName = 'ToneT'): st
     }
     lines.push(`SUMMARY:${escapeICS(e.title)}`);
     if (e.description) lines.push(`DESCRIPTION:${escapeICS(e.description)}`);
-    if (e.adminName) lines.push(`ORGANIZER;CN=${escapeICS(e.adminName)}:mailto:noreply@tonet.local`);
+    if (e.adminName) lines.push(`ORGANIZER;CN=${escapeICS(e.adminName)}:mailto:noreply@t1t.local`);
     lines.push('END:VEVENT');
   }
 
@@ -61,7 +61,7 @@ function escapeICS(text: string): string {
 /**
  * 이벤트 배열을 .ics 파일로 다운로드.
  */
-export function downloadICS(events: CalendarEvent[], filename = 'tonet-events.ics'): void {
+export function downloadICS(events: CalendarEvent[], filename = 't1t-events.ics'): void {
   const content = exportToICS(events);
   const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
   const url = URL.createObjectURL(blob);

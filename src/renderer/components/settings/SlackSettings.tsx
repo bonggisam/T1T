@@ -31,7 +31,7 @@ export function SlackSettings() {
     // 테스트용으로만 임시 저장 후 원래 값 복원 (저장은 handleSave에서만)
     const prev = getSlackWebhook();
     setSlackWebhook(trimmed);
-    const ok = await sendSlackNotification('👋 ToneT 연결 테스트입니다!');
+    const ok = await sendSlackNotification('👋 T1T 연결 테스트입니다!');
     // 저장 안 된 상태였다면 되돌리기
     if (!prev) clearSlackWebhook();
     else setSlackWebhook(prev);

@@ -64,7 +64,7 @@ export function TitleBar({
       <div className="titlebar" style={styles.widgetBar}>
         <button onClick={onGoHome} style={styles.widgetTitleBtn} title="메인 달력으로">
           <Calendar size={12} strokeWidth={2.2} style={{ marginRight: 3, verticalAlign: '-1px', color: 'var(--accent)' }} />
-          ToneT
+          T1T
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           {user && onToggleTodos && (
@@ -112,7 +112,7 @@ export function TitleBar({
           aria-label="메인 달력"
         >
           <Calendar size={18} strokeWidth={2.2} color="var(--accent)" />
-          <span style={styles.title}>ToneT</span>
+          <span style={styles.title}>T1T</span>
         </button>
         {user && (user.role === 'super_admin' ? (
           <span style={{

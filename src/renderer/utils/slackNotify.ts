@@ -29,7 +29,7 @@ export async function sendSlackNotification(text: string, opts?: { emoji?: strin
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text,
-        username: opts?.username || 'ToneT',
+        username: opts?.username || 'T1T',
         icon_emoji: opts?.emoji || ':calendar:',
       }),
     });

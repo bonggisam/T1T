@@ -89,7 +89,7 @@ function createTray(): void {
 
   tray = new Tray(trayIcon.isEmpty() ? createDefaultTrayIcon() : trayIcon);
 
-  tray.setToolTip('ToneT');
+  tray.setToolTip('T1T');
   updateTrayMenu();
   tray.on('click', () => toggleWindow());
 }
@@ -231,7 +231,7 @@ function setupIPC(): void {
 
   ipcMain.handle('tray:set-badge', (_event, hasBadge: boolean) => {
     if (tray) {
-      tray.setToolTip(hasBadge ? 'ToneT (새 알림)' : 'ToneT');
+      tray.setToolTip(hasBadge ? 'T1T (새 알림)' : 'T1T');
     }
   });
 

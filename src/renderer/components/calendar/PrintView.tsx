@@ -94,7 +94,7 @@ export function PrintView({ onClose }: PrintViewProps) {
             {format(currentMonth, 'yyyy년 M월', { locale: ko })} 일정표
           </h1>
           <p style={styles.printSubtitle}>
-            ToneT | 출력일: {format(new Date(), 'yyyy.MM.dd', { locale: ko })}
+            T1T | 출력일: {format(new Date(), 'yyyy.MM.dd', { locale: ko })}
           </p>
         </div>
 

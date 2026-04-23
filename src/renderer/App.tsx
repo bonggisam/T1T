@@ -191,7 +191,7 @@ export function App() {
     setShowTodos(false); setShowReserv(false); setShowMeal(false);
   }
 
-  // ToneT 로고 클릭 — 모든 탭 닫고 월간 달력으로 이동
+  // T1T 로고 클릭 — 모든 탭 닫고 월간 달력으로 이동
   function goHome() {
     closeAllTabs();
     useCalendarStore.getState().setView('month');
