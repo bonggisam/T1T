@@ -1,6 +1,6 @@
 {
   "name": "t1t",
-  "version": "1.9.4",
+  "version": "1.9.5",
   "description": "T1T - 학교 일정 공유 시스템",
   "main": "dist/main/main.js",
   "scripts": {
@@ -83,7 +83,7 @@
     "publish": {
       "provider": "github",
       "owner": "bonggisam",
-      "repo": "ToneT"
+      "repo": "T1T"
     }
   }
 }
