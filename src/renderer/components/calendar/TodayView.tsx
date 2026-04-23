@@ -67,10 +67,21 @@ export function TodayView({ onAddPersonalEvent, onPersonalClick }: TodayViewProp
     return { shared, personal };
   }
 
-  const totalCount = dateRange.reduce((acc, d) => {
-    const { shared, personal } = eventsOnDate(d);
-    return acc + shared.length + personal.length;
-  }, 0);
+  // 날짜별 일정 목록 사전 계산 (JSX에서 재사용 → totalCount 계산과 합침)
+  const dayEventsMap = useMemo(() => {
+    const map = new Map<string, { shared: CalendarEvent[]; personal: PersonalEvent[] }>();
+    for (const d of dateRange) {
+      map.set(d.toISOString(), eventsOnDate(d));
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateRange, events, personalEvents]);
+
+  const totalCount = useMemo(() => {
+    let n = 0;
+    for (const v of dayEventsMap.values()) n += v.shared.length + v.personal.length;
+    return n;
+  }, [dayEventsMap]);
 
   const rangeLabel = days === 1
     ? format(rangeStart, 'M월 d일 (EEE)', { locale: ko })
@@ -112,8 +123,8 @@ export function TodayView({ onAddPersonalEvent, onPersonalClick }: TodayViewProp
       {days === 1 ? (
         <DayTimeline
           date={rangeStart}
-          events={eventsOnDate(rangeStart).shared}
-          personalEvents={eventsOnDate(rangeStart).personal}
+          events={dayEventsMap.get(rangeStart.toISOString())?.shared || []}
+          personalEvents={dayEventsMap.get(rangeStart.toISOString())?.personal || []}
           user={user}
           onEventClick={(e) => { setSelectedEvent(e); setShowEventDetail(true); }}
           onPersonalClick={(pe) => onPersonalClick?.(pe)}
@@ -140,7 +151,7 @@ export function TodayView({ onAddPersonalEvent, onPersonalClick }: TodayViewProp
         )}
 
         {dateRange.map((d) => {
-          const { shared, personal } = eventsOnDate(d);
+          const { shared, personal } = dayEventsMap.get(d.toISOString()) || { shared: [], personal: [] };
           const count = shared.length + personal.length;
           if (days > 1 && count === 0) {
             // 다일 뷰에서 빈 날도 헤더는 표시

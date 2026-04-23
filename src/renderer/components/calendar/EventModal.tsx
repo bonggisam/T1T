@@ -164,16 +164,46 @@ export function EventModal() {
       setShowEventModal(false);
     } catch (err) {
       console.error('Failed to add event:', err);
+      const msg = err instanceof Error ? err.message : '일정 등록에 실패했습니다';
+      showToast(`❌ ${msg}`, 'error');
     }
     setSaving(false);
   }
 
   return (
-    <div style={styles.overlay} onClick={() => setShowEventModal(false)}>
-      <div className="glass-solid animate-slide-up" style={styles.modal} onClick={(e) => e.stopPropagation()}>
+    <div
+      style={styles.overlay}
+      onClick={() => setShowEventModal(false)}
+      role="dialog"
+      aria-modal="true"
+      aria-label="새 일정 등록"
+    >
+      <div
+        className="glass-solid animate-slide-up"
+        style={styles.modal}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          // 간단 focus-trap: 모달 내 Tab/Shift+Tab 순환
+          if (e.key !== 'Tab') return;
+          const modal = e.currentTarget as HTMLElement;
+          const focusable = modal.querySelectorAll<HTMLElement>(
+            'button, input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          );
+          if (focusable.length === 0) return;
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }}
+      >
         <div style={styles.header}>
           <h3 style={styles.title}>새 일정 등록</h3>
-          <button onClick={() => setShowEventModal(false)} style={styles.closeBtn}>✕</button>
+          <button onClick={() => setShowEventModal(false)} style={styles.closeBtn} aria-label="닫기">✕</button>
         </div>
 
         <form onSubmit={handleSubmit} style={styles.form}>

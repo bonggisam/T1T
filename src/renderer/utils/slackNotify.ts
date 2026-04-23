@@ -6,15 +6,15 @@
 const STORAGE_KEY = 'tonet-slack-webhook';
 
 export function getSlackWebhook(): string {
-  try { return localStorage.getItem(STORAGE_KEY) || ''; } catch { return ''; }
+  try { return localStorage.getItem(STORAGE_KEY) || ''; } catch (e) { console.warn('[Slack] localStorage read failed:', e); return ''; }
 }
 
 export function setSlackWebhook(url: string): void {
-  try { localStorage.setItem(STORAGE_KEY, url); } catch {}
+  try { localStorage.setItem(STORAGE_KEY, url); } catch (e) { console.warn('[Slack] localStorage write failed:', e); }
 }
 
 export function clearSlackWebhook(): void {
-  try { localStorage.removeItem(STORAGE_KEY); } catch {}
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) { console.warn('[Slack] localStorage remove failed:', e); }
 }
 
 /**

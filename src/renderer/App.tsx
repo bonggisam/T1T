@@ -56,7 +56,22 @@ export function App() {
 
   useEffect(() => {
     const goOffline = () => setIsOffline(true);
-    const goOnline = () => setIsOffline(false);
+    const goOnline = () => {
+      setIsOffline(false);
+      // 재연결 시 활성 사용자면 구독 재시작 (유령 구독 복구)
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser?.status === 'active') {
+        try {
+          subscribeToEvents();
+          subscribeToNotifications(currentUser.id);
+          subscribeToPersonalEvents(currentUser.id);
+          subscribeToTodos(currentUser.id);
+          subscribeToUsers();
+        } catch (e) {
+          console.warn('[App] 오프라인 복구 재구독 실패:', e);
+        }
+      }
+    };
     const googleAuthExpired = () => {
       // 동적 import로 순환 방지
       import('./components/common/Toast').then(({ showToast }) => {
