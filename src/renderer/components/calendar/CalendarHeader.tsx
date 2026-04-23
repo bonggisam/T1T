@@ -71,11 +71,11 @@ export function CalendarHeader({ onAddPersonalEvent, onToggleSearch, onPrint, ca
     <>
     <div style={styles.container}>
       <div style={styles.nav}>
-        <button onClick={() => navigateMonth(-1)} style={styles.navBtn}>◀</button>
+        <button onClick={() => navigateMonth(-1)} style={styles.navBtn} aria-label="이전 달" title="이전 달">◀</button>
         <span style={styles.monthLabel}>
           {format(currentMonth, 'yyyy년 M월', { locale: ko })}
         </span>
-        <button onClick={() => navigateMonth(1)} style={styles.navBtn}>▶</button>
+        <button onClick={() => navigateMonth(1)} style={styles.navBtn} aria-label="다음 달" title="다음 달">▶</button>
         <button
           onClick={() => { setCurrentMonth(new Date()); setSelectedDate(new Date()); }}
           style={styles.todayBtn}
@@ -85,16 +85,16 @@ export function CalendarHeader({ onAddPersonalEvent, onToggleSearch, onPrint, ca
       </div>
       <div style={styles.actions}>
         {onToggleSearch && (
-          <button onClick={onToggleSearch} style={styles.searchBtn} title="일정 검색">
+          <button onClick={onToggleSearch} style={styles.searchBtn} aria-label="일정 검색" title="일정 검색">
             🔍
           </button>
         )}
         {onPrint && (
-          <button onClick={onPrint} style={styles.searchBtn} title="인쇄">
+          <button onClick={onPrint} style={styles.searchBtn} aria-label="인쇄" title="인쇄">
             🖨️
           </button>
         )}
-        <button onClick={handleExportICS} style={styles.searchBtn} title=".ics 파일로 내보내기 (Google/Apple 캘린더 호환)">
+        <button onClick={handleExportICS} style={styles.searchBtn} aria-label="ics 내보내기" title=".ics 파일로 내보내기 (Google/Apple 캘린더 호환)">
           📤
         </button>
         <div style={styles.viewToggle}>

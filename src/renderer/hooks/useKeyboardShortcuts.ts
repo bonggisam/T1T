@@ -65,5 +65,13 @@ export function useKeyboardShortcuts(options?: {
     }
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [options?.onSearch, options?.onAddPersonal]);
+  }, [
+    options?.onSearch,
+    options?.onAddPersonal,
+    setShowEventModal,
+    setView,
+    navigateMonth,
+    setCurrentMonth,
+    setSelectedDate,
+  ]);
 }

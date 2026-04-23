@@ -5,7 +5,7 @@ import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
-import type { PersonalEvent, CalendarEvent } from '@shared/types';
+import type { PersonalEvent, CalendarEvent, User } from '@shared/types';
 import { getCreatorTag, PERSONAL_SUFFIX, formatEventTooltip, formatPersonalTooltip, canManageEvent } from '../../utils/calendarHelpers';
 import { SchoolBadge } from '../common/SchoolBadge';
 
@@ -191,7 +191,7 @@ function DayTimeline({
   date: Date;
   events: CalendarEvent[];
   personalEvents: PersonalEvent[];
-  user: any;
+  user: User | null;
   onEventClick: (e: CalendarEvent) => void;
   onPersonalClick: (pe: PersonalEvent) => void;
   onAddShared: () => void;
@@ -513,7 +513,7 @@ function DateHeader({ date, count }: { date: Date; count: number }) {
   );
 }
 
-function SharedRow({ event, user, onClick }: { event: CalendarEvent; user: any; onClick: () => void }) {
+function SharedRow({ event, user, onClick }: { event: CalendarEvent; user: User | null; onClick: () => void }): React.ReactElement {
   const isOwner = canManageEvent(event, user);
   const start = new Date(event.startDate);
   const end = new Date(event.endDate);

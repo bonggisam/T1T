@@ -77,5 +77,10 @@ export function useReminder() {
     }, 60000); // 1분마다 체크
 
     return () => clearInterval(timer);
-  }, [user?.id, user?.settings?.reminderDefault]);
+  }, [
+    user?.id,
+    user?.settings?.reminderDefault,
+    user?.settings?.multiReminders,
+    user?.settings?.notificationSound,
+  ]);
 }

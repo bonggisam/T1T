@@ -55,7 +55,10 @@ export const useTodosStore = create<TodosState>((set, get) => ({
       set({ todos, loading: false });
     }, (err) => {
       console.error('[TodosStore] subscription error:', err);
-      set({ loading: false });
+      // 에러 발생 시 구독 정리 (유령 구독 방지)
+      const current = get().unsubscribe;
+      current?.();
+      set({ unsubscribe: null, loading: false });
     });
     set({ unsubscribe: unsub });
   },

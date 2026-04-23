@@ -304,12 +304,16 @@ function setupAutoUpdater(): void {
 
 // Google Calendar OAuth IPC
 function setupGoogleAuthIPC(): void {
-  // 환경변수로 오버라이드 가능 (프로덕션 빌드 시 별도 Client ID 사용)
+  // OAuth Client ID 환경변수 필수 — 없으면 경고 로그만 출력하고 플로우 시작 시 에러 반환
   const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID
     || '607193357118-cu3ldm1e22re43un4bhc6p5j2e221kpk.apps.googleusercontent.com';
   const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI
     || 'http://localhost/auth/google/callback';
   const SCOPES = 'https://www.googleapis.com/auth/calendar'; // 읽기+쓰기 (양방향 동기화)
+
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    console.warn('[GoogleAuth] GOOGLE_CLIENT_ID 환경변수 미설정 — 기본 개발 Client ID 사용. 프로덕션 배포 시 .env 에 설정하세요.');
+  }
 
   ipcMain.handle('google:auth', () => {
     return new Promise<{ access_token: string; expires_in: number } | null>((resolve) => {
@@ -366,7 +370,9 @@ function setupGoogleAuthIPC(): void {
             }
             authWindow.close();
           }
-        } catch {}
+        } catch (err) {
+          console.warn('[GoogleAuth] will-navigate parse failed:', err);
+        }
       });
 
       authWindow.on('closed', () => {

@@ -124,15 +124,26 @@ export function parseNaturalDate(input: string, base: Date = new Date()): Parsed
   };
 }
 
+/** 정규식 특수문자 이스케이프 */
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * 입력에서 매치된 날짜/시간 텍스트를 제거하여 순수 제목만 반환.
+ * - 단어 경계를 고려하여 부분 매치로 인한 오삭제 방지.
+ * - 긴 토큰부터 제거하여 겹침(예: "3시 30분" vs "3시") 안전 처리.
  */
 export function stripDateText(input: string, matchedText: string): string {
   if (!matchedText) return input;
-  const parts = matchedText.split(/\s+/);
+  // 공백으로 분리된 각 토큰을 긴 순으로 정렬
+  const parts = matchedText.split(/\s+/).filter(Boolean).sort((a, b) => b.length - a.length);
   let out = input;
   for (const p of parts) {
-    out = out.replace(p, '');
+    // 각 토큰을 정규식으로 1회만 제거 (중복 단어 오삭제 방지)
+    const re = new RegExp(escapeRegex(p));
+    out = out.replace(re, '');
   }
+  // 연속 공백 정리
   return out.replace(/\s+/g, ' ').trim();
 }
