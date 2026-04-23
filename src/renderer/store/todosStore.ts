@@ -67,12 +67,24 @@ export const useTodosStore = create<TodosState>((set, get) => ({
   },
 
   addTodo: async (todo) => {
-    await addDoc(collection(db, 'todos'), {
-      ...todo,
+    // undefined 값 제거 (Firestore 거부) + 기본값 보장
+    const data: any = {
+      userId: todo.userId,
+      title: todo.title,
+      description: todo.description ?? '',
+      completed: todo.completed ?? false,
+      priority: todo.priority ?? 'medium',
+      school: todo.school ?? 'all',
       dueDate: todo.dueDate ? Timestamp.fromDate(todo.dueDate) : null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-    });
+    };
+    try {
+      await addDoc(collection(db, 'todos'), data);
+    } catch (err) {
+      console.error('[TodosStore] addDoc failed:', err, data);
+      throw err;
+    }
   },
 
   updateTodo: async (id, updates) => {

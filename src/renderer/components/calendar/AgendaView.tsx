@@ -5,6 +5,7 @@ import { useCalendarStore } from '../../store/calendarStore';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { useUIStore } from '../../store/uiStore';
 import { getCreatorTag } from '../../utils/calendarHelpers';
+import { SchoolBadge } from '../common/SchoolBadge';
 import type { CalendarEvent } from '@shared/types';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -72,7 +73,7 @@ export function AgendaView() {
                     </div>
                     <div style={styles.contentCol}>
                       <div style={styles.titleRow}>
-                        <span style={styles.eventTitle}>{getCreatorTag(e) && `${getCreatorTag(e)} `}{e.title}</span>
+                        <span style={styles.eventTitle}><SchoolBadge school={e.creatorSchool || e.school} />{e.title}</span>
                         <span style={{ ...styles.categoryBadge, background: e.adminColor }}>
                           {CATEGORY_LABELS[e.category] || e.category}
                         </span>

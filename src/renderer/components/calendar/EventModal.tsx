@@ -207,14 +207,44 @@ export function EventModal() {
             </button>
           </div>
 
+          {/* 공유 범위 — 학교 구분 버튼 */}
+          <div style={styles.schoolRow}>
+            <span style={styles.schoolRowLabel}>공유 대상:</span>
+            <button
+              type="button"
+              onClick={() => setScope('taeseong_middle')}
+              style={{
+                ...styles.schoolBtn,
+                ...(scope === 'taeseong_middle' ? { ...styles.schoolBtnActive, background: '#10B981' } : {}),
+              }}
+            >
+              🏫 태성중
+            </button>
+            <button
+              type="button"
+              onClick={() => setScope('taeseong_high')}
+              style={{
+                ...styles.schoolBtn,
+                ...(scope === 'taeseong_high' ? { ...styles.schoolBtnActive, background: '#8B5CF6' } : {}),
+              }}
+            >
+              🎓 태성고
+            </button>
+            <button
+              type="button"
+              onClick={() => setScope('all')}
+              style={{
+                ...styles.schoolBtn,
+                ...(scope === 'all' ? { ...styles.schoolBtnActive, background: '#3B82F6' } : {}),
+              }}
+            >
+              📢 공통
+            </button>
+          </div>
+
           <div style={styles.row}>
             <select value={category} onChange={(e) => setCategory(e.target.value as EventCategory)} style={styles.select}>
               {CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
-            </select>
-            <select value={scope} onChange={(e) => setScope(e.target.value as School | 'all')} style={styles.select}>
-              <option value="taeseong_middle">🏫 태성중</option>
-              <option value="taeseong_high">🎓 태성고</option>
-              <option value="all">📢 전체</option>
             </select>
             <label style={styles.checkbox}>
               <input type="checkbox" checked={allDay} onChange={(e) => {
@@ -346,6 +376,36 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 18,
     borderRadius: 8,
     transition: 'opacity 0.15s',
+  },
+  schoolRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '4px 0',
+  },
+  schoolRowLabel: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: 'var(--text-muted)',
+    marginRight: 4,
+    flexShrink: 0,
+  },
+  schoolBtn: {
+    flex: 1,
+    padding: '6px 8px',
+    fontSize: 12,
+    fontWeight: 600,
+    color: 'var(--text-secondary)',
+    background: 'var(--bg-secondary)',
+    border: '1px solid var(--border-color)',
+    borderRadius: 8,
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+  },
+  schoolBtnActive: {
+    color: '#fff',
+    border: '1px solid transparent',
+    fontWeight: 700,
   },
   select: {
     flex: 1,

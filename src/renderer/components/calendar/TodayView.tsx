@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { format, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useCalendarStore } from '../../store/calendarStore';
@@ -7,6 +7,9 @@ import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import type { PersonalEvent, CalendarEvent } from '@shared/types';
 import { getCreatorTag, PERSONAL_SUFFIX, formatEventTooltip, formatPersonalTooltip, canManageEvent } from '../../utils/calendarHelpers';
+import { SchoolBadge } from '../common/SchoolBadge';
+
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 interface TodayViewProps {
   onAddPersonalEvent?: () => void;
@@ -105,7 +108,19 @@ export function TodayView({ onAddPersonalEvent, onPersonalClick }: TodayViewProp
         </button>
       </div>
 
-      {/* 일정 리스트 (날짜별 그룹) */}
+      {/* days === 1: 24시간 타임라인 */}
+      {days === 1 ? (
+        <DayTimeline
+          date={rangeStart}
+          events={eventsOnDate(rangeStart).shared}
+          personalEvents={eventsOnDate(rangeStart).personal}
+          user={user}
+          onEventClick={(e) => { setSelectedEvent(e); setShowEventDetail(true); }}
+          onPersonalClick={(pe) => onPersonalClick?.(pe)}
+          onAddShared={() => setShowEventModal(true)}
+          onAddPersonal={onAddPersonalEvent}
+        />
+      ) : (
       <div style={styles.list}>
         {totalCount === 0 && (
           <div style={styles.empty}>
@@ -159,9 +174,328 @@ export function TodayView({ onAddPersonalEvent, onPersonalClick }: TodayViewProp
           );
         })}
       </div>
+      )}
     </div>
   );
 }
+
+/**
+ * 24시간 타임라인 — 하루 일정을 시간별 블록으로 표시.
+ * 각 이벤트는 시작~종료 시간에 비례한 높이로 렌더링.
+ * 종일 일정은 상단에 배지로 표시.
+ */
+function DayTimeline({
+  date, events, personalEvents, user,
+  onEventClick, onPersonalClick, onAddShared, onAddPersonal,
+}: {
+  date: Date;
+  events: CalendarEvent[];
+  personalEvents: PersonalEvent[];
+  user: any;
+  onEventClick: (e: CalendarEvent) => void;
+  onPersonalClick: (pe: PersonalEvent) => void;
+  onAddShared: () => void;
+  onAddPersonal?: () => void;
+}) {
+  const allDayEvents = events.filter((e) => e.allDay);
+  const timedEvents = events.filter((e) => !e.allDay);
+  const allDayPersonal = personalEvents.filter((pe) => pe.allDay);
+  const timedPersonal = personalEvents.filter((pe) => !pe.allDay);
+
+  const isToday = isSameDay(date, new Date());
+  const [nowMinute, setNowMinute] = useState(() => {
+    const now = new Date();
+    return now.getHours() * 60 + now.getMinutes();
+  });
+
+  useEffect(() => {
+    if (!isToday) return;
+    const timer = setInterval(() => {
+      const now = new Date();
+      setNowMinute(now.getHours() * 60 + now.getMinutes());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, [isToday]);
+
+  // 각 이벤트를 픽셀 위치/높이로 계산 (1시간 = 48px)
+  const HOUR_HEIGHT = 48;
+
+  function getBlockStyle(start: Date, end: Date): React.CSSProperties {
+    const startMin = start.getHours() * 60 + start.getMinutes();
+    const endMin = Math.max(startMin + 15, end.getHours() * 60 + end.getMinutes());
+    const top = (startMin / 60) * HOUR_HEIGHT;
+    const height = ((endMin - startMin) / 60) * HOUR_HEIGHT;
+    return { top, height: Math.max(20, height) };
+  }
+
+  return (
+    <div style={timelineStyles.container}>
+      {/* 종일 이벤트 영역 */}
+      {(allDayEvents.length > 0 || allDayPersonal.length > 0) && (
+        <div style={timelineStyles.allDayBar}>
+          <span style={timelineStyles.allDayLabel}>종일</span>
+          <div style={timelineStyles.allDayChips}>
+            {allDayEvents.map((e) => (
+              <button
+                key={e.id}
+                onClick={() => onEventClick(e)}
+                style={{ ...timelineStyles.allDayChip, background: e.adminColor }}
+                title={formatEventTooltip(e, canManageEvent(e, user))}
+              >
+                {getCreatorTag(e) && <SchoolBadge school={e.creatorSchool || e.school} />}
+                {e.title}
+              </button>
+            ))}
+            {allDayPersonal.map((pe) => (
+              <button
+                key={pe.id}
+                onClick={() => onPersonalClick(pe)}
+                style={{ ...timelineStyles.allDayChip, background: pe.color, opacity: 0.9 }}
+                title={formatPersonalTooltip(pe, pe.source === 'local')}
+              >
+                {pe.title} {PERSONAL_SUFFIX}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 24시간 그리드 */}
+      <div style={timelineStyles.gridScroll}>
+        <div style={{ position: 'relative', height: HOUR_HEIGHT * 24 }}>
+          {/* 시간 격자 */}
+          {HOURS.map((h) => (
+            <div
+              key={h}
+              style={{
+                position: 'absolute',
+                top: h * HOUR_HEIGHT,
+                left: 0, right: 0, height: HOUR_HEIGHT,
+                borderTop: '1px solid var(--border-subtle)',
+                display: 'flex',
+              }}
+            >
+              <div style={timelineStyles.hourLabel}>
+                {h.toString().padStart(2, '0')}:00
+              </div>
+              <div style={{ flex: 1 }} />
+            </div>
+          ))}
+
+          {/* 현재 시간선 */}
+          {isToday && (
+            <div style={{
+              position: 'absolute',
+              left: 52, right: 4,
+              top: (nowMinute / 60) * HOUR_HEIGHT,
+              height: 2,
+              background: '#E74C3C',
+              zIndex: 5,
+              boxShadow: '0 0 4px rgba(231,76,60,0.6)',
+              pointerEvents: 'none',
+            }}>
+              <div style={{
+                position: 'absolute',
+                left: -5, top: -4,
+                width: 10, height: 10,
+                borderRadius: '50%',
+                background: '#E74C3C',
+              }} />
+              <div style={{
+                position: 'absolute',
+                right: 0, top: -16,
+                fontSize: 10, fontWeight: 700,
+                color: '#E74C3C',
+                padding: '0 4px',
+                background: 'var(--bg-primary, #fff)',
+                borderRadius: 3,
+              }}>
+                {Math.floor(nowMinute / 60).toString().padStart(2, '0')}:{(nowMinute % 60).toString().padStart(2, '0')}
+              </div>
+            </div>
+          )}
+
+          {/* 시간 블록 이벤트 */}
+          <div style={{ position: 'absolute', left: 52, right: 4, top: 0, bottom: 0 }}>
+            {timedEvents.map((e) => {
+              const start = new Date(e.startDate);
+              const end = new Date(e.endDate);
+              const block = getBlockStyle(start, end);
+              return (
+                <button
+                  key={e.id}
+                  onClick={() => onEventClick(e)}
+                  style={{
+                    ...timelineStyles.eventBlock,
+                    ...block,
+                    background: e.adminColor,
+                  }}
+                  title={formatEventTooltip(e, canManageEvent(e, user))}
+                >
+                  <div style={timelineStyles.eventTitle}>
+                    {getCreatorTag(e) && <SchoolBadge school={e.creatorSchool || e.school} />}
+                    {e.title}
+                  </div>
+                  <div style={timelineStyles.eventTime}>
+                    {format(start, 'HH:mm')} – {format(end, 'HH:mm')}
+                    {e.adminName && ` · ${e.adminName}`}
+                  </div>
+                </button>
+              );
+            })}
+            {timedPersonal.map((pe) => {
+              const start = new Date(pe.startDate);
+              const end = new Date(pe.endDate);
+              const block = getBlockStyle(start, end);
+              return (
+                <button
+                  key={pe.id}
+                  onClick={() => onPersonalClick(pe)}
+                  style={{
+                    ...timelineStyles.eventBlock,
+                    ...block,
+                    background: pe.color,
+                    opacity: 0.88,
+                    borderLeft: '3px solid rgba(255,255,255,0.5)',
+                  }}
+                  title={formatPersonalTooltip(pe, pe.source === 'local')}
+                >
+                  <div style={timelineStyles.eventTitle}>
+                    {pe.title} {PERSONAL_SUFFIX}
+                  </div>
+                  <div style={timelineStyles.eventTime}>
+                    {format(start, 'HH:mm')} – {format(end, 'HH:mm')} · 개인
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 빈 상태 */}
+          {events.length === 0 && personalEvents.length === 0 && user && (
+            <div style={{
+              position: 'absolute',
+              top: 12 * HOUR_HEIGHT - 40,
+              left: 60, right: 10,
+              textAlign: 'center',
+              zIndex: 2,
+            }}>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>
+                📭 오늘 일정 없음
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                <button onClick={onAddShared} style={timelineStyles.addBtn}>+ 공유 일정</button>
+                {onAddPersonal && (
+                  <button onClick={onAddPersonal} style={timelineStyles.addBtnSecondary}>+ 개인 일정</button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const timelineStyles: Record<string, React.CSSProperties> = {
+  container: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+  },
+  allDayBar: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: '6px 8px',
+    borderBottom: '1px solid var(--border-subtle)',
+    flexShrink: 0,
+  },
+  allDayLabel: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: 'var(--text-muted)',
+    padding: '3px 6px',
+    flexShrink: 0,
+  },
+  allDayChips: {
+    display: 'flex',
+    flexWrap: 'wrap' as const,
+    gap: 4,
+    flex: 1,
+  },
+  allDayChip: {
+    border: 'none',
+    borderRadius: 4,
+    padding: '3px 8px',
+    fontSize: 11,
+    fontWeight: 600,
+    color: '#fff',
+    cursor: 'pointer',
+    textShadow: '0 0 2px rgba(0,0,0,0.3)',
+  },
+  gridScroll: {
+    flex: 1,
+    overflow: 'auto',
+  },
+  hourLabel: {
+    width: 48,
+    flexShrink: 0,
+    fontSize: 10,
+    color: 'var(--text-muted)',
+    padding: '2px 4px 0 0',
+    textAlign: 'right' as const,
+  },
+  eventBlock: {
+    position: 'absolute' as const,
+    left: 2, right: 2,
+    padding: '3px 6px',
+    borderRadius: 5,
+    border: 'none',
+    cursor: 'pointer',
+    color: '#fff',
+    textAlign: 'left' as const,
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 1,
+    boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+  },
+  eventTitle: {
+    fontSize: 11,
+    fontWeight: 700,
+    textShadow: '0 0 2px rgba(0,0,0,0.3)',
+    whiteSpace: 'nowrap' as const,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  eventTime: {
+    fontSize: 9,
+    color: 'rgba(255,255,255,0.9)',
+    fontWeight: 500,
+  },
+  addBtn: {
+    padding: '6px 12px',
+    borderRadius: 8,
+    border: 'none',
+    background: 'var(--accent)',
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  addBtnSecondary: {
+    padding: '6px 12px',
+    borderRadius: 8,
+    border: '1px solid var(--success, #10B981)',
+    background: 'transparent',
+    color: 'var(--success, #10B981)',
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+};
 
 function DateHeader({ date, count }: { date: Date; count: number }) {
   const today = isSameDay(date, new Date());
@@ -184,6 +518,7 @@ function SharedRow({ event, user, onClick }: { event: CalendarEvent; user: any; 
   const start = new Date(event.startDate);
   const end = new Date(event.endDate);
   const timeText = event.allDay ? '종일' : `${format(start, 'HH:mm')} – ${format(end, 'HH:mm')}`;
+  const creatorSchool = event.creatorSchool || event.school;
   return (
     <button
       onClick={onClick}
@@ -192,7 +527,7 @@ function SharedRow({ event, user, onClick }: { event: CalendarEvent; user: any; 
     >
       <span style={styles.time}>{timeText}</span>
       <span style={styles.title}>
-        {getCreatorTag(event) && <span style={styles.tag}>{getCreatorTag(event)}</span>}
+        <SchoolBadge school={creatorSchool} />
         {event.title}
       </span>
       {event.adminName && <span style={styles.author}>· {event.adminName}</span>}
