@@ -186,16 +186,29 @@ export function EventModal() {
           // 간단 focus-trap: 모달 내 Tab/Shift+Tab 순환
           if (e.key !== 'Tab') return;
           const modal = e.currentTarget as HTMLElement;
-          const focusable = modal.querySelectorAll<HTMLElement>(
-            'button, input, select, textarea, [tabindex]:not([tabindex="-1"])'
-          );
+          // disabled / hidden 제외하여 진짜 포커스 가능한 요소만
+          const focusable = Array.from(
+            modal.querySelectorAll<HTMLElement>(
+              'button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            )
+          ).filter((el) => {
+            if (el.offsetParent === null) return false; // 숨김 요소 제외
+            return true;
+          });
           if (focusable.length === 0) return;
           const first = focusable[0];
           const last = focusable[focusable.length - 1];
-          if (e.shiftKey && document.activeElement === first) {
+          const active = document.activeElement as HTMLElement | null;
+          // 모달 외부에 포커스가 있다면 첫 요소로 강제
+          if (!active || !modal.contains(active)) {
+            e.preventDefault();
+            first.focus();
+            return;
+          }
+          if (e.shiftKey && active === first) {
             e.preventDefault();
             last.focus();
-          } else if (!e.shiftKey && document.activeElement === last) {
+          } else if (!e.shiftKey && active === last) {
             e.preventDefault();
             first.focus();
           }

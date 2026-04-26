@@ -196,10 +196,14 @@ export function EventDetail() {
 
   async function handleDeleteComment(commentId: string) {
     if (!selectedEvent) return;
+    if (!window.confirm('이 댓글을 삭제하시겠습니까?')) return;
     try {
       await deleteDoc(doc(db, 'events', selectedEvent.id, 'comments', commentId));
+      showToast('댓글이 삭제되었습니다');
     } catch (err) {
       console.error('Failed to delete comment:', err);
+      const msg = err instanceof Error ? err.message : '댓글 삭제에 실패했습니다';
+      showToast(`❌ ${msg}`, 'error');
     }
   }
 

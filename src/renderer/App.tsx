@@ -57,21 +57,31 @@ export function App() {
 
   useEffect(() => {
     const goOffline = () => setIsOffline(true);
-    const goOnline = () => {
-      setIsOffline(false);
-      // 재연결 시 활성 사용자면 구독 재시작 (유령 구독 복구)
+    // 재연결 후 구독 복구 — exponential backoff (1s, 2s, 4s, 8s, 최대 4회)
+    const reconnectWithRetry = (attempt = 0) => {
       const currentUser = useAuthStore.getState().user;
-      if (currentUser?.status === 'active') {
-        try {
-          subscribeToEvents();
-          subscribeToNotifications(currentUser.id);
-          subscribeToPersonalEvents(currentUser.id);
-          subscribeToTodos(currentUser.id);
-          subscribeToUsers();
-        } catch (e) {
-          console.warn('[App] 오프라인 복구 재구독 실패:', e);
+      if (currentUser?.status !== 'active') return;
+      try {
+        subscribeToEvents();
+        subscribeToNotifications(currentUser.id);
+        subscribeToPersonalEvents(currentUser.id);
+        subscribeToTodos(currentUser.id);
+        subscribeToUsers();
+      } catch (e) {
+        console.warn(`[App] 재구독 실패 (시도 ${attempt + 1}):`, e);
+        if (attempt < 3) {
+          const delay = Math.pow(2, attempt) * 1000;
+          setTimeout(() => reconnectWithRetry(attempt + 1), delay);
+        } else {
+          import('./components/common/Toast').then(({ showToast }) => {
+            showToast('연결 복구 실패. 새로고침 후 재시도해주세요.', 'error');
+          });
         }
       }
+    };
+    const goOnline = () => {
+      setIsOffline(false);
+      reconnectWithRetry();
     };
     const googleAuthExpired = () => {
       // 동적 import로 순환 방지

@@ -31,7 +31,10 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
   error: null,
   unsubscribe: null,
   refreshTimer: null,
-  showTimetable: localStorage.getItem('tonet-show-timetable') !== 'false',
+  showTimetable: (() => {
+    try { return localStorage.getItem('tonet-show-timetable') !== 'false'; }
+    catch (e) { console.warn('[Comcigan] localStorage read failed:', e); return true; }
+  })(),
 
   loadConfig: async () => {
     try {
@@ -129,7 +132,8 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
 
   toggleTimetable: () => {
     const next = !get().showTimetable;
-    localStorage.setItem('tonet-show-timetable', String(next));
+    try { localStorage.setItem('tonet-show-timetable', String(next)); }
+    catch (e) { console.warn('[Comcigan] localStorage write failed:', e); }
     set({ showTimetable: next });
   },
 }));

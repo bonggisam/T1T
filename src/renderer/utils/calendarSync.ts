@@ -203,6 +203,10 @@ function saveTokensToStorage(provider: string, tokens: any): void {
     localStorage.setItem(`cal_tokens_${provider}`, JSON.stringify(tokens));
   } catch (err) {
     console.warn(`[CalendarSync] Failed to save ${provider} tokens:`, err);
+    // 사용자에게 알림 — 새로고침 후 재인증 필요할 수 있음
+    import('../components/common/Toast').then(({ showToast }) => {
+      showToast(`⚠️ ${provider} 토큰 저장 실패 — 앱 재시작 시 재인증이 필요할 수 있습니다`, 'error');
+    });
   }
 }
 

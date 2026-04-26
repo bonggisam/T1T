@@ -33,8 +33,13 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
   const [profileColor, setProfileColor] = useState(user?.profileColor || '#4A90E2');
   const [syncInterval, setSyncInterval] = useState(user?.settings.syncInterval ?? 15);
   const [scheduleFontSize, setScheduleFontSize] = useState(() => {
-    const saved = localStorage.getItem('tonet-schedule-font-size');
-    return saved ? Number(saved) : 11;
+    try {
+      const saved = localStorage.getItem('tonet-schedule-font-size');
+      return saved ? Number(saved) : 11;
+    } catch (e) {
+      console.warn('[Settings] localStorage read failed:', e);
+      return 11;
+    }
   });
   const [appVersion, setAppVersion] = useState('1.0.0');
   const [saving, setSaving] = useState(false);
@@ -142,7 +147,11 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
       };
       await updateDoc(doc(db, 'users', user.id), updates);
       // Save font size locally
-      localStorage.setItem('tonet-schedule-font-size', String(scheduleFontSize));
+      try {
+        localStorage.setItem('tonet-schedule-font-size', String(scheduleFontSize));
+      } catch (e) {
+        console.warn('[Settings] localStorage write failed:', e);
+      }
       // Restore window size before closing
       await restoreOriginalBounds();
       onClose();
@@ -155,9 +164,13 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
 
   async function handleClose() {
     // Restore font size to saved value when cancelling
-    const saved = localStorage.getItem('tonet-schedule-font-size');
-    if (saved) {
-      document.documentElement.style.setProperty('--schedule-font-size', `${saved}px`);
+    try {
+      const saved = localStorage.getItem('tonet-schedule-font-size');
+      if (saved) {
+        document.documentElement.style.setProperty('--schedule-font-size', `${saved}px`);
+      }
+    } catch (e) {
+      console.warn('[Settings] localStorage read failed:', e);
     }
     await restoreOriginalBounds();
     onClose();
