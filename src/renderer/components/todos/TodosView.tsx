@@ -140,7 +140,16 @@ export function TodosView({ onBack }: TodosViewProps) {
           </div>
         ) : (
           filtered.map((t) => (
-            <TodoItem key={t.id} todo={t} onToggle={() => toggleTodo(t.id)} onDelete={() => handleDelete(t.id)} />
+            <TodoItem
+              key={t.id}
+              todo={t}
+              onToggle={() => toggleTodo(t.id)}
+              onDelete={() => handleDelete(t.id)}
+              onUpdate={(updates) => updateTodo(t.id, updates).catch((err) => {
+                console.error('[Todos] update failed:', err);
+                showToast('수정 실패', 'error');
+              })}
+            />
           ))
         )}
       </div>
@@ -156,9 +165,79 @@ function FilterBtn({ active, onClick, label }: { active: boolean; onClick: () =>
   );
 }
 
-function TodoItem({ todo, onToggle, onDelete }: { todo: Todo; onToggle: () => void; onDelete: () => void }) {
+function TodoItem({ todo, onToggle, onDelete, onUpdate }: {
+  todo: Todo;
+  onToggle: () => void;
+  onDelete: () => void;
+  onUpdate: (updates: Partial<Todo>) => void;
+}) {
   const priorityColor = PRIORITY_COLORS[todo.priority];
   const isOverdue = todo.dueDate && !todo.completed && new Date(todo.dueDate) < new Date();
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(todo.title);
+  const [editPriority, setEditPriority] = useState(todo.priority);
+  const [editDate, setEditDate] = useState(
+    todo.dueDate ? format(new Date(todo.dueDate), 'yyyy-MM-dd') : ''
+  );
+
+  function startEdit() {
+    setEditTitle(todo.title);
+    setEditPriority(todo.priority);
+    setEditDate(todo.dueDate ? format(new Date(todo.dueDate), 'yyyy-MM-dd') : '');
+    setEditing(true);
+  }
+
+  function saveEdit() {
+    const trimmed = editTitle.trim();
+    if (!trimmed) {
+      showToast('제목을 입력하세요', 'error');
+      return;
+    }
+    onUpdate({
+      title: trimmed.slice(0, 200),
+      priority: editPriority,
+      dueDate: editDate ? new Date(editDate) : undefined,
+    });
+    setEditing(false);
+    showToast('수정되었습니다');
+  }
+
+  function cancelEdit() {
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <div style={{ ...styles.todoItem, flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+        <input
+          type="text"
+          value={editTitle}
+          onChange={(e) => setEditTitle(e.target.value)}
+          maxLength={200}
+          style={styles.input}
+          autoFocus
+          onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit(); }}
+        />
+        <div style={{ display: 'flex', gap: 6 }}>
+          <select value={editPriority} onChange={(e) => setEditPriority(e.target.value as any)} style={styles.select}>
+            <option value="low">🟢 낮음</option>
+            <option value="medium">🟡 보통</option>
+            <option value="high">🔴 높음</option>
+          </select>
+          <input
+            type="date"
+            value={editDate}
+            onChange={(e) => setEditDate(e.target.value)}
+            style={styles.dateInput}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+          <button onClick={cancelEdit} style={{ ...styles.editBtn, background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>취소</button>
+          <button onClick={saveEdit} style={styles.editBtn}>저장</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ ...styles.todoItem, opacity: todo.completed ? 0.55 : 1 }}>
@@ -171,7 +250,7 @@ function TodoItem({ todo, onToggle, onDelete }: { todo: Todo; onToggle: () => vo
           {todo.completed && '✓'}
         </span>
       </button>
-      <div style={styles.todoContent}>
+      <div style={styles.todoContent} onDoubleClick={startEdit} title="더블클릭하면 수정">
         <span style={{
           ...styles.todoTitle,
           textDecoration: todo.completed ? 'line-through' : 'none',
@@ -186,7 +265,8 @@ function TodoItem({ todo, onToggle, onDelete }: { todo: Todo; onToggle: () => vo
           </span>
         )}
       </div>
-      <button onClick={onDelete} style={styles.deleteBtn} title="삭제">✕</button>
+      <button onClick={startEdit} style={styles.iconBtn} title="수정" aria-label="수정">✏️</button>
+      <button onClick={onDelete} style={styles.deleteBtn} title="삭제" aria-label="삭제">✕</button>
     </div>
   );
 }
@@ -246,5 +326,14 @@ const styles: Record<string, React.CSSProperties> = {
   deleteBtn: {
     background: 'none', border: 'none', cursor: 'pointer',
     color: 'var(--text-muted)', fontSize: 12, padding: '2px 6px',
+  },
+  iconBtn: {
+    background: 'none', border: 'none', cursor: 'pointer',
+    fontSize: 12, padding: '2px 6px', opacity: 0.7,
+  },
+  editBtn: {
+    padding: '5px 12px', fontSize: 11, fontWeight: 600,
+    border: 'none', borderRadius: 6,
+    background: 'var(--accent)', color: '#fff', cursor: 'pointer',
   },
 };

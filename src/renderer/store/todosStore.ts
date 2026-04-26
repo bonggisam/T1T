@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import {
   collection, query, where, onSnapshot,
   addDoc, updateDoc, deleteDoc, doc,
-  serverTimestamp, orderBy, Timestamp,
+  serverTimestamp, Timestamp,
 } from 'firebase/firestore';
 import { db } from '../utils/firebase';
 import type { Todo } from '@shared/types';
@@ -44,14 +44,23 @@ export const useTodosStore = create<TodosState>((set, get) => ({
     prev?.();
 
     set({ loading: true });
-    // userId로 필터링 (사용자 본인 todos만) — where school 없이도 안전
+    // userId로 필터링 (사용자 본인 todos만)
+    // orderBy 제거 — 복합 인덱스 요구 회피, 클라이언트 정렬 사용
     const q = query(
       collection(db, 'todos'),
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', userId)
     );
     const unsub = onSnapshot(q, (snap) => {
-      const todos = snap.docs.map((d) => firestoreToTodo(d.id, d.data()));
+      const todos = snap.docs
+        .map((d) => firestoreToTodo(d.id, d.data()))
+        // 미완료 우선 → dueDate 가까운 순 → createdAt 최신 순
+        .sort((a, b) => {
+          if (a.completed !== b.completed) return a.completed ? 1 : -1;
+          if (a.dueDate && b.dueDate) return a.dueDate.getTime() - b.dueDate.getTime();
+          if (a.dueDate) return -1;
+          if (b.dueDate) return 1;
+          return b.createdAt.getTime() - a.createdAt.getTime();
+        });
       set({ todos, loading: false });
     }, (err) => {
       console.error('[TodosStore] subscription error:', err);
@@ -91,8 +100,16 @@ export const useTodosStore = create<TodosState>((set, get) => ({
   },
 
   updateTodo: async (id, updates) => {
-    const updateData: any = { ...updates, updatedAt: serverTimestamp() };
-    if (updates.dueDate) updateData.dueDate = Timestamp.fromDate(updates.dueDate);
+    // undefined 값 제거 (Firestore 거부) + dueDate 변환
+    const updateData: any = { updatedAt: serverTimestamp() };
+    for (const [k, v] of Object.entries(updates)) {
+      if (v === undefined) continue;
+      updateData[k] = v;
+    }
+    // dueDate가 명시적으로 들어왔으면 변환, 빈값(undefined)이면 null로 (지움)
+    if ('dueDate' in updates) {
+      updateData.dueDate = updates.dueDate ? Timestamp.fromDate(updates.dueDate) : null;
+    }
     await updateDoc(doc(db, 'todos', id), updateData);
   },
 
