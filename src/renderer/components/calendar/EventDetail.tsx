@@ -103,6 +103,9 @@ export function EventDetail() {
       setComments(list);
     }, (err) => {
       console.warn('[EventDetail] Comments subscription error:', err);
+      if (active) {
+        showToast(`댓글을 불러올 수 없습니다: ${err.message || '알 수 없는 오류'}`, 'error');
+      }
     });
     return () => {
       active = false;
@@ -156,12 +159,24 @@ export function EventDetail() {
 
   async function handleAddComment() {
     const text = newComment.trim();
-    if (!text || !user || !selectedEvent) return;
+    if (!text) {
+      showToast('댓글 내용을 입력하세요', 'error');
+      return;
+    }
+    if (!user) {
+      showToast('로그인이 필요합니다', 'error');
+      return;
+    }
+    if (!selectedEvent) return;
+    if (user.status !== 'active') {
+      showToast('승인되지 않은 사용자는 댓글을 작성할 수 없습니다', 'error');
+      return;
+    }
     setSendingComment(true);
     try {
       await addDoc(collection(db, 'events', selectedEvent.id, 'comments'), {
         userId: user.id,
-        userName: user.name,
+        userName: user.name || '익명',
         userColor: user.profileColor || '#4A90E2',
         text: text.slice(0, 500),
         createdAt: serverTimestamp(),
@@ -187,9 +202,11 @@ export function EventDetail() {
         }
       }
       setNewComment('');
+      showToast('댓글이 등록되었습니다');
     } catch (err) {
       console.error('Failed to add comment:', err);
-      showToast('댓글 등록 실패', 'error');
+      const msg = err instanceof Error ? err.message : '알 수 없는 오류';
+      showToast(`❌ 댓글 등록 실패: ${msg}`, 'error');
     }
     setSendingComment(false);
   }
