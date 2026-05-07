@@ -294,7 +294,7 @@ export function EventModal() {
                 placeholder="항목 추가..."
                 value={newCheckItem}
                 onChange={(e) => setNewCheckItem(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCheckItem())}
+                onKeyDown={(e) => { if (e.nativeEvent.isComposing) return; if (e.key === 'Enter') { e.preventDefault(); addCheckItem(); } }}
                 style={styles.checkInput}
               />
               <button type="button" onClick={addCheckItem} style={styles.addCheckBtn}>+</button>

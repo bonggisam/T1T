@@ -30,8 +30,34 @@ export function NotificationPanel() {
   }
 
   return (
-    <div style={styles.overlay} onClick={() => setShowPanel(false)}>
-      <div className="glass-solid animate-fade-in" style={styles.panel} onClick={(e) => e.stopPropagation()}>
+    <div
+      style={styles.overlay}
+      onClick={() => setShowPanel(false)}
+      role="dialog"
+      aria-modal="true"
+      aria-label="알림"
+    >
+      <div
+        className="glass-solid animate-fade-in"
+        style={styles.panel}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key !== 'Tab') return;
+          const modal = e.currentTarget as HTMLElement;
+          const focusable = Array.from(
+            modal.querySelectorAll<HTMLElement>(
+              'button:not([disabled]), input:not([disabled]):not([type="hidden"]), [tabindex]:not([tabindex="-1"])'
+            )
+          ).filter((el) => el.offsetParent !== null);
+          if (focusable.length === 0) return;
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          const active = document.activeElement as HTMLElement | null;
+          if (!active || !modal.contains(active)) { e.preventDefault(); first.focus(); return; }
+          if (e.shiftKey && active === first) { e.preventDefault(); last.focus(); }
+          else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
+        }}
+      >
         <div style={styles.header}>
           <h4 style={styles.title}>🔔 알림</h4>
           <div style={styles.headerActions}>

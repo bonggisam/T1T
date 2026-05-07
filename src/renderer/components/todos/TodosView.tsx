@@ -216,7 +216,11 @@ function TodoItem({ todo, onToggle, onDelete, onUpdate }: {
           maxLength={200}
           style={styles.input}
           autoFocus
-          onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit(); }}
+          onKeyDown={(e) => {
+            if (e.nativeEvent.isComposing) return; // IME 조합 중 무시
+            if (e.key === 'Enter') saveEdit();
+            if (e.key === 'Escape') cancelEdit();
+          }}
         />
         <div style={{ display: 'flex', gap: 6 }}>
           <select value={editPriority} onChange={(e) => setEditPriority(e.target.value as any)} style={styles.select}>

@@ -47,10 +47,14 @@ service cloud.firestore {
       allow read: if isActive();
       allow create: if isActive()
         && request.resource.data.school in ['taeseong_middle', 'taeseong_high', 'all'];
-      allow update, delete: if isActive()
+      // UPDATE: school 변경 시 whitelist 강제 (request.resource 존재)
+      allow update: if isActive()
         && (resource.data.createdBy == request.auth.uid || isAdmin())
         && (!('school' in request.resource.data.diff(resource.data).affectedKeys())
             || request.resource.data.school in ['taeseong_middle', 'taeseong_high', 'all']);
+      // DELETE: request.resource는 null이므로 diff() 호출 불가 — 별도 규칙
+      allow delete: if isActive()
+        && (resource.data.createdBy == request.auth.uid || isAdmin());
     }
 
     // Personal events

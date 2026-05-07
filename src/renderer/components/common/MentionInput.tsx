@@ -73,6 +73,10 @@ export function MentionInput({ value, onChange, onSubmit, placeholder, disabled,
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    // 한글 IME 조합 중에는 Enter/Tab 무시 (불완전 텍스트 제출 방지)
+    // nativeEvent.isComposing 또는 keyCode 229 모두 검사
+    if (e.nativeEvent.isComposing || (e as any).keyCode === 229) return;
+
     if (mentionQuery !== null && filteredUsers.length > 0) {
       if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIdx((i) => Math.min(i + 1, filteredUsers.length - 1)); return; }
       if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedIdx((i) => Math.max(i - 1, 0)); return; }

@@ -76,7 +76,7 @@ export function ComciganSettings() {
           placeholder="학교 이름 검색"
           value={schoolQuery}
           onChange={(e) => setSchoolQuery(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+          onKeyDown={(e) => { if (e.nativeEvent.isComposing) return; if (e.key === 'Enter') handleSearch(); }}
           style={styles.input}
         />
         <button onClick={handleSearch} disabled={searching} style={styles.btn}>

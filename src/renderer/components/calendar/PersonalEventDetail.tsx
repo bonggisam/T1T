@@ -208,7 +208,7 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
                   placeholder="항목 추가..."
                   value={newCheckItem}
                   onChange={(e) => setNewCheckItem(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCheckItem(); } }}
+                  onKeyDown={(e) => { if (e.nativeEvent.isComposing) return; if (e.key === 'Enter') { e.preventDefault(); addCheckItem(); } }}
                   style={styles.checkInput}
                   maxLength={200}
                 />

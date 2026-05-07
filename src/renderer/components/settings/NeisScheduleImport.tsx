@@ -184,7 +184,7 @@ export function NeisScheduleImport() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={styles.input}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearch(); } }}
+                onKeyDown={(e) => { if (e.nativeEvent.isComposing) return; if (e.key === 'Enter') { e.preventDefault(); handleSearch(); } }}
               />
               <button onClick={handleSearch} disabled={searching || searchQuery.trim().length < 2} style={styles.primaryBtn}>
                 {searching ? '검색 중...' : '🔍 검색'}
