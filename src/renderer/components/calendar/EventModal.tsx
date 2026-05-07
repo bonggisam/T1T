@@ -18,7 +18,7 @@ const CATEGORIES: { key: EventCategory; label: string }[] = [
 export function EventModal() {
   const { addEvent, setShowEventModal, selectedDate } = useCalendarStore();
   const { user } = useAuthStore();
-  const { viewingSchool } = useUIStore();
+  const { viewingSchool, setViewingSchool } = useUIStore();
 
   // 현재 보는 학교 뷰에 맞게 기본 공유 범위 계산
   function defaultScope(): School | 'all' {
@@ -131,7 +131,18 @@ export function EventModal() {
         checklist,
         readBy: {},
       });
-      showToast('일정이 등록되었습니다');
+      // 등록한 일정이 현재 뷰에서 안 보이면 자동으로 보이는 뷰로 전환
+      // (e.g. 태성중 뷰 + 태성고 일정 등록 시 → 전체 뷰로 전환)
+      const visibleInCurrentView =
+        viewingSchool === 'all' ||
+        scope === 'all' ||
+        scope === viewingSchool;
+      if (!visibleInCurrentView) {
+        setViewingSchool('all');
+        showToast('일정이 등록되었습니다 — 전체 뷰로 전환합니다', 'success');
+      } else {
+        showToast('일정이 등록되었습니다');
+      }
       setShowEventModal(false);
     } catch (err) {
       console.error('Failed to add event:', err);

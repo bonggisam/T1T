@@ -139,14 +139,30 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
   addEvent: async (event) => {
     // school 필드 필수 (기본값 'all'로 안전망)
     const schoolValue = event.school || 'all';
-    const docRef = await addDoc(collection(db, 'events'), {
-      ...event,
+    // undefined 값은 Firestore가 거부하므로 명시적으로 정리
+    const cleanedEvent: any = {
+      title: event.title,
+      description: event.description ?? '',
+      allDay: event.allDay ?? false,
+      category: event.category,
       school: schoolValue,
+      createdBy: event.createdBy,
+      adminName: event.adminName ?? '',
+      adminColor: event.adminColor || '#4A90E2',
+      repeat: event.repeat ?? null,
+      attachments: event.attachments ?? [],
+      checklist: event.checklist ?? [],
+      readBy: event.readBy ?? {},
       startDate: Timestamp.fromDate(event.startDate),
       endDate: Timestamp.fromDate(event.endDate),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-    });
+    };
+    // creatorSchool은 값 있을 때만 포함 (Firestore undefined 거부 방지)
+    if (event.creatorSchool === 'taeseong_middle' || event.creatorSchool === 'taeseong_high') {
+      cleanedEvent.creatorSchool = event.creatorSchool;
+    }
+    const docRef = await addDoc(collection(db, 'events'), cleanedEvent);
     // Notify all users
     const dateStr = event.startDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
     // 작성자 학교 기반 태그 (M/H)
@@ -167,7 +183,12 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
   },
 
   updateEvent: async (id, updates) => {
-    const updateData: any = { ...updates, updatedAt: serverTimestamp() };
+    // undefined 값 제거 (Firestore가 거부)
+    const updateData: any = { updatedAt: serverTimestamp() };
+    for (const [k, v] of Object.entries(updates)) {
+      if (v === undefined) continue;
+      updateData[k] = v;
+    }
     if (updates.startDate) {
       const d = updates.startDate instanceof Date ? updates.startDate : new Date(updates.startDate);
       if (isNaN(d.getTime())) throw new Error('Invalid startDate');
