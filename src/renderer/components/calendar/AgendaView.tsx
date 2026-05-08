@@ -73,7 +73,7 @@ export function AgendaView() {
                     </div>
                     <div style={styles.contentCol}>
                       <div style={styles.titleRow}>
-                        <span style={styles.eventTitle}><SchoolBadge school={e.creatorSchool || e.school} />{e.title}</span>
+                        <span style={styles.eventTitle}><SchoolBadge school={e.school} />{e.title}</span>
                         <span style={{ ...styles.categoryBadge, background: e.adminColor }}>
                           {CATEGORY_LABELS[e.category] || e.category}
                         </span>

@@ -331,7 +331,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
                           title={formatEventTooltip(event, isOwner)}
                         >
                           <span style={styles.eventText}>
-                            {format(new Date(event.startDate), 'HH:mm')} <SchoolBadge school={event.creatorSchool || event.school} size="xs" />{event.title}
+                            {format(new Date(event.startDate), 'HH:mm')} <SchoolBadge school={event.school} size="xs" />{event.title}
                           </span>
                         </div>
                       );

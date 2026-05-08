@@ -343,7 +343,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                         textShadow: '0 1px 2px rgba(0,0,0,0.5)',
                         minWidth: 0,
                       }}>
-                        <SchoolBadge school={event.creatorSchool || event.school} size="xs" />{event.title}
+                        <SchoolBadge school={event.school} size="xs" />{event.title}
                       </span>
                     </div>
                   );

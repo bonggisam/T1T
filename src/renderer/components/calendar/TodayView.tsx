@@ -253,7 +253,7 @@ function DayTimeline({
                 style={{ ...timelineStyles.allDayChip, background: e.adminColor }}
                 title={formatEventTooltip(e, canManageEvent(e, user))}
               >
-                {getCreatorTag(e) && <SchoolBadge school={e.creatorSchool || e.school} />}
+                <SchoolBadge school={e.school} />
                 {e.title}
               </button>
             ))}
@@ -344,7 +344,7 @@ function DayTimeline({
                   title={formatEventTooltip(e, canManageEvent(e, user))}
                 >
                   <div style={timelineStyles.eventTitle}>
-                    {getCreatorTag(e) && <SchoolBadge school={e.creatorSchool || e.school} />}
+                    <SchoolBadge school={e.school} />
                     {e.title}
                   </div>
                   <div style={timelineStyles.eventTime}>
@@ -529,7 +529,6 @@ function SharedRow({ event, user, onClick }: { event: CalendarEvent; user: User 
   const start = new Date(event.startDate);
   const end = new Date(event.endDate);
   const timeText = event.allDay ? '종일' : `${format(start, 'HH:mm')} – ${format(end, 'HH:mm')}`;
-  const creatorSchool = event.creatorSchool || event.school;
   return (
     <button
       onClick={onClick}
@@ -538,7 +537,7 @@ function SharedRow({ event, user, onClick }: { event: CalendarEvent; user: User 
     >
       <span style={styles.time}>{timeText}</span>
       <span style={styles.title}>
-        <SchoolBadge school={creatorSchool} />
+        <SchoolBadge school={event.school} />
         {event.title}
       </span>
       {event.adminName && <span style={styles.author}>· {event.adminName}</span>}

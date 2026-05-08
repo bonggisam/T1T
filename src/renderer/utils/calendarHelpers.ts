@@ -52,28 +52,29 @@ export const CATEGORY_LABELS: Record<string, string> = {
 };
 
 /**
- * 일정 **작성자**의 학교에 따라 'M', 'H' 접두 태그 반환.
- * - creatorSchool 'taeseong_middle' → 'M'
- * - creatorSchool 'taeseong_high' → 'H'
- * - 기타 (super_admin 등) → ''
- *
- * 하위 호환: 기존 event.school 기반 호출도 동작 (이전 데이터용).
+ * 일정의 공유 대상(scope) 태그 반환.
+ * - 'taeseong_middle' → '중'
+ * - 'taeseong_high' → '고'
+ * - 'all' → '공'
+ * - 그 외 → ''
  */
 export function getSchoolTag(school?: string | null): string {
-  if (school === 'taeseong_middle') return 'M';
-  if (school === 'taeseong_high') return 'H';
-  return ''; // 'all' 또는 미지정은 태그 없음
+  if (school === 'taeseong_middle') return '중';
+  if (school === 'taeseong_high') return '고';
+  if (school === 'all') return '공';
+  return '';
 }
 
 /** 개인 일정 접미 태그 */
 export const PERSONAL_SUFFIX = 'P';
 
 /**
- * 공유 일정 작성자 태그 추출.
- * creatorSchool이 있으면 그것 우선, 없으면 event.school fallback (이전 데이터).
+ * 일정의 공유 대상 태그 추출.
+ * v2.0.2부터: 작성자(creatorSchool)가 아니라 scope(school)를 기준으로 표시.
+ * '공통' 일정은 작성자 학교와 무관하게 '공'으로 표시.
  */
 export function getCreatorTag(event: { creatorSchool?: string; school?: string }): string {
-  return getSchoolTag(event.creatorSchool || event.school);
+  return getSchoolTag(event.school);
 }
 
 /**

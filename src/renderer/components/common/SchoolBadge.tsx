@@ -2,17 +2,24 @@ import React from 'react';
 import { SCHOOL_COLORS } from '../../utils/schoolColors';
 
 /**
- * 학교 구분 배지 — 중(M 초록) / 고(H 보라) 색상 구분.
- * 공유 일정 목록/캘린더 뷰 전반에서 일관된 학교 태그 표시에 사용.
+ * 일정의 공유 대상(school scope) 배지.
+ * - 'taeseong_middle' → 중 (초록)
+ * - 'taeseong_high' → 고 (보라)
+ * - 'all' → 공 (파랑)  공통 일정
+ *
+ * 작성자(creatorSchool)가 아니라 일정 자체의 scope를 표시.
  */
 export function SchoolBadge({ school, size = 'sm' }: { school?: string; size?: 'xs' | 'sm' | 'md' }) {
-  if (school !== 'taeseong_middle' && school !== 'taeseong_high') return null;
+  if (school !== 'taeseong_middle' && school !== 'taeseong_high' && school !== 'all') return null;
   const palette = SCHOOL_COLORS[school];
   const sizeStyles = size === 'xs'
     ? { fontSize: 8, padding: '0 3px' }
     : size === 'md'
       ? { fontSize: 10, padding: '1px 6px' }
       : { fontSize: 9, padding: '1px 5px' };
+  const label = school === 'taeseong_middle' ? '중'
+    : school === 'taeseong_high' ? '고'
+    : '공';
   return (
     <span style={{
       display: 'inline-block',
@@ -25,7 +32,7 @@ export function SchoolBadge({ school, size = 'sm' }: { school?: string; size?: '
       lineHeight: 1.4,
       verticalAlign: 'middle',
     }}>
-      {school === 'taeseong_middle' ? '중' : '고'}
+      {label}
     </span>
   );
 }
