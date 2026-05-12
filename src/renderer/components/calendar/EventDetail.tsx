@@ -168,19 +168,18 @@ export function EventDetail() {
       return;
     }
     if (!selectedEvent) return;
-    if (user.status !== 'active') {
-      showToast('승인되지 않은 사용자는 댓글을 작성할 수 없습니다', 'error');
-      return;
-    }
+    // status 검사는 Firestore 규칙에서 처리 — 클라이언트는 막지 않음
     setSendingComment(true);
     try {
-      await addDoc(collection(db, 'events', selectedEvent.id, 'comments'), {
+      const payload = {
         userId: user.id,
-        userName: user.name || '익명',
+        userName: (user.name && user.name.trim()) || '익명',
         userColor: user.profileColor || '#4A90E2',
         text: text.slice(0, 500),
         createdAt: serverTimestamp(),
-      });
+      };
+      console.log('[Comment] Adding:', { eventId: selectedEvent.id, payload });
+      await addDoc(collection(db, 'events', selectedEvent.id, 'comments'), payload);
       // 멘션된 사용자에게 알림 전송
       const mentionedNames = extractMentions(text);
       if (mentionedNames.length > 0) {

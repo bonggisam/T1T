@@ -8,8 +8,10 @@ import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import type { PersonalEvent, CalendarEvent, User } from '@shared/types';
 import { getCreatorTag, PERSONAL_SUFFIX, formatEventTooltip, formatPersonalTooltip, canManageEvent } from '../../utils/calendarHelpers';
 import { SchoolBadge } from '../common/SchoolBadge';
+import { useComciganStore } from '../../store/comciganStore';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const DEFAULT_PERIOD_START_HOURS: Record<number, number> = { 1: 9, 2: 10, 3: 11, 4: 12, 5: 13, 6: 14, 7: 15, 8: 16 };
 
 interface TodayViewProps {
   onAddPersonalEvent?: () => void;
@@ -213,6 +215,13 @@ function DayTimeline({
   const allDayPersonal = personalEvents.filter((pe) => pe.allDay);
   const timedPersonal = personalEvents.filter((pe) => !pe.allDay);
 
+  // 컴시간 시간표 (월=1...금=5)
+  const { getPeriodsForWeekday, timetableData, config: comciganConfig } = useComciganStore();
+  const dayWeekday = date.getDay() === 0 ? 7 : date.getDay();
+  const periodsForDay = (comciganConfig && timetableData && dayWeekday >= 1 && dayWeekday <= 5)
+    ? getPeriodsForWeekday(dayWeekday)
+    : [];
+
   const isToday = isSameDay(date, new Date());
   const [nowMinute, setNowMinute] = useState(() => {
     const now = new Date();
@@ -378,6 +387,38 @@ function DayTimeline({
                     {format(start, 'HH:mm')} – {format(end, 'HH:mm')} · 개인
                   </div>
                 </button>
+              );
+            })}
+
+            {/* 컴시간 시간표 블록 */}
+            {periodsForDay.map((cp) => {
+              const startHour = cp.startTime
+                ? parseInt(cp.startTime.split(':')[0], 10)
+                : DEFAULT_PERIOD_START_HOURS[cp.period] ?? -1;
+              if (startHour < 0 || startHour > 23) return null;
+              const top = startHour * HOUR_HEIGHT;
+              return (
+                <div
+                  key={`cc-${cp.weekday}-${cp.period}-${cp.grade}-${cp.classNum}`}
+                  style={{
+                    position: 'absolute',
+                    left: 2, right: 2,
+                    top,
+                    height: HOUR_HEIGHT - 2,
+                    background: 'rgba(74,144,226,0.12)',
+                    border: '1px dashed rgba(74,144,226,0.5)',
+                    borderRadius: 5,
+                    padding: '3px 6px',
+                    fontSize: 10,
+                    fontWeight: 600,
+                    color: 'var(--text-secondary)',
+                    pointerEvents: 'none',
+                    overflow: 'hidden',
+                  }}
+                  title={`${cp.period}교시 ${cp.grade}학년 ${cp.classNum}반 ${cp.subject}`}
+                >
+                  📚 {cp.period}교시 {cp.subject} ({cp.grade}-{cp.classNum})
+                </div>
               );
             })}
           </div>

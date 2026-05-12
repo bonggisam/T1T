@@ -73,9 +73,9 @@ export function MentionInput({ value, onChange, onSubmit, placeholder, disabled,
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    // 한글 IME 조합 중에는 Enter/Tab 무시 (불완전 텍스트 제출 방지)
-    // nativeEvent.isComposing 또는 keyCode 229 모두 검사
-    if (e.nativeEvent.isComposing || (e as any).keyCode === 229) return;
+    // 한글 IME 조합 중에는 Enter만 무시 (다른 키는 정상 처리)
+    // Enter는 조합 완료 후 별도로 발생하므로 isComposing=true면 안전하게 skip
+    if (e.key === 'Enter' && e.nativeEvent.isComposing) return;
 
     if (mentionQuery !== null && filteredUsers.length > 0) {
       if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIdx((i) => Math.min(i + 1, filteredUsers.length - 1)); return; }

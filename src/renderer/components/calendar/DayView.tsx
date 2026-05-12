@@ -39,7 +39,7 @@ interface DragInfo {
 export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = {}) {
   const { selectedDate, setSelectedDate, setSelectedEvent, setShowEventDetail, setShowEventModal, updateEvent, addEvent } = useCalendarStore();
   const events = useVisibleEvents();
-  const { getPeriodsForWeekday } = useComciganStore();
+  const { getPeriodsForWeekday, timetableData, config: comciganConfig } = useComciganStore();
   const { user } = useAuthStore();
   const { allPersonalEvents, updatePersonalEvent, addPersonalEvent } = usePersonalEventStore();
   const personalEvents = allPersonalEvents();
@@ -111,6 +111,20 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
 
   const allDayEvents = dayEvents.filter((e) => e.allDay);
   const timedEvents = dayEvents.filter((e) => !e.allDay);
+
+  // 컴시간 시간표 — 선택된 날짜의 요일 시간표 (월=1...금=5)
+  const DEFAULT_PERIOD_START_HOURS: Record<number, number> = { 1: 9, 2: 10, 3: 11, 4: 12, 5: 13, 6: 14, 7: 15, 8: 16 };
+  const dayWeekday = selectedDate.getDay() === 0 ? 7 : selectedDate.getDay();
+  const periodsForDay = (comciganConfig && timetableData && dayWeekday >= 1 && dayWeekday <= 5)
+    ? getPeriodsForWeekday(dayWeekday)
+    : [];
+  const periodsByHour = new Map<number, typeof periodsForDay>();
+  for (const p of periodsForDay) {
+    const h = p.startTime ? parseInt(p.startTime.split(':')[0], 10) : DEFAULT_PERIOD_START_HOURS[p.period] ?? -1;
+    if (h < 0 || h > 23) continue;
+    if (!periodsByHour.has(h)) periodsByHour.set(h, []);
+    periodsByHour.get(h)!.push(p);
+  }
 
   function getHourFromMouse(clientY: number): number | null {
     const grid = gridRef.current;
@@ -418,6 +432,23 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
                     </div>
                   );
                 })}
+                {/* 컴시간 시간표 */}
+                {(periodsByHour.get(hour) || []).map((cp) => (
+                  <div
+                    key={`cc-${cp.weekday}-${cp.period}`}
+                    style={{
+                      background: 'rgba(74,144,226,0.15)',
+                      border: '1px dashed rgba(74,144,226,0.5)',
+                      borderRadius: 4,
+                      padding: '2px 6px',
+                      fontSize: 11,
+                      color: 'var(--text-secondary)',
+                    }}
+                    title={`${cp.period}교시 ${cp.grade}-${cp.classNum} ${cp.subject}`}
+                  >
+                    📚 {cp.period}교시 {cp.subject} ({cp.grade}-{cp.classNum})
+                  </div>
+                ))}
               </div>
             </div>
           );
