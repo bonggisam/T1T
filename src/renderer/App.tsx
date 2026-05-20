@@ -15,6 +15,7 @@ import { SettingsPanel } from './components/settings/SettingsPanel';
 import { AdminPanel } from './components/admin/AdminPanel';
 import { PersonalEventModal } from './components/calendar/PersonalEventModal';
 import { TPassView } from './components/tpass/TPassView';
+import { OutingView } from './components/outing/OutingView';
 import { TodosView } from './components/todos/TodosView';
 import { ReservView } from './components/reserv/ReservView';
 import { MealView } from './components/meal/MealView';
@@ -41,6 +42,7 @@ export function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [showPersonalModal, setShowPersonalModal] = useState(false);
   const [showTPass, setShowTPass] = useState(false);
+  const [showOuting, setShowOuting] = useState(false);
   const [showTodos, setShowTodos] = useState(false);
   const [showReserv, setShowReserv] = useState(false);
   const [showMeal, setShowMeal] = useState(false);
@@ -216,7 +218,7 @@ export function App() {
   // 하나의 탭만 활성화되게 다른 모든 탭 닫기
   function closeAllTabs() {
     setShowSettings(false); setShowAdmin(false); setShowTPass(false);
-    setShowTodos(false); setShowReserv(false); setShowMeal(false);
+    setShowOuting(false); setShowTodos(false); setShowReserv(false); setShowMeal(false);
   }
 
   // T1T 로고 클릭 — 모든 탭 닫고 월간 달력으로 이동
@@ -236,6 +238,8 @@ export function App() {
         showAdminBtn={isAdmin}
         onToggleTPass={() => { const next = !showTPass; closeAllTabs(); setShowTPass(next); }}
         showTPass={showTPass}
+        onToggleOuting={() => { const next = !showOuting; closeAllTabs(); setShowOuting(next); }}
+        showOuting={showOuting}
         onToggleTodos={() => { const next = !showTodos; closeAllTabs(); setShowTodos(next); }}
         showTodos={showTodos}
         onToggleReserv={() => { const next = !showReserv; closeAllTabs(); setShowReserv(next); }}
@@ -267,6 +271,8 @@ export function App() {
           <AdminPanel onClose={() => setShowAdmin(false)} />
         ) : showTPass ? (
           <TPassView onBack={() => setShowTPass(false)} />
+        ) : showOuting ? (
+          <OutingView onBack={() => setShowOuting(false)} />
         ) : showTodos ? (
           <TodosView onBack={() => setShowTodos(false)} />
         ) : showReserv ? (

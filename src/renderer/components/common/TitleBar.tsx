@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Calendar, CheckSquare, Building2, UtensilsCrossed, BookOpen,
   Bell, Users, Settings, Sun, Moon, Pin, Minus, X,
-  GraduationCap, School as SchoolIcon, Pencil,
+  GraduationCap, School as SchoolIcon, Pencil, LogOut,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/notificationStore';
@@ -18,6 +18,8 @@ interface TitleBarProps {
   showAdminBtn: boolean;
   onToggleTPass?: () => void;
   showTPass?: boolean;
+  onToggleOuting?: () => void;
+  showOuting?: boolean;
   onToggleTodos?: () => void;
   showTodos?: boolean;
   onToggleReserv?: () => void;
@@ -32,6 +34,7 @@ interface TitleBarProps {
 export function TitleBar({
   onToggleSettings, onToggleAdmin, showSettingsBtn, showAdminBtn,
   onToggleTPass, showTPass,
+  onToggleOuting, showOuting,
   onToggleTodos, showTodos,
   onToggleReserv, showReserv,
   onToggleMeal, showMeal,
@@ -85,6 +88,9 @@ export function TitleBar({
             >
               <span style={styles.tpassIconCompact}>T</span>
             </button>
+          )}
+          {user && onToggleOuting && (
+            <IconBtn Icon={LogOut} active={showOuting} onClick={onToggleOuting} title={showOuting ? '캘린더로' : '학생 외출 신청'} compact />
           )}
           {user && (
             <WidgetSchoolToggle
@@ -162,6 +168,9 @@ export function TitleBar({
               >
                 <span style={styles.tpassIcon}>T</span>
               </button>
+            )}
+            {onToggleOuting && (
+              <IconBtn Icon={LogOut} active={showOuting} onClick={onToggleOuting} title={showOuting ? '캘린더로' : '학생 외출 신청'} />
             )}
             <div style={styles.divider} />
             <IconBtn Icon={BookOpen} active={showTimetable} onClick={toggleTimetable} title={showTimetable ? '시간표 숨기기' : '시간표 보기'} />
