@@ -26,6 +26,7 @@ import { useTodosStore } from './store/todosStore';
 import { useUsersStore } from './store/usersStore';
 import { useUIStore } from './store/uiStore';
 import { useReminder } from './hooks/useReminder';
+import { startNeisAutoSyncScheduler } from './utils/neisSchedule';
 
 type AuthScreen = 'login' | 'signup';
 
@@ -112,6 +113,8 @@ export function App() {
       subscribeToUsers();
       startAutoSync(user.settings?.syncInterval ?? 15);
       loadComcigan();
+      // 매일 오전 7시 학사일정 자동 동기화 (태성중/태성고 양교)
+      const stopNeisSync = startNeisAutoSyncScheduler(user.id, user.name || 'NEIS 자동동기화');
       return () => {
         cleanupEvents();
         cleanupNotifications();
@@ -120,6 +123,7 @@ export function App() {
         cleanupTodos();
         cleanupUsers();
         cleanupComcigan();
+        stopNeisSync();
       };
     }
   }, [user?.id, user?.status]);
