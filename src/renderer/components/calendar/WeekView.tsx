@@ -198,8 +198,6 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
       const hoursDiff = pos.hour - drag.originHour;
       if (daysDiff === 0 && hoursDiff === 0) return;
 
-      console.log('[WeekDrag]', drag.type, drag.eventId, ': day', daysDiff, 'hour', hoursDiff);
-
       if (drag.type === 'shared') {
         const event = eventsRef.current.find((ev) => ev.id === drag.eventId);
         if (!event) return;

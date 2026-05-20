@@ -196,32 +196,28 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
 
       if (daysDiff === 0) return;
 
-      console.log('[Drag]', drag.type, 'event', drag.eventId, ':', drag.originDayStr, '→', targetDayStr, '(', daysDiff, 'days)');
-
       if (drag.type === 'shared') {
         const event = eventsRef.current.find((ev) => ev.id === drag.eventId);
-        if (!event) { console.log('[Drag] Event not found'); return; }
+        if (!event) return;
         try {
           await updateEvent(event.id, {
             startDate: addDays(new Date(event.startDate), daysDiff),
             endDate: addDays(new Date(event.endDate), daysDiff),
           });
-          console.log('[Drag] ✅ Success');
         } catch (err) {
-          console.error('[Drag] ❌ Failed:', err);
+          console.error('[MonthDrag] update failed:', err);
           showToast('일정 이동에 실패했습니다', 'error');
         }
       } else if (drag.type === 'personal' && user) {
         const pe = personalEventsRef.current.find((p) => p.id === drag.eventId);
-        if (!pe) { console.log('[Drag] Personal event not found'); return; }
+        if (!pe) return;
         try {
           await updatePersonalEvent(user.id, pe.id, {
             startDate: addDays(new Date(pe.startDate), daysDiff),
             endDate: addDays(new Date(pe.endDate), daysDiff),
           });
-          console.log('[Drag] ✅ Success');
         } catch (err) {
-          console.error('[Drag] ❌ Failed:', err);
+          console.error('[MonthDrag] personal update failed:', err);
           showToast('일정 이동에 실패했습니다', 'error');
         }
       }

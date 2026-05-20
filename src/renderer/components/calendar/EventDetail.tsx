@@ -178,7 +178,6 @@ export function EventDetail() {
         text: text.slice(0, 500),
         createdAt: serverTimestamp(),
       };
-      console.log('[Comment] Adding:', { eventId: selectedEvent.id, payload });
       await addDoc(collection(db, 'events', selectedEvent.id, 'comments'), payload);
       // 멘션된 사용자에게 알림 전송
       const mentionedNames = extractMentions(text);

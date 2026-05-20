@@ -99,34 +99,13 @@ class ComciganService {
 
     try {
       const data = await this.timetable.getTimetable();
-      console.log('[Comcigan] Raw timetable grades:', Object.keys(data));
-      // Log sample of first grade first class to debug structure
-      for (const grade of Object.keys(data)) {
-        const g = data[grade];
-        if (typeof g === 'object' && g) {
-          const classes = Object.keys(g);
-          if (classes.length > 0) {
-            const firstClass = g[classes[0]];
-            if (firstClass) {
-              console.log(`[Comcigan] Grade ${grade}, class ${classes[0]}, days:`, Object.keys(firstClass));
-              const dayKeys = Object.keys(firstClass);
-              if (dayKeys.length > 0) {
-                const dayData = firstClass[dayKeys[0]];
-                if (Array.isArray(dayData) && dayData.length > 0) {
-                  console.log(`[Comcigan] Sample cell (grade ${grade}, class ${classes[0]}, day ${dayKeys[0]}):`, JSON.stringify(dayData[0]));
-                }
-              }
-            }
-          }
-        }
-        break; // Only log first grade
-      }
 
       let classTimes: string[] = [];
       try {
         classTimes = await this.timetable.getClassTime();
-        console.log('[Comcigan] classTimes:', classTimes);
-      } catch {}
+      } catch (e) {
+        console.warn('[Comcigan] getClassTime failed:', e);
+      }
 
       const schedule = this.extractTeacherSchedule(data, this.config.teacherName, classTimes);
 
@@ -218,7 +197,6 @@ class ComciganService {
 
     // Sort by weekday, then period
     deduplicated.sort((a, b) => a.weekday - b.weekday || a.period - b.period);
-    console.log(`[Comcigan] Extracted ${deduplicated.length} periods for teacher "${teacherName}" (${namePrefix})`);
     return deduplicated;
   }
 
