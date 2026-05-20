@@ -1,4 +1,5 @@
-import { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, screen, type NativeImage } from 'electron';
+import { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, screen, shell, type NativeImage } from 'electron';
+import * as http from 'http';
 import { autoUpdater } from 'electron-updater';
 import * as path from 'path';
 import { comciganService } from './comcigan';
@@ -302,82 +303,88 @@ function setupAutoUpdater(): void {
   }, 30 * 60 * 1000);
 }
 
-// Google Calendar OAuth IPC
+// Google Calendar OAuth IPC — Loopback HTTP server + external browser
+// Google이 2021년부터 embedded webview 차단 (disallowed_useragent 에러)
+// 표준 OAuth 2.0 for Native Apps (RFC 8252) 방식: localhost 서버 + 시스템 브라우저
 function setupGoogleAuthIPC(): void {
-  // OAuth Client ID 환경변수 필수 — 없으면 경고 로그만 출력하고 플로우 시작 시 에러 반환
   const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID
     || '607193357118-cu3ldm1e22re43un4bhc6p5j2e221kpk.apps.googleusercontent.com';
-  const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI
-    || 'http://localhost/auth/google/callback';
-  const SCOPES = 'https://www.googleapis.com/auth/calendar'; // 읽기+쓰기 (양방향 동기화)
+  const SCOPES = 'https://www.googleapis.com/auth/calendar';
 
   if (!process.env.GOOGLE_CLIENT_ID) {
-    console.warn('[GoogleAuth] GOOGLE_CLIENT_ID 환경변수 미설정 — 기본 개발 Client ID 사용. 프로덕션 배포 시 .env 에 설정하세요.');
+    console.warn('[GoogleAuth] GOOGLE_CLIENT_ID 환경변수 미설정 — 기본 개발 Client ID 사용.');
   }
 
   ipcMain.handle('google:auth', () => {
-    return new Promise<{ access_token: string; expires_in: number } | null>((resolve) => {
-      const authWindow = new BrowserWindow({
-        width: 500,
-        height: 650,
-        show: true,
-        webPreferences: {
-          nodeIntegration: false,
-          contextIsolation: true,
-        },
-      });
-
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-        `client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}&` +
-        `redirect_uri=${encodeURIComponent(REDIRECT_URI)}&` +
-        `response_type=token&` +
-        `scope=${encodeURIComponent(SCOPES)}&` +
-        `prompt=consent`;
-
-      authWindow.loadURL(authUrl);
-
-      authWindow.webContents.on('will-redirect', (_event, url) => {
+    return new Promise<{ access_token: string; expires_in: number } | null>(async (resolve) => {
+      // 1) 임시 HTTP 서버 (포트 0 = OS 할당)
+      let port = 0;
+      const server = http.createServer((req, res) => {
         try {
-          if (url.startsWith(REDIRECT_URI)) {
-            const hash = new URL(url).hash.substring(1);
-            const params = new URLSearchParams(hash);
-            const token = params.get('access_token');
-            const expiresIn = parseInt(params.get('expires_in') || '3600');
+          if (!req.url) { res.writeHead(400); res.end(); return; }
+          const u = new URL(req.url, `http://127.0.0.1:${port}`);
+          // 콜백 페이지: JS로 fragment(#access_token=...)를 query로 전송
+          if (u.pathname === '/callback') {
+            // implicit flow → 토큰이 fragment(#)에 옴 → JS로 query로 전환
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>T1T 인증</title>
+              <style>body{font-family:-apple-system,sans-serif;text-align:center;padding:48px;background:#f5f5f7;color:#1d1d1f}h2{margin-bottom:8px}p{color:#86868b}</style></head>
+              <body><h2>✅ Google Calendar 연동 완료</h2><p>이 창은 자동으로 닫힙니다.</p>
+              <script>
+                const h = location.hash.substring(1);
+                if (h) { fetch('/token?'+h).then(()=>setTimeout(()=>window.close(),800)); }
+                else { document.body.innerHTML='<h2>❌ 인증 실패</h2><p>로그인을 완료하지 못했습니다.</p>'; }
+              </script></body></html>`);
+            return;
+          }
+          if (u.pathname === '/token') {
+            const token = u.searchParams.get('access_token');
+            const expiresIn = parseInt(u.searchParams.get('expires_in') || '3600');
+            res.writeHead(204);
+            res.end();
             if (token) {
               resolve({ access_token: token, expires_in: expiresIn });
             } else {
               resolve(null);
             }
-            authWindow.close();
+            // 짧은 지연 후 서버 종료
+            setTimeout(() => server.close(), 1000);
+            return;
           }
-        } catch {
-          resolve(null);
-          authWindow.close();
-        }
-      });
-
-      authWindow.webContents.on('will-navigate', (_event, url) => {
-        try {
-          if (url.startsWith(REDIRECT_URI)) {
-            const hash = new URL(url).hash.substring(1);
-            const params = new URLSearchParams(hash);
-            const token = params.get('access_token');
-            const expiresIn = parseInt(params.get('expires_in') || '3600');
-            if (token) {
-              resolve({ access_token: token, expires_in: expiresIn });
-            } else {
-              resolve(null);
-            }
-            authWindow.close();
-          }
+          res.writeHead(404);
+          res.end();
         } catch (err) {
-          console.warn('[GoogleAuth] will-navigate parse failed:', err);
+          console.warn('[GoogleAuth] server error:', err);
+          res.writeHead(500); res.end();
         }
       });
 
-      authWindow.on('closed', () => {
-        resolve(null);
+      server.listen(0, '127.0.0.1', () => {
+        const addr = server.address();
+        if (typeof addr === 'object' && addr) {
+          port = addr.port;
+          const redirectUri = `http://127.0.0.1:${port}/callback`;
+          const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+            `client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}&` +
+            `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+            `response_type=token&` +
+            `scope=${encodeURIComponent(SCOPES)}&` +
+            `prompt=consent`;
+          console.log('[GoogleAuth] Opening external browser for OAuth, redirect:', redirectUri);
+          // 시스템 기본 브라우저로 열기 (Google이 신뢰)
+          shell.openExternal(authUrl).catch((err) => {
+            console.error('[GoogleAuth] openExternal failed:', err);
+            resolve(null);
+            server.close();
+          });
+        }
       });
+
+      // 5분 후 타임아웃
+      setTimeout(() => {
+        try { server.close(); } catch {}
+        resolve(null);
+      }, 5 * 60 * 1000);
     });
   });
 }
