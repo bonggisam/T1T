@@ -211,6 +211,15 @@ export interface ElectronAPI {
   onUpdaterEvent: (callback: (channel: string, data: any) => void) => () => void;
   // Google Calendar
   googleAuth: () => Promise<{ access_token: string; expires_in: number } | null>;
+  // School website scraper
+  schoolFetchSchedule: (schoolKey: string) => Promise<{
+    events: Array<{ startDate: string; endDate: string; title: string; seq: string }>;
+  }>;
+  schoolFetchMeal: (schoolKey: string, dateYMD?: string) => Promise<{
+    weekStart: string;
+    weekEnd: string;
+    days: Array<{ date: string; weekday: string; menu: string[]; calorie: string }>;
+  }>;
   // Comcigan
   comciganSearch: (name: string) => Promise<ComciganSchool[]>;
   comciganConfigure: (config: ComciganConfig) => Promise<void>;

@@ -27,6 +27,7 @@ import { useUsersStore } from './store/usersStore';
 import { useUIStore } from './store/uiStore';
 import { useReminder } from './hooks/useReminder';
 import { ScheduleView } from './components/schedule/ScheduleView';
+import { startSchoolScheduleAutoSync } from './utils/schoolScheduleSync';
 
 type AuthScreen = 'login' | 'signup';
 
@@ -118,6 +119,8 @@ export function App() {
       subscribeToUsers();
       startAutoSync(user.settings?.syncInterval ?? 15);
       loadComcigan();
+      // 학교 홈페이지 학사일정 자동 동기화 (매일 오전 7시)
+      const stopSchoolSync = startSchoolScheduleAutoSync(user.id, user.name || '학사일정 자동동기화');
       return () => {
         cleanupEvents();
         cleanupNotifications();
@@ -126,6 +129,7 @@ export function App() {
         cleanupTodos();
         cleanupUsers();
         cleanupComcigan();
+        stopSchoolSync();
       };
     }
   }, [user?.id, user?.status]);

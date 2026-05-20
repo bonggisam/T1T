@@ -44,6 +44,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Google Calendar OAuth
   googleAuth: () => ipcRenderer.invoke('google:auth'),
 
+  // School website scraper (학사일정 + 급식)
+  schoolFetchSchedule: (schoolKey: string): Promise<{ events: Array<{ startDate: string; endDate: string; title: string; seq: string }> }> => ipcRenderer.invoke('school:fetchSchedule', schoolKey),
+  schoolFetchMeal: (schoolKey: string, dateYMD?: string): Promise<{ weekStart: string; weekEnd: string; days: Array<{ date: string; weekday: string; menu: string[]; calorie: string }> }> => ipcRenderer.invoke('school:fetchMeal', schoolKey, dateYMD),
+
   // Comcigan
   comciganSearch: (name: string): Promise<ComciganSchool[]> => ipcRenderer.invoke('comcigan:search', name),
   comciganConfigure: (config: ComciganConfig): Promise<void> => ipcRenderer.invoke('comcigan:configure', config),

@@ -389,6 +389,28 @@ function setupGoogleAuthIPC(): void {
   });
 }
 
+// School website scraper IPC (학사일정 + 급식)
+function setupSchoolScrapeIPC(): void {
+  const { fetchSchoolSchedule, fetchSchoolMeal } = require('./schoolScrape');
+
+  ipcMain.handle('school:fetchSchedule', async (_event, schoolKey: string) => {
+    if (schoolKey !== 'taeseong_middle' && schoolKey !== 'taeseong_high') {
+      throw new Error('Invalid school key');
+    }
+    return fetchSchoolSchedule(schoolKey);
+  });
+
+  ipcMain.handle('school:fetchMeal', async (_event, schoolKey: string, dateYMD?: string) => {
+    if (schoolKey !== 'taeseong_middle' && schoolKey !== 'taeseong_high') {
+      throw new Error('Invalid school key');
+    }
+    if (dateYMD && !/^\d{8}$/.test(dateYMD)) {
+      throw new Error('Invalid date format (expected YYYYMMDD)');
+    }
+    return fetchSchoolMeal(schoolKey, dateYMD);
+  });
+}
+
 // Comcigan IPC
 function setupComciganIPC(): void {
   ipcMain.handle('comcigan:search', async (_event, name: string) => {
@@ -429,6 +451,7 @@ app.whenReady().then(() => {
   setupIPC();
   setupGoogleAuthIPC();
   setupComciganIPC();
+  setupSchoolScrapeIPC();
   setupAutoUpdater();
 
   // Initialize comcigan service
