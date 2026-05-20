@@ -5,7 +5,7 @@ import React, { useState, useRef, useEffect } from 'react';
  * 기본 URL은 TPass와 동일하나 localStorage 'tonet-outing-url' 로 학교별 외출 신청 페이지로 변경 가능.
  * 설정 → 외출 신청 URL 항목에서 변경 (또는 콘솔에서 localStorage.setItem('tonet-outing-url', '...') )
  */
-const DEFAULT_OUTING_URL = 'https://script.google.com/macros/s/AKfycbzAkY37jTDVAeUfmPtA9uMjyle0pAH3_vFyqTal7RbF0dX_-ATYuALGEWH0O1NWdjT3/exec';
+const DEFAULT_OUTING_URL = 'https://docs.google.com/spreadsheets/d/1nDKEyspMHUHglbCZECpm_1_GAwzMSm7bXC2jM5KPRYY/edit?gid=721661329#gid=721661329';
 const STORAGE_KEY = 'tonet-outing-url';
 
 function getOutingUrl(): string {
