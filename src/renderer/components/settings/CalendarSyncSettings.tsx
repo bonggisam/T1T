@@ -72,16 +72,6 @@ export function CalendarSyncSettings({ syncInterval, onSyncIntervalChange }: Cal
         </div>
       </div>
 
-      {/* Upcoming providers */}
-      {['🍎 Apple Calendar', '📧 Outlook'].map((name) => (
-        <div key={name} style={styles.providerRow}>
-          <div style={styles.providerInfo}>
-            <span style={styles.providerName}>{name}</span>
-          </div>
-          <span style={styles.comingSoon}>준비 중</span>
-        </div>
-      ))}
-
       {error && <p style={styles.error}>{error}</p>}
 
       {/* Sync interval */}
@@ -156,11 +146,6 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'transparent',
     color: 'var(--danger)',
     cursor: 'pointer',
-  },
-  comingSoon: {
-    fontSize: 10,
-    color: 'var(--text-muted)',
-    fontStyle: 'italic',
   },
   error: {
     fontSize: 10,
