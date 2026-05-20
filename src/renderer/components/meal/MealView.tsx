@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useAuthStore } from '../../store/authStore';
+import type { School } from '@shared/types';
 
 import { getNeisConfig, setNeisConfig } from '../../utils/neisSchedule';
 
@@ -15,20 +16,28 @@ interface MealViewProps {
   onBack: () => void;
 }
 
+const SCHOOL_OPTIONS: { key: School; label: string; icon: string }[] = [
+  { key: 'taeseong_middle', label: '태성중', icon: '🏫' },
+  { key: 'taeseong_high', label: '태성고', icon: '🎓' },
+];
+
 export function MealView({ onBack }: MealViewProps) {
   const { user } = useAuthStore();
+  // 본인 학교가 유효하면 본인 학교, 아니면 태성중 기본
+  const defaultSchool: School = (user?.school === 'taeseong_middle' || user?.school === 'taeseong_high')
+    ? user.school : 'taeseong_middle';
+  const [selectedSchool, setSelectedSchool] = useState<School>(defaultSchool);
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [meals, setMeals] = useState<MealInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showSetup, setShowSetup] = useState(false);
   const [eduCode, setEduCode] = useState('');
   const [schoolCode, setSchoolCode] = useState('');
   const [configVersion, setConfigVersion] = useState(0); // NEIS 설정 변경 시 재로드 트리거
 
   const schoolConfig = useMemo(
-    () => (user?.school ? getNeisConfig(user.school) : null),
-    [user?.school, configVersion],
+    () => getNeisConfig(selectedSchool),
+    [selectedSchool, configVersion],
   );
 
   const weekDays = useMemo(() => {
@@ -38,19 +47,19 @@ export function MealView({ onBack }: MealViewProps) {
   useEffect(() => {
     if (!schoolConfig) return;
     fetchMeals();
-  }, [weekStart, user?.school, configVersion]);
+  }, [weekStart, selectedSchool, configVersion]);
 
   // 다른 컴포넌트에서 NEIS 설정 변경 시 자동 재로드
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail;
-      if (detail?.schoolKey === user?.school) {
+      if (detail?.schoolKey === selectedSchool) {
         setConfigVersion((v) => v + 1);
       }
     };
     window.addEventListener('neis:config-changed', handler);
     return () => window.removeEventListener('neis:config-changed', handler);
-  }, [user?.school]);
+  }, [selectedSchool]);
 
   async function fetchMeals() {
     if (!schoolConfig) return;
@@ -107,7 +116,23 @@ export function MealView({ onBack }: MealViewProps) {
     <div className="animate-fade-in" style={styles.container}>
       <div style={styles.header}>
         <h3 style={styles.title}>🍱 급식 메뉴</h3>
-        <button onClick={onBack} style={styles.closeBtn}>✕</button>
+        <button onClick={onBack} style={styles.closeBtn} aria-label="닫기">✕</button>
+      </div>
+
+      {/* 학교 토글 */}
+      <div style={styles.schoolToggle}>
+        {SCHOOL_OPTIONS.map((s) => (
+          <button
+            key={s.key}
+            onClick={() => setSelectedSchool(s.key)}
+            style={{
+              ...styles.schoolBtn,
+              ...(selectedSchool === s.key ? styles.schoolBtnActive : {}),
+            }}
+          >
+            {s.icon} {s.label}
+          </button>
+        ))}
       </div>
 
       {/* 네비게이션 */}
@@ -140,8 +165,8 @@ export function MealView({ onBack }: MealViewProps) {
           />
           <button
             onClick={() => {
-              if (!eduCode.trim() || !schoolCode.trim() || !user?.school) return;
-              setNeisConfig(user.school, { education: eduCode.trim(), school: schoolCode.trim() });
+              if (!eduCode.trim() || !schoolCode.trim()) return;
+              setNeisConfig(selectedSchool, { education: eduCode.trim(), school: schoolCode.trim() });
               setEduCode('');
               setSchoolCode('');
               setConfigVersion((v) => v + 1); // 재로드 트리거
@@ -193,6 +218,31 @@ const styles: Record<string, React.CSSProperties> = {
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0' },
   title: { fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' },
   closeBtn: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text-muted)' },
+  schoolToggle: {
+    display: 'flex',
+    gap: 6,
+    padding: '4px 0 8px',
+    borderBottom: '1px solid var(--border-subtle)',
+    marginBottom: 8,
+  },
+  schoolBtn: {
+    flex: 1,
+    padding: '6px 10px',
+    fontSize: 12,
+    fontWeight: 600,
+    border: '1px solid var(--border-color)',
+    borderRadius: 8,
+    background: 'var(--bg-secondary)',
+    color: 'var(--text-secondary)',
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+  },
+  schoolBtnActive: {
+    background: 'var(--accent)',
+    color: '#fff',
+    border: '1px solid transparent',
+    fontWeight: 700,
+  },
   nav: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     padding: '8px 0', marginBottom: 8, gap: 8,
