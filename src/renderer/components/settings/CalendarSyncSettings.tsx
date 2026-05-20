@@ -33,10 +33,12 @@ export function CalendarSyncSettings({ syncInterval, onSyncIntervalChange }: Cal
       if (ok) {
         syncExternalCalendars();
       } else {
-        setError('Google 연동 실패. Client ID가 설정되지 않았을 수 있습니다.');
+        setError('Google 연동 실패. 시스템 브라우저에서 로그인을 완료했는지 확인해주세요. (5분 이내)');
       }
     } catch (err: any) {
-      setError(err?.message || '연동 중 오류 발생');
+      const msg = err?.message || '연동 중 오류 발생';
+      console.error('[GoogleAuth] connect failed:', err);
+      setError(msg);
     }
     setConnecting(false);
   }

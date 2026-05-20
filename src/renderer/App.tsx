@@ -26,7 +26,7 @@ import { useTodosStore } from './store/todosStore';
 import { useUsersStore } from './store/usersStore';
 import { useUIStore } from './store/uiStore';
 import { useReminder } from './hooks/useReminder';
-import { startNeisAutoSyncScheduler } from './utils/neisSchedule';
+import { ScheduleView } from './components/schedule/ScheduleView';
 
 type AuthScreen = 'login' | 'signup';
 
@@ -39,14 +39,19 @@ export function App() {
   const { subscribeToTodos, cleanup: cleanupTodos } = useTodosStore();
   const { subscribeToUsers, cleanup: cleanupUsers } = useUsersStore();
   const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
-  const [showSettings, setShowSettings] = useState(false);
-  const [showAdmin, setShowAdmin] = useState(false);
+  // 단일 activeTab 상태 — 한 번에 하나의 탭만 활성, race condition 제거
+  type Tab = null | 'settings' | 'admin' | 'tpass' | 'outing' | 'todos' | 'reserv' | 'meal' | 'schedule';
+  const [activeTab, setActiveTab] = useState<Tab>(null);
   const [showPersonalModal, setShowPersonalModal] = useState(false);
-  const [showTPass, setShowTPass] = useState(false);
-  const [showOuting, setShowOuting] = useState(false);
-  const [showTodos, setShowTodos] = useState(false);
-  const [showReserv, setShowReserv] = useState(false);
-  const [showMeal, setShowMeal] = useState(false);
+  const showSettings = activeTab === 'settings';
+  const showAdmin = activeTab === 'admin';
+  const showTPass = activeTab === 'tpass';
+  const showOuting = activeTab === 'outing';
+  const showTodos = activeTab === 'todos';
+  const showReserv = activeTab === 'reserv';
+  const showMeal = activeTab === 'meal';
+  const showSchedule = activeTab === 'schedule';
+  const toggle = (tab: Exclude<Tab, null>) => setActiveTab((cur) => cur === tab ? null : tab);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
@@ -113,8 +118,6 @@ export function App() {
       subscribeToUsers();
       startAutoSync(user.settings?.syncInterval ?? 15);
       loadComcigan();
-      // 매일 오전 7시 학사일정 자동 동기화 (태성중/태성고 양교)
-      const stopNeisSync = startNeisAutoSyncScheduler(user.id, user.name || 'NEIS 자동동기화');
       return () => {
         cleanupEvents();
         cleanupNotifications();
@@ -123,7 +126,6 @@ export function App() {
         cleanupTodos();
         cleanupUsers();
         cleanupComcigan();
-        stopNeisSync();
       };
     }
   }, [user?.id, user?.status]);
@@ -219,15 +221,9 @@ export function App() {
 
   const isAdmin = user.role === 'admin' || user.role === 'super_admin';
 
-  // 하나의 탭만 활성화되게 다른 모든 탭 닫기
-  function closeAllTabs() {
-    setShowSettings(false); setShowAdmin(false); setShowTPass(false);
-    setShowOuting(false); setShowTodos(false); setShowReserv(false); setShowMeal(false);
-  }
-
   // T1T 로고 클릭 — 모든 탭 닫고 월간 달력으로 이동
   function goHome() {
-    closeAllTabs();
+    setActiveTab(null);
     useCalendarStore.getState().setView('month');
     useCalendarStore.getState().setCurrentMonth(new Date());
     useCalendarStore.getState().setSelectedDate(new Date());
@@ -236,20 +232,22 @@ export function App() {
   return (
     <div className="glass" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <TitleBar
-        onToggleSettings={() => { const next = !showSettings; closeAllTabs(); setShowSettings(next); }}
-        onToggleAdmin={() => { const next = !showAdmin; closeAllTabs(); setShowAdmin(next); }}
+        onToggleSettings={() => toggle('settings')}
+        onToggleAdmin={() => toggle('admin')}
         showSettingsBtn={true}
         showAdminBtn={isAdmin}
-        onToggleTPass={() => { const next = !showTPass; closeAllTabs(); setShowTPass(next); }}
+        onToggleTPass={() => toggle('tpass')}
         showTPass={showTPass}
-        onToggleOuting={() => { const next = !showOuting; closeAllTabs(); setShowOuting(next); }}
+        onToggleOuting={() => toggle('outing')}
         showOuting={showOuting}
-        onToggleTodos={() => { const next = !showTodos; closeAllTabs(); setShowTodos(next); }}
+        onToggleTodos={() => toggle('todos')}
         showTodos={showTodos}
-        onToggleReserv={() => { const next = !showReserv; closeAllTabs(); setShowReserv(next); }}
+        onToggleReserv={() => toggle('reserv')}
         showReserv={showReserv}
-        onToggleMeal={() => { const next = !showMeal; closeAllTabs(); setShowMeal(next); }}
+        onToggleMeal={() => toggle('meal')}
         showMeal={showMeal}
+        onToggleSchedule={() => toggle('schedule')}
+        showSchedule={showSchedule}
         theme={theme}
         onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         onGoHome={goHome}
@@ -270,19 +268,21 @@ export function App() {
       )}
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         {showSettings ? (
-          <SettingsPanel onClose={() => setShowSettings(false)} theme={theme} setTheme={setTheme} />
+          <SettingsPanel onClose={() => setActiveTab(null)} theme={theme} setTheme={setTheme} />
         ) : showAdmin ? (
-          <AdminPanel onClose={() => setShowAdmin(false)} />
+          <AdminPanel onClose={() => setActiveTab(null)} />
         ) : showTPass ? (
-          <TPassView onBack={() => setShowTPass(false)} />
+          <TPassView onBack={() => setActiveTab(null)} />
         ) : showOuting ? (
-          <OutingView onBack={() => setShowOuting(false)} />
+          <OutingView onBack={() => setActiveTab(null)} />
         ) : showTodos ? (
-          <TodosView onBack={() => setShowTodos(false)} />
+          <TodosView onBack={() => setActiveTab(null)} />
         ) : showReserv ? (
-          <ReservView onBack={() => setShowReserv(false)} />
+          <ReservView onBack={() => setActiveTab(null)} />
         ) : showMeal ? (
-          <MealView onBack={() => setShowMeal(false)} />
+          <MealView onBack={() => setActiveTab(null)} />
+        ) : showSchedule ? (
+          <ScheduleView onBack={() => setActiveTab(null)} />
         ) : (
           <Calendar onAddPersonalEvent={() => setShowPersonalModal(true)} />
         )}

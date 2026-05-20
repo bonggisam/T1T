@@ -3,13 +3,13 @@ import { useAuthStore } from '../../store/authStore';
 import type { School } from '@shared/types';
 
 /**
- * 급식 메뉴 — 학교 홈페이지 webview.
- * 태성중: https://taesung-m.goeyi.kr/taesung-m/ad/fm/foodmenu/selectFoodMenuView.do?mi=4651
- * 태성고: https://taesung-h.goeyi.kr/taesung-h/ad/fm/foodmenu/selectFoodMenuView.do?mi=14280
+ * 학사일정 — 학교 홈페이지 webview (NEIS 미사용).
+ * 태성중: https://taesung-m.goeyi.kr/taesung-m/ps/schdul/selectSchdulMainList.do?mi=4372
+ * 태성고: https://taesung-h.goeyi.kr/taesung-h/ps/schdul/selectSchdulMainList.do?mi=14259
  */
-const MEAL_URLS: Record<School, string> = {
-  taeseong_middle: 'https://taesung-m.goeyi.kr/taesung-m/ad/fm/foodmenu/selectFoodMenuView.do?mi=4651',
-  taeseong_high: 'https://taesung-h.goeyi.kr/taesung-h/ad/fm/foodmenu/selectFoodMenuView.do?mi=14280',
+const SCHEDULE_URLS: Record<School, string> = {
+  taeseong_middle: 'https://taesung-m.goeyi.kr/taesung-m/ps/schdul/selectSchdulMainList.do?mi=4372',
+  taeseong_high: 'https://taesung-h.goeyi.kr/taesung-h/ps/schdul/selectSchdulMainList.do?mi=14259',
 };
 
 const SCHOOL_OPTIONS: { key: School; label: string; icon: string }[] = [
@@ -17,13 +17,12 @@ const SCHOOL_OPTIONS: { key: School; label: string; icon: string }[] = [
   { key: 'taeseong_high', label: '태성고', icon: '🎓' },
 ];
 
-interface MealViewProps {
+interface ScheduleViewProps {
   onBack: () => void;
 }
 
-export function MealView({ onBack }: MealViewProps) {
+export function ScheduleView({ onBack }: ScheduleViewProps) {
   const { user } = useAuthStore();
-  // 본인 학교 기본, 없으면 태성중
   const defaultSchool: School = (user?.school === 'taeseong_middle' || user?.school === 'taeseong_high')
     ? user.school : 'taeseong_middle';
   const [selectedSchool, setSelectedSchool] = useState<School>(defaultSchool);
@@ -34,7 +33,6 @@ export function MealView({ onBack }: MealViewProps) {
   useEffect(() => {
     const container = webviewContainerRef.current;
     if (!container) return;
-    // 기존 webview 정리
     container.innerHTML = '';
 
     let mounted = true;
@@ -43,10 +41,10 @@ export function MealView({ onBack }: MealViewProps) {
     const onFailLoad = () => { if (mounted) setLoading(false); };
 
     const webview = document.createElement('webview');
-    webview.setAttribute('src', MEAL_URLS[selectedSchool]);
+    webview.setAttribute('src', SCHEDULE_URLS[selectedSchool]);
     webview.setAttribute('style', 'width: 100%; height: 100%;');
     webview.setAttribute('allowpopups', '');
-    webview.setAttribute('partition', 'persist:meal');
+    webview.setAttribute('partition', 'persist:schedule');
     webview.setAttribute('webpreferences', 'contextIsolation=yes, nodeIntegration=no, sandbox=yes');
     webview.addEventListener('did-start-loading', onStartLoad);
     webview.addEventListener('did-stop-loading', onStopLoad);
@@ -78,13 +76,12 @@ export function MealView({ onBack }: MealViewProps) {
         <button onClick={onBack} style={styles.backBtn} title="캘린더로 돌아가기">
           📅 캘린더
         </button>
-        <span style={styles.label}>🍱 급식 메뉴</span>
+        <span style={styles.label}>📚 학사일정</span>
         <button onClick={handleRefresh} style={styles.iconBtn} title="새로고침" aria-label="새로고침">
           🔄
         </button>
       </div>
 
-      {/* 학교 토글 */}
       <div style={styles.schoolToggle}>
         {SCHOOL_OPTIONS.map((s) => (
           <button
