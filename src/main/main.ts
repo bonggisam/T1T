@@ -1,9 +1,17 @@
 import { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, screen, shell, type NativeImage } from 'electron';
 import * as http from 'http';
 import * as crypto from 'crypto';
-import { autoUpdater } from 'electron-updater';
 import * as path from 'path';
+import * as dotenv from 'dotenv';
+import { autoUpdater } from 'electron-updater';
 import { comciganService } from './comcigan';
+
+// .env 파일 로드 — 개발: 프로젝트 루트, 프로덕션: resources 폴더
+// app.isPackaged는 app이 import된 후라 함수 호출 시점에 결정되므로 두 경로 모두 시도
+const devEnvPath = path.join(__dirname, '../../.env');
+const prodEnvPath = path.join(process.resourcesPath || '', '.env');
+dotenv.config({ path: devEnvPath });
+dotenv.config({ path: prodEnvPath });
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -308,15 +316,14 @@ function setupAutoUpdater(): void {
 // Desktop 클라이언트는 implicit flow(response_type=token) 미지원 → Code+PKCE 사용
 // 시스템 브라우저로 인증 → 로컬 서버가 code 받음 → token endpoint로 교환
 function setupGoogleAuthIPC(): void {
-  const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID
-    || '607193357118-eb152l89b7e5eh6fkquvu1olm2i8hc00.apps.googleusercontent.com';
-  // Desktop 앱 client_secret — Google 가이드 상 desktop 클라이언트는 secret이 사실상 노출되어도 무방
-  // (env로 오버라이드 가능, 기본값 없음 — 없으면 PKCE only로 시도)
+  // OAuth 자격증명은 .env 파일에서 빌드 타임에 주입됨
+  // (GitHub Push Protection이 비밀 커밋 차단 — Desktop 앱이라도 public repo에는 임베드 불가)
+  const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
   const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
   const SCOPES = 'https://www.googleapis.com/auth/calendar';
 
-  if (!process.env.GOOGLE_CLIENT_ID) {
-    console.warn('[GoogleAuth] GOOGLE_CLIENT_ID 환경변수 미설정 — 기본 Client ID 사용.');
+  if (!GOOGLE_CLIENT_ID) {
+    console.error('[GoogleAuth] GOOGLE_CLIENT_ID 미설정 — Google Calendar 연동 불가. .env 파일 확인 필요.');
   }
 
   // PKCE 헬퍼

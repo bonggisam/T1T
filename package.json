@@ -1,6 +1,6 @@
 {
   "name": "t1t",
-  "version": "2.3.4",
+  "version": "2.3.5",
   "description": "T1T - 학교 일정 공유 시스템",
   "main": "dist/main/main.js",
   "scripts": {
@@ -17,6 +17,7 @@
   "dependencies": {
     "comcigan-parser": "^1.0.0",
     "date-fns": "^3.3.1",
+    "dotenv": "^17.4.2",
     "electron-store": "^8.2.0",
     "electron-updater": "^6.1.8",
     "firebase": "^10.8.0",
@@ -49,15 +50,27 @@
       "assets/**/*",
       "node_modules/comcigan-parser/**/*"
     ],
+    "extraResources": [
+      {
+        "from": ".env",
+        "to": ".env"
+      }
+    ],
     "mac": {
       "target": [
         {
           "target": "dmg",
-          "arch": ["arm64", "x64"]
+          "arch": [
+            "arm64",
+            "x64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["arm64", "x64"]
+          "arch": [
+            "arm64",
+            "x64"
+          ]
         }
       ],
       "identity": "-",
