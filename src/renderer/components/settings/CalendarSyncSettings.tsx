@@ -28,17 +28,16 @@ export function CalendarSyncSettings({ syncInterval, onSyncIntervalChange }: Cal
     setConnecting(true);
     setError('');
     try {
-      const ok = await connectGoogle();
-      setGoogleConnected(ok);
-      if (ok) {
+      const res = await connectGoogle();
+      setGoogleConnected(res.success);
+      if (res.success) {
         syncExternalCalendars();
       } else {
-        setError('Google 연동 실패. 시스템 브라우저에서 로그인을 완료했는지 확인해주세요. (5분 이내)');
+        setError(res.error || 'Google 연동 실패 — 콘솔 로그 참조');
       }
     } catch (err: any) {
-      const msg = err?.message || '연동 중 오류 발생';
       console.error('[GoogleAuth] connect failed:', err);
-      setError(msg);
+      setError(err?.message || '연동 중 오류 발생');
     }
     setConnecting(false);
   }

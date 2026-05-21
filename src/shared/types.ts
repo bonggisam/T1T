@@ -210,7 +210,7 @@ export interface ElectronAPI {
   getAppVersion: () => Promise<string>;
   onUpdaterEvent: (callback: (channel: string, data: any) => void) => () => void;
   // Google Calendar
-  googleAuth: () => Promise<{ access_token: string; expires_in: number } | null>;
+  googleAuth: () => Promise<{ access_token: string; expires_in: number } | { error: string }>;
   // School website scraper
   schoolFetchSchedule: (schoolKey: string) => Promise<{
     events: Array<{ startDate: string; endDate: string; title: string; seq: string }>;

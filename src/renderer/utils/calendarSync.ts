@@ -25,21 +25,23 @@ export function isGoogleConnected(): boolean {
  * Google OAuth via Electron main process BrowserWindow.
  * Opens a native window for login, captures token on redirect.
  */
-export async function connectGoogle(): Promise<boolean> {
+export async function connectGoogle(): Promise<{ success: boolean; error?: string }> {
   try {
     const result = await window.electronAPI?.googleAuth();
-    if (result && result.access_token) {
-      googleTokens = {
-        access_token: result.access_token,
-        expires_at: Date.now() + result.expires_in * 1000,
-      };
-      saveTokensToStorage('google', googleTokens);
-      return true;
+    if (!result) return { success: false, error: '응답 없음' };
+    if ('error' in result) {
+      console.warn('[CalendarSync] Google auth returned error:', result.error);
+      return { success: false, error: result.error };
     }
-    return false;
-  } catch (err) {
-    console.error('[CalendarSync] Google auth error:', err);
-    return false;
+    googleTokens = {
+      access_token: result.access_token,
+      expires_at: Date.now() + result.expires_in * 1000,
+    };
+    saveTokensToStorage('google', googleTokens);
+    return { success: true };
+  } catch (err: any) {
+    console.error('[CalendarSync] Google auth exception:', err);
+    return { success: false, error: err?.message || '연동 중 예외 발생' };
   }
 }
 

@@ -325,16 +325,18 @@ function setupGoogleAuthIPC(): void {
   }
 
   // Token endpoint 호출 (code → access_token + refresh_token)
-  async function exchangeCodeForToken(code: string, verifier: string, redirectUri: string): Promise<{ access_token: string; refresh_token?: string; expires_in: number } | null> {
+  // 반환: 성공시 토큰, 실패시 { error: 'msg' }
+  async function exchangeCodeForToken(code: string, verifier: string, redirectUri: string): Promise<{ access_token: string; refresh_token?: string; expires_in: number } | { error: string }> {
     const https = require('https') as typeof import('https');
-    const body = new URLSearchParams({
+    const params: Record<string, string> = {
       code,
       client_id: GOOGLE_CLIENT_ID,
-      ...(GOOGLE_CLIENT_SECRET ? { client_secret: GOOGLE_CLIENT_SECRET } : {}),
       code_verifier: verifier,
       grant_type: 'authorization_code',
       redirect_uri: redirectUri,
-    }).toString();
+    };
+    if (GOOGLE_CLIENT_SECRET) params.client_secret = GOOGLE_CLIENT_SECRET;
+    const body = new URLSearchParams(params).toString();
 
     return new Promise((resolve) => {
       const req = https.request({
@@ -344,6 +346,7 @@ function setupGoogleAuthIPC(): void {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Content-Length': Buffer.byteLength(body),
+          'Accept': 'application/json',
         },
       }, (res) => {
         const chunks: Buffer[] = [];
@@ -359,18 +362,20 @@ function setupGoogleAuthIPC(): void {
                 expires_in: json.expires_in || 3600,
               });
             } else {
-              console.warn('[GoogleAuth] token exchange returned no access_token:', json);
-              resolve(null);
+              // Google이 반환한 에러 그대로 전달
+              const errMsg = json.error_description || json.error || `HTTP ${res.statusCode}`;
+              console.warn('[GoogleAuth] token exchange failed:', errMsg, '— full response:', json);
+              resolve({ error: errMsg });
             }
           } catch (e) {
-            console.warn('[GoogleAuth] token JSON parse failed:', e, text);
-            resolve(null);
+            console.warn('[GoogleAuth] token JSON parse failed:', e, '— body:', text);
+            resolve({ error: `응답 파싱 실패 (HTTP ${res.statusCode})` });
           }
         });
       });
       req.on('error', (err) => {
         console.error('[GoogleAuth] token request error:', err);
-        resolve(null);
+        resolve({ error: err.message });
       });
       req.setTimeout(15000, () => req.destroy(new Error('Timeout')));
       req.write(body);
@@ -378,8 +383,10 @@ function setupGoogleAuthIPC(): void {
     });
   }
 
+  type AuthResult = { access_token: string; expires_in: number } | { error: string };
+
   ipcMain.handle('google:auth', () => {
-    return new Promise<{ access_token: string; expires_in: number } | null>(async (resolve) => {
+    return new Promise<AuthResult>(async (resolve) => {
       // PKCE 생성
       const codeVerifier = base64url(crypto.randomBytes(32));
       const codeChallenge = base64url(crypto.createHash('sha256').update(codeVerifier).digest());
@@ -388,7 +395,7 @@ function setupGoogleAuthIPC(): void {
       let port = 0;
       let redirectUri = '';
       let resolved = false;
-      const safeResolve = (v: { access_token: string; expires_in: number } | null) => {
+      const safeResolve = (v: AuthResult) => {
         if (resolved) return;
         resolved = true;
         try { server.close(); } catch {}
@@ -405,40 +412,45 @@ function setupGoogleAuthIPC(): void {
           const code = u.searchParams.get('code');
           const returnedState = u.searchParams.get('state');
           const errorParam = u.searchParams.get('error');
+          const errorDesc = u.searchParams.get('error_description');
 
-          // 성공/실패 페이지 렌더
           if (errorParam) {
+            const msg = errorDesc || errorParam;
             res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
             res.end(`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>인증 실패</title>
-              <style>body{font-family:-apple-system,sans-serif;text-align:center;padding:48px;background:#f5f5f7}</style></head>
-              <body><h2>❌ 인증 실패</h2><p>${errorParam}</p></body></html>`);
-            safeResolve(null);
+              <style>body{font-family:-apple-system,sans-serif;text-align:center;padding:48px;background:#f5f5f7}code{background:#fff;padding:4px 8px;border-radius:4px;border:1px solid #ddd}</style></head>
+              <body><h2>❌ 인증 실패</h2><p>오류: <code>${errorParam}</code></p><p style="color:#86868b">${msg}</p></body></html>`);
+            safeResolve({ error: msg });
             return;
           }
           if (!code || returnedState !== state) {
             res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
-            res.end(`<!DOCTYPE html><html><body><h2>❌ 잘못된 요청</h2></body></html>`);
-            safeResolve(null);
+            res.end(`<!DOCTYPE html><html><body><h2>❌ 잘못된 요청 (state 불일치)</h2></body></html>`);
+            safeResolve({ error: 'state mismatch' });
             return;
           }
 
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end(`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>T1T 인증</title>
-            <style>body{font-family:-apple-system,sans-serif;text-align:center;padding:48px;background:#f5f5f7;color:#1d1d1f}h2{margin-bottom:8px}p{color:#86868b}</style></head>
-            <body><h2>✅ Google Calendar 연동 완료</h2><p>이 창은 자동으로 닫힙니다.</p>
-            <script>setTimeout(()=>window.close(),1200);</script></body></html>`);
-
-          // 백그라운드에서 토큰 교환
-          const tokens = await exchangeCodeForToken(code, codeVerifier, redirectUri);
-          if (tokens) {
-            safeResolve({ access_token: tokens.access_token, expires_in: tokens.expires_in });
+          // 토큰 교환
+          const result = await exchangeCodeForToken(code, codeVerifier, redirectUri);
+          if ('access_token' in result) {
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>T1T 인증</title>
+              <style>body{font-family:-apple-system,sans-serif;text-align:center;padding:48px;background:#f5f5f7;color:#1d1d1f}h2{margin-bottom:8px}p{color:#86868b}</style></head>
+              <body><h2>✅ Google Calendar 연동 완료</h2><p>이 창은 자동으로 닫힙니다.</p>
+              <script>setTimeout(()=>window.close(),1200);</script></body></html>`);
+            safeResolve({ access_token: result.access_token, expires_in: result.expires_in });
           } else {
-            safeResolve(null);
+            res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>토큰 교환 실패</title>
+              <style>body{font-family:-apple-system,sans-serif;text-align:center;padding:48px;background:#f5f5f7}code{background:#fff;padding:4px 8px;border-radius:4px;border:1px solid #ddd}</style></head>
+              <body><h2>❌ 토큰 교환 실패</h2><p style="color:#86868b">${result.error}</p>
+              <p style="font-size:12px;color:#999">앱으로 돌아가 다시 시도하거나 관리자에게 문의하세요.</p></body></html>`);
+            safeResolve({ error: result.error });
           }
-        } catch (err) {
+        } catch (err: any) {
           console.warn('[GoogleAuth] server error:', err);
           res.writeHead(500); res.end();
-          safeResolve(null);
+          safeResolve({ error: err?.message || '서버 오류' });
         }
       });
 
@@ -467,14 +479,14 @@ function setupGoogleAuthIPC(): void {
           console.log('[GoogleAuth] Opening browser, redirect:', redirectUri);
           shell.openExternal(authUrl).catch((err) => {
             console.error('[GoogleAuth] openExternal failed:', err);
-            safeResolve(null);
+            safeResolve({ error: '브라우저를 열 수 없습니다: ' + (err?.message || '') });
           });
         }
       });
       server.listen(FIXED_PORT, '127.0.0.1');
 
       // 5분 후 타임아웃
-      setTimeout(() => safeResolve(null), 5 * 60 * 1000);
+      setTimeout(() => safeResolve({ error: '시간 초과 (5분) — 다시 시도해주세요' }), 5 * 60 * 1000);
     });
   });
 }
