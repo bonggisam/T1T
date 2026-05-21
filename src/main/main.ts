@@ -308,7 +308,7 @@ function setupAutoUpdater(): void {
 // 표준 OAuth 2.0 for Native Apps (RFC 8252) 방식: localhost 서버 + 시스템 브라우저
 function setupGoogleAuthIPC(): void {
   const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID
-    || '607193357118-cu3ldm1e22re43un4bhc6p5j2e221kpk.apps.googleusercontent.com';
+    || '607193357118-eb152l89b7e5eh6fkquvu1olm2i8hc00.apps.googleusercontent.com';
   const SCOPES = 'https://www.googleapis.com/auth/calendar';
 
   if (!process.env.GOOGLE_CLIENT_ID) {
