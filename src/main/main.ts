@@ -359,7 +359,21 @@ function setupGoogleAuthIPC(): void {
         }
       });
 
-      server.listen(0, '127.0.0.1', () => {
+      // 고정 포트 사용 — Google Cloud Console에 등록된 redirect URI와 일치시키기 위함
+      // (Desktop 앱 타입이면 모든 포트가 자동 허용되지만, Web 앱 타입은 정확한 URI 일치 필요)
+      // 포트 사용 중일 경우 0 (랜덤 포트)로 fallback
+      const FIXED_PORT = 8123;
+      const tryListen = (p: number, onError: () => void) => {
+        server.once('error', onError);
+        server.listen(p, '127.0.0.1');
+      };
+      tryListen(FIXED_PORT, () => {
+        server.removeAllListeners('error');
+        // 8123 사용 중이면 랜덤 포트로 fallback (대신 Desktop 앱 타입 필요)
+        console.warn('[GoogleAuth] Port 8123 in use, falling back to random port');
+        server.listen(0, '127.0.0.1');
+      });
+      server.on('listening', () => {
         const addr = server.address();
         if (typeof addr === 'object' && addr) {
           port = addr.port;
