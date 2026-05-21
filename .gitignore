@@ -10,3 +10,4 @@ Thumbs.db
 src/shared/*.js
 src/shared/*.js.map
 src/shared/*.d.ts
+src/main/credentials.gen.ts

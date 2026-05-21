@@ -2,16 +2,30 @@ import { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, s
 import * as http from 'http';
 import * as crypto from 'crypto';
 import * as path from 'path';
+import * as fs from 'fs';
 import * as dotenv from 'dotenv';
 import { autoUpdater } from 'electron-updater';
 import { comciganService } from './comcigan';
+import { GOOGLE_CLIENT_ID as INJECTED_GOOGLE_ID, GOOGLE_CLIENT_SECRET as INJECTED_GOOGLE_SECRET } from './credentials.gen';
 
-// .env 파일 로드 — 개발: 프로젝트 루트, 프로덕션: resources 폴더
-// app.isPackaged는 app이 import된 후라 함수 호출 시점에 결정되므로 두 경로 모두 시도
-const devEnvPath = path.join(__dirname, '../../.env');
-const prodEnvPath = path.join(process.resourcesPath || '', '.env');
-dotenv.config({ path: devEnvPath });
-dotenv.config({ path: prodEnvPath });
+// 개발 모드에서는 .env 우선 로드 (process.env 채움)
+// 프로덕션에서는 credentials.gen.ts에 빌드 타임 inject된 값 사용
+(function loadDevEnv() {
+  const candidates: string[] = [
+    path.join(__dirname, '../../.env'),
+    path.join(__dirname, '../../../.env'),
+  ];
+  if (process.resourcesPath) candidates.push(path.join(process.resourcesPath, '.env'));
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) {
+        dotenv.config({ path: p });
+        console.log(`[Env] dev .env loaded: ${p}`);
+        return;
+      }
+    } catch {}
+  }
+})();
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -316,14 +330,15 @@ function setupAutoUpdater(): void {
 // Desktop 클라이언트는 implicit flow(response_type=token) 미지원 → Code+PKCE 사용
 // 시스템 브라우저로 인증 → 로컬 서버가 code 받음 → token endpoint로 교환
 function setupGoogleAuthIPC(): void {
-  // OAuth 자격증명은 .env 파일에서 빌드 타임에 주입됨
-  // (GitHub Push Protection이 비밀 커밋 차단 — Desktop 앱이라도 public repo에는 임베드 불가)
-  const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
-  const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
+  // OAuth 자격증명 우선순위: 환경변수 > 빌드 타임 inject (credentials.gen.ts)
+  const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || INJECTED_GOOGLE_ID || '';
+  const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || INJECTED_GOOGLE_SECRET || '';
   const SCOPES = 'https://www.googleapis.com/auth/calendar';
 
   if (!GOOGLE_CLIENT_ID) {
-    console.error('[GoogleAuth] GOOGLE_CLIENT_ID 미설정 — Google Calendar 연동 불가. .env 파일 확인 필요.');
+    console.error('[GoogleAuth] GOOGLE_CLIENT_ID 미설정 — Google Calendar 연동 불가.');
+  } else {
+    console.log(`[GoogleAuth] client_id 확인: ${GOOGLE_CLIENT_ID.slice(0, 30)}...`);
   }
 
   // PKCE 헬퍼
