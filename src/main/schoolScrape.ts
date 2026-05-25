@@ -39,6 +39,13 @@ const COMMON_HEADERS = {
 
 function httpRequest(urlStr: string, options: https.RequestOptions, body?: string): Promise<{ status: number; body: string; setCookie: string[] }> {
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const safeResolve = (v: { status: number; body: string; setCookie: string[] }) => {
+      if (settled) return; settled = true; resolve(v);
+    };
+    const safeReject = (e: Error) => {
+      if (settled) return; settled = true; reject(e);
+    };
     const url = new URL(urlStr);
     const req = https.request({
       hostname: url.hostname,
@@ -50,15 +57,19 @@ function httpRequest(urlStr: string, options: https.RequestOptions, body?: strin
       res.on('data', (c) => chunks.push(c));
       res.on('end', () => {
         const setCookie = res.headers['set-cookie'] || [];
-        resolve({
+        safeResolve({
           status: res.statusCode || 0,
           body: Buffer.concat(chunks).toString('utf-8'),
           setCookie,
         });
       });
+      res.on('error', safeReject);
     });
-    req.on('error', reject);
-    req.setTimeout(15000, () => req.destroy(new Error('Timeout')));
+    req.on('error', safeReject);
+    req.setTimeout(15000, () => {
+      req.destroy();
+      safeReject(new Error('학교 홈페이지 응답 시간 초과 (15초)'));
+    });
     if (body) req.write(body);
     req.end();
   });
@@ -97,12 +108,17 @@ export async function fetchSchoolSchedule(schoolKey: SchoolKey): Promise<{
     ajaxBody,
   );
 
-  if (resp.status !== 200) throw new Error(`HTTP ${resp.status}`);
+  if (resp.status !== 200) throw new Error(`학사일정 HTTP ${resp.status}`);
+  if (!resp.body || resp.body.length < 50) throw new Error('학사일정 응답 본문이 비어있습니다');
 
   // 응답은 JSON-escaped HTML 문자열. JSON.parse로 풀기
   let html: string;
-  try { html = JSON.parse(resp.body); }
-  catch { html = resp.body; }
+  try {
+    const parsed = JSON.parse(resp.body);
+    html = typeof parsed === 'string' ? parsed : resp.body;
+  } catch {
+    html = resp.body;
+  }
 
   // 파싱: viewSchdulInfo('SEQ', 'YYYY/MM/DD', 'YYYY/MM/DD', '...');"...">제목</a>
   const events: Array<{ startDate: string; endDate: string; title: string; seq: string }> = [];

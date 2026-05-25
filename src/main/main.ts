@@ -407,8 +407,15 @@ function setupGoogleAuthIPC(): void {
 
   type AuthResult = { access_token: string; expires_in: number } | { error: string };
 
-  ipcMain.handle('google:auth', () => {
-    return new Promise<AuthResult>(async (resolve) => {
+  ipcMain.handle('google:auth', async () => {
+    // 사전 검증 — 자격증명 없으면 즉시 에러
+    if (!GOOGLE_CLIENT_ID) {
+      return { error: 'GOOGLE_CLIENT_ID 미설정 — 앱 빌드 시 .env 파일이 누락되었습니다' } as AuthResult;
+    }
+    if (!GOOGLE_CLIENT_SECRET) {
+      return { error: 'GOOGLE_CLIENT_SECRET 미설정 — 앱 빌드 시 .env 파일이 누락되었습니다' } as AuthResult;
+    }
+    return new Promise<AuthResult>((resolve) => {
       // PKCE 생성
       const codeVerifier = base64url(crypto.randomBytes(32));
       const codeChallenge = base64url(crypto.createHash('sha256').update(codeVerifier).digest());
