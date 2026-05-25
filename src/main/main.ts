@@ -8,6 +8,10 @@ import { autoUpdater } from 'electron-updater';
 import { comciganService } from './comcigan';
 import { GOOGLE_CLIENT_ID as INJECTED_GOOGLE_ID, GOOGLE_CLIENT_SECRET as INJECTED_GOOGLE_SECRET } from './credentials.gen';
 
+// 시작 시점 진단 로그 — 사용자가 DevTools console에서 확인 가능
+console.log('[Startup] INJECTED_GOOGLE_ID:', INJECTED_GOOGLE_ID ? `${INJECTED_GOOGLE_ID.slice(0, 20)}... (length: ${INJECTED_GOOGLE_ID.length})` : '(empty)');
+console.log('[Startup] INJECTED_GOOGLE_SECRET:', INJECTED_GOOGLE_SECRET ? `(length: ${INJECTED_GOOGLE_SECRET.length})` : '(empty)');
+
 // 개발 모드에서는 .env 우선 로드 (process.env 채움)
 // 프로덕션에서는 credentials.gen.ts에 빌드 타임 inject된 값 사용
 (function loadDevEnv() {

@@ -19,14 +19,19 @@ async function syncOneSchool(
   const result = await window.electronAPI?.schoolFetchSchedule(schoolKey);
   if (!result || result.events.length === 0) return 0;
 
-  // 기존 import 일정 조회 (school + sourceSchedule 플래그)
+  // 기존 import 일정 조회 — 단일 필드 쿼리로 변경 (복합 인덱스 불필요)
+  // school은 클라이언트에서 필터링
   const existingQ = query(
     collection(db, 'events'),
-    where('school', '==', schoolKey),
     where('schoolScheduleImport', '==', true),
   );
   const existingSnap = await getDocs(existingQ);
-  const existingIds = new Set(existingSnap.docs.map((d) => d.data().externalId));
+  const existingIds = new Set(
+    existingSnap.docs
+      .filter((d) => d.data().school === schoolKey)
+      .map((d) => d.data().externalId),
+  );
+  console.log(`[SchoolSchedule] ${schoolKey}: 기존 ${existingIds.size}개 이미 등록됨, 신규 후보 ${result.events.length}개`);
 
   // 학교별 색상
   const adminColor = schoolKey === 'taeseong_middle' ? '#10B981' : '#8B5CF6';
