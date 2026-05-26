@@ -1,6 +1,6 @@
 {
   "name": "t1t",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "description": "T1T - 학교 일정 공유 시스템",
   "main": "dist/main/main.js",
   "scripts": {
@@ -9,7 +9,7 @@
     "dev:renderer": "vite",
     "dev:electron": "wait-on http://localhost:5173 && node scripts/inject-credentials.cjs && tsc -p tsconfig.main.json && electron .",
     "build:renderer": "tsc -p tsconfig.json && vite build",
-    "build:main": "node scripts/inject-credentials.cjs && tsc -p tsconfig.main.json",
+    "build:main": "node scripts/inject-credentials.cjs && tsc -p tsconfig.main.json && node scripts/inject-credentials.cjs",
     "build": "npm run build:main && npm run build:renderer",
     "build:win": "npm run build && electron-builder --win --x64",
     "build:mac": "npm run build && electron-builder --mac",
