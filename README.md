@@ -28,7 +28,7 @@
 
 ## 📦 다운로드
 
-[Releases](https://github.com/bonggisam/T1T/releases)
+[Releases](https://github.com/bonggisam/T1T/releases) | **[교사 사용 안내서 (PDF)](https://github.com/bonggisam/T1T/raw/main/docs/T1T-교사_사용안내서.pdf)** | [HTML 안내서](https://htmlpreview.github.io/?https://github.com/bonggisam/T1T/blob/main/docs/T1T-교사_사용안내서.html)
 
 - **Mac (Apple Silicon)**: `T1T-x.y.z-arm64.dmg`
 - **Mac (Intel)**: `T1T-x.y.z.dmg`
