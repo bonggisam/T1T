@@ -64,19 +64,9 @@ export function TitleBar({
     window.electronAPI?.setWidgetMode(next);
   }
 
-  // 조화로운 아이콘 색상 팔레트 — 무지개 배열 (Apple/Material 인스피레이션)
+  // 아이콘 색상 — TPass만 강조, 나머지는 기본 그레이(undefined)
   const ICON_COLORS = {
-    todos: '#10B981',     // 초록 - 할 일
-    reserv: '#06B6D4',    // 청록 - 회의실
-    meal: '#F59E0B',      // 주황 - 급식
-    schedule: '#8B5CF6',  // 보라 - 학사일정
-    tpass: '#EC4899',     // 핑크 - TPass
-    outing: '#EAB308',    // 노랑 - 외출
-    timetable: '#3B82F6', // 파랑 - 시간표
-    notification: '#EF4444', // 빨강 - 알림
-    admin: '#6366F1',     // 인디고 - 관리자
-    settings: '#64748B',  // 슬레이트 - 설정
-    theme: '#A78BFA',     // 라벤더 - 테마
+    tpass: '#EC4899', // 핑크 - TPass만 강조
   };
 
   // Widget mode: 미니멀이지만 필수 탭 버튼은 포함
@@ -87,18 +77,19 @@ export function TitleBar({
           <Calendar size={12} strokeWidth={2.2} style={{ marginRight: 3, verticalAlign: '-1px', color: 'var(--accent)' }} />
           T1T
         </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        {/* 중앙: 기능 아이콘 */}
+        <div style={styles.widgetCenter}>
           {user && onToggleTodos && (
-            <IconBtn Icon={CheckSquare} active={showTodos} onClick={onToggleTodos} title={showTodos ? '캘린더로' : '할 일'} compact color={ICON_COLORS.todos} />
+            <IconBtn Icon={CheckSquare} active={showTodos} onClick={onToggleTodos} title={showTodos ? '캘린더로' : '할 일'} compact />
           )}
           {user && onToggleReserv && (
-            <IconBtn Icon={Building2} active={showReserv} onClick={onToggleReserv} title={showReserv ? '캘린더로' : '회의실 예약'} compact color={ICON_COLORS.reserv} />
+            <IconBtn Icon={Building2} active={showReserv} onClick={onToggleReserv} title={showReserv ? '캘린더로' : '회의실 예약'} compact />
           )}
           {user && onToggleMeal && (
-            <IconBtn Icon={UtensilsCrossed} active={showMeal} onClick={onToggleMeal} title={showMeal ? '캘린더로' : '급식 메뉴'} compact color={ICON_COLORS.meal} />
+            <IconBtn Icon={UtensilsCrossed} active={showMeal} onClick={onToggleMeal} title={showMeal ? '캘린더로' : '급식 메뉴'} compact />
           )}
           {user && onToggleSchedule && (
-            <IconBtn Icon={CalendarDays} active={showSchedule} onClick={onToggleSchedule} title={showSchedule ? '캘린더로' : '학사일정'} compact color={ICON_COLORS.schedule} />
+            <IconBtn Icon={CalendarDays} active={showSchedule} onClick={onToggleSchedule} title={showSchedule ? '캘린더로' : '학사일정'} compact />
           )}
           {user && onToggleTPass && (
             <button
@@ -115,7 +106,7 @@ export function TitleBar({
             </button>
           )}
           {user && onToggleOuting && (
-            <IconBtn Icon={LogOut} active={showOuting} onClick={onToggleOuting} title={showOuting ? '캘린더로' : '학생 외출 신청'} compact color={ICON_COLORS.outing} />
+            <IconBtn Icon={LogOut} active={showOuting} onClick={onToggleOuting} title={showOuting ? '캘린더로' : '학생 외출 신청'} compact />
           )}
           {user && (
             <WidgetSchoolToggle
@@ -124,11 +115,12 @@ export function TitleBar({
               setViewingSchool={setViewingSchool}
             />
           )}
-          <IconBtn Icon={BookOpen} active={showTimetable} onClick={toggleTimetable} title={showTimetable ? '시간표 숨기기' : '시간표 보기'} compact color={ICON_COLORS.timetable} />
-          <button onClick={handleToggleWidget} style={styles.editBtn} title="편집 모드 (Ctrl+Shift+C)">
-            <Pencil size={12} strokeWidth={2} style={{ marginRight: 4, verticalAlign: '-2px' }} />편집
-          </button>
+          <IconBtn Icon={BookOpen} active={showTimetable} onClick={toggleTimetable} title={showTimetable ? '시간표 숨기기' : '시간표 보기'} compact />
         </div>
+        {/* 우측: 편집 버튼 */}
+        <button onClick={handleToggleWidget} style={styles.editBtn} title="편집 모드 (Ctrl+Shift+C)">
+          <Pencil size={12} strokeWidth={2} style={{ marginRight: 4, verticalAlign: '-2px' }} />편집
+        </button>
       </div>
     );
   }
@@ -172,20 +164,21 @@ export function TitleBar({
         ))}
       </div>
 
-      <div style={styles.right}>
+      {/* 가운데: 기능 아이콘 */}
+      <div style={styles.center}>
         {showSettingsBtn && user && (
           <>
             {onToggleTodos && (
-              <IconBtn Icon={CheckSquare} active={showTodos} onClick={onToggleTodos} title={showTodos ? '캘린더로' : '할 일'} color={ICON_COLORS.todos} />
+              <IconBtn Icon={CheckSquare} active={showTodos} onClick={onToggleTodos} title={showTodos ? '캘린더로' : '할 일'} />
             )}
             {onToggleReserv && (
-              <IconBtn Icon={Building2} active={showReserv} onClick={onToggleReserv} title={showReserv ? '캘린더로' : '회의실 예약'} color={ICON_COLORS.reserv} />
+              <IconBtn Icon={Building2} active={showReserv} onClick={onToggleReserv} title={showReserv ? '캘린더로' : '회의실 예약'} />
             )}
             {onToggleMeal && (
-              <IconBtn Icon={UtensilsCrossed} active={showMeal} onClick={onToggleMeal} title={showMeal ? '캘린더로' : '급식 메뉴'} color={ICON_COLORS.meal} />
+              <IconBtn Icon={UtensilsCrossed} active={showMeal} onClick={onToggleMeal} title={showMeal ? '캘린더로' : '급식 메뉴'} />
             )}
             {onToggleSchedule && (
-              <IconBtn Icon={CalendarDays} active={showSchedule} onClick={onToggleSchedule} title={showSchedule ? '캘린더로' : '학사일정'} color={ICON_COLORS.schedule} />
+              <IconBtn Icon={CalendarDays} active={showSchedule} onClick={onToggleSchedule} title={showSchedule ? '캘린더로' : '학사일정'} />
             )}
             {onToggleTPass && (
               <button
@@ -201,41 +194,38 @@ export function TitleBar({
               </button>
             )}
             {onToggleOuting && (
-              <IconBtn Icon={LogOut} active={showOuting} onClick={onToggleOuting} title={showOuting ? '캘린더로' : '학생 외출 신청'} color={ICON_COLORS.outing} />
+              <IconBtn Icon={LogOut} active={showOuting} onClick={onToggleOuting} title={showOuting ? '캘린더로' : '학생 외출 신청'} />
             )}
             <div style={styles.divider} />
-            <IconBtn Icon={BookOpen} active={showTimetable} onClick={toggleTimetable} title={showTimetable ? '시간표 숨기기' : '시간표 보기'} color={ICON_COLORS.timetable} />
+            <IconBtn Icon={BookOpen} active={showTimetable} onClick={toggleTimetable} title={showTimetable ? '시간표 숨기기' : '시간표 보기'} />
             <button
               onClick={() => setShowPanel(!showPanel)}
-              style={{
-                ...styles.iconBtn,
-                background: showPanel ? `${ICON_COLORS.notification}22` : 'transparent',
-                color: ICON_COLORS.notification,
-                position: 'relative',
-              }}
+              style={{ ...styles.iconBtn, background: showPanel ? 'var(--bg-hover)' : 'transparent', position: 'relative' }}
               title="알림"
               aria-label="알림"
             >
-              <Bell size={18} strokeWidth={2.2} />
+              <Bell size={18} strokeWidth={2} />
               {unreadCount > 0 && (
                 <span style={styles.badge}>{unreadCount > 9 ? '9+' : unreadCount}</span>
               )}
             </button>
             {showAdminBtn && (
-              <IconBtn Icon={Users} onClick={onToggleAdmin} title="관리자" color={ICON_COLORS.admin} />
+              <IconBtn Icon={Users} onClick={onToggleAdmin} title="관리자" />
             )}
-            <IconBtn Icon={Settings} onClick={onToggleSettings} title="설정" color={ICON_COLORS.settings} />
+            <IconBtn Icon={Settings} onClick={onToggleSettings} title="설정" />
             {onToggleTheme && (
               <IconBtn
                 Icon={theme === 'dark' ? Sun : Moon}
                 onClick={onToggleTheme}
                 title={theme === 'dark' ? '라이트 모드' : '다크 모드'}
-                color={ICON_COLORS.theme}
               />
             )}
-            <div style={styles.divider} />
           </>
         )}
+      </div>
+
+      {/* 우측: 창 제어 */}
+      <div style={styles.right}>
         <IconBtn Icon={Pin} onClick={handleToggleWidget} title="위젯 모드 (바탕 고정)" accent />
         <IconBtn Icon={Minus} onClick={() => window.electronAPI?.minimize()} title="최소화" />
         <button
@@ -330,24 +320,36 @@ function IconBtn({ Icon, icon, title, onClick, active, accent, compact, color }:
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    display: 'flex',
+    display: 'grid',
+    gridTemplateColumns: '1fr auto 1fr', // 좌(로고)/중(아이콘)/우(창제어)
     alignItems: 'center',
-    justifyContent: 'space-between',
     padding: '10px 14px',
     borderBottom: '1px solid var(--border-subtle)',
     flexShrink: 0,
     minHeight: 44,
   },
-  widgetBar: {
+  center: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 2,
+    justifySelf: 'center', // 그리드 셀 내에서 중앙
+  },
+  widgetBar: {
+    display: 'grid',
+    gridTemplateColumns: '1fr auto 1fr',
+    alignItems: 'center',
     padding: '6px 12px',
     flexShrink: 0,
     opacity: 0,
     transition: 'opacity 0.3s',
     borderBottom: '1px solid var(--grid-line)',
     background: 'rgba(128,128,128,0.08)',
+  },
+  widgetCenter: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 2,
+    justifySelf: 'center',
   },
   widgetTitle: {
     fontSize: 11,
@@ -421,6 +423,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: 2,
+    justifySelf: 'end', // 그리드 셀 우측 정렬
   },
   divider: {
     width: 1,
@@ -482,6 +485,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     fontWeight: 600,
     color: 'var(--accent)',
+    justifySelf: 'end',
   },
   closeBtn: {
     color: 'var(--danger)',
