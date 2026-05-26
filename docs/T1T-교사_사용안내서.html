@@ -76,6 +76,16 @@
       font-size: 12px;
       color: #be123c;
     }
+    kbd {
+      background: #f3f4f6;
+      border: 1px solid #d1d5db;
+      border-bottom-width: 2px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: 'Menlo', monospace;
+      font-size: 11px;
+      color: #1f2937;
+    }
     .pill {
       display: inline-block;
       padding: 2px 8px;
@@ -85,6 +95,17 @@
       font-weight: 700;
       border-radius: 10px;
       margin: 0 4px;
+    }
+    .download-btn {
+      display: inline-block;
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #4a90e2, #6366f1);
+      color: #fff !important;
+      font-weight: 700;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 14px;
+      margin: 8px 0;
     }
 
     /* 박스 */
@@ -103,6 +124,10 @@
       background: linear-gradient(135deg, #d1fae5, #ecfdf5);
       border-color: #6ee7b7;
     }
+    .info-box.danger {
+      background: linear-gradient(135deg, #fee2e2, #fecaca);
+      border-color: #fca5a5;
+    }
     .info-box .title {
       font-weight: 700;
       font-size: 13px;
@@ -111,6 +136,7 @@
     }
     .info-box.warn .title { color: #92400e; }
     .info-box.success .title { color: #065f46; }
+    .info-box.danger .title { color: #991b1b; }
 
     /* 단계 */
     .steps {
@@ -246,6 +272,27 @@
     }
     .footer a { color: #4a90e2; text-decoration: none; }
 
+    table.toolbar-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 6px;
+    }
+    table.toolbar-table th {
+      background: #f3f4f6;
+      padding: 8px;
+      text-align: left;
+      border-bottom: 2px solid #d1d5db;
+      font-size: 12px;
+      color: #374151;
+    }
+    table.toolbar-table td {
+      padding: 8px;
+      border-bottom: 1px solid #e5e7eb;
+      vertical-align: top;
+    }
+    table.toolbar-table tr:hover { background: #fafbfc; }
+
     @media print {
       body { padding: 0; }
       .no-print { display: none !important; }
@@ -296,28 +343,66 @@
     </div>
   </div>
 
-  <h2>💾 설치</h2>
-  <p>최신 버전은 <a href="https://github.com/bonggisam/T1T/releases" target="_blank">github.com/bonggisam/T1T/releases</a> 에서 다운로드.</p>
+  <h2>💾 설치 (Windows)</h2>
+
+  <p style="text-align:center;margin:14px 0 8px;">
+    <a class="download-btn" href="https://drive.google.com/file/d/1Xu1VcI4gf4GF5QhKq4YFROfhm4A0fh-K/view?usp=sharing" target="_blank">
+      ⬇ T1T 다운로드 (Google Drive)
+    </a>
+  </p>
+  <p style="text-align:center;font-size:11.5px;color:#6b7280;margin:0;">
+    https://drive.google.com/file/d/1Xu1VcI4gf4GF5QhKq4YFROfhm4A0fh-K/view
+  </p>
+
+  <h3>① 설치 과정</h3>
   <ol class="steps">
-    <li><strong>운영체제에 맞는 파일</strong> 다운로드
-      <ul>
-        <li>Mac (Apple Silicon): <code>T1T-x.y.z-arm64.dmg</code></li>
-        <li>Mac (Intel): <code>T1T-x.y.z.dmg</code></li>
-        <li>Windows 설치 버전: <code>T1T Setup x.y.z.exe</code></li>
-      </ul>
-    </li>
-    <li><strong>Mac</strong> — DMG 더블클릭 → Applications 폴더로 드래그. 첫 실행 시 우클릭 → "열기"</li>
-    <li><strong>Windows</strong> — Setup.exe 실행. "보호" 경고 시 "추가 정보 → 실행"</li>
-    <li>실행 후 <strong>회원가입</strong> → 학교(태성중/태성고) 선택 → 관리자 승인 대기</li>
+    <li>위 다운로드 링크 클릭 → <strong>Google Drive에서 다운로드</strong></li>
+    <li>다운로드된 파일 <code>T1T Setup x.y.z.exe</code> 더블클릭 실행</li>
+    <li><strong>Windows Defender SmartScreen 보안 경고</strong>가 표시됩니다 — 아래 ②번 안내에 따라 진행</li>
+    <li>설치 마법사 → 다음 → 설치 위치 확인 → <strong>"설치"</strong> 클릭</li>
+    <li>설치 완료 후 바탕화면 또는 시작 메뉴에서 <strong>T1T</strong> 실행</li>
   </ol>
 
+  <h3>② 보안 경고 대응 (자세히)</h3>
   <div class="info-box warn">
-    <div class="title">⚠️ 보안 경고가 뜨는 경우</div>
-    <p>self-signed 인증서를 사용하므로 처음 실행 시 보안 경고가 나타날 수 있습니다. <strong>안전한 학내 배포 앱이므로 "실행"을 클릭하시면 됩니다.</strong></p>
+    <div class="title">⚠️ "Windows의 PC 보호" 파란 화면이 나타나면</div>
+    <ol style="margin:6px 0 0; padding-left:20px;">
+      <li>파란색 경고 창에서 화면 좌측의 <strong>"추가 정보"</strong> 글자 클릭</li>
+      <li>화면이 확장되며 <strong>"실행"</strong> 버튼이 나타남 → 클릭</li>
+      <li>설치 마법사가 정상 실행됨</li>
+    </ol>
   </div>
+
+  <div class="info-box danger">
+    <div class="title">🛡️ 백신 프로그램(V3, 알약 등) 경고가 뜨면</div>
+    <ol style="margin:6px 0 0; padding-left:20px;">
+      <li>경고 창에서 <strong>"신뢰하기"</strong> 또는 <strong>"예외 처리"</strong> 선택</li>
+      <li>차단된 경우: 백신 설정 → 격리 보관함 → T1T 복원 → 예외 추가</li>
+      <li>※ self-signed 인증서를 사용하는 학내 배포 앱이므로 안전합니다</li>
+    </ol>
+  </div>
+
+  <div class="info-box">
+    <div class="title">💡 그래도 실행이 안 되는 경우</div>
+    <ul style="margin:6px 0 0; padding-left:20px;">
+      <li>다운로드 파일에서 <strong>마우스 우클릭 → 속성</strong> 클릭</li>
+      <li>창 하단 <strong>"보안"</strong> 영역의 <strong>"차단 해제"</strong> 체크박스 활성화</li>
+      <li><strong>확인</strong> 버튼 클릭 후 다시 실행</li>
+    </ul>
+  </div>
+
+  <h3>③ 회원가입</h3>
+  <ol class="steps">
+    <li>T1T 첫 실행 시 로그인 화면 표시 → <strong>"회원가입"</strong> 클릭</li>
+    <li>이메일 / 비밀번호 입력 (비밀번호: 8자 이상, 영문·숫자·특수문자 포함)</li>
+    <li>이름 입력 (컴시간 시간표에서 사용 중인 이름과 동일하게)</li>
+    <li>학교 선택 → <strong>태성중학교</strong> 또는 <strong>태성고등학교</strong></li>
+    <li>가입 버튼 클릭 → <strong>관리자 승인 대기</strong> 화면 표시</li>
+    <li>관리자(이봉기)의 승인 후 자동으로 메인 화면 진입</li>
+  </ol>
 </section>
 
-<!-- ===== 2페이지: 메인 화면 + 기본 사용법 ===== -->
+<!-- ===== 2페이지: 메인 화면 + 도구막대 ===== -->
 <section class="page">
   <h2>🏠 메인 화면 구성</h2>
 
@@ -361,23 +446,42 @@
   <div class="caption">▲ 상단: 로고(좌) · 기능 아이콘(중앙) · 창 제어(우) / 하단: 캘린더 본문</div>
 
   <h3>도구막대 아이콘</h3>
-  <table style="width:100%;font-size:11.5px;border-collapse:collapse;margin-top:4px;">
-    <tr style="background:#f9fafb;border-bottom:1px solid #e5e7eb;">
-      <th style="padding:6px;text-align:left;width:100px;">아이콘</th>
-      <th style="padding:6px;text-align:left;">기능</th>
-      <th style="padding:6px;text-align:left;width:90px;">단축키</th>
+  <table class="toolbar-table">
+    <tr>
+      <th style="width:130px;">아이콘 / 명칭</th>
+      <th>기능 설명</th>
     </tr>
-    <tr><td>✅ 할 일</td><td>개인 할 일 목록 (Todo)</td><td>—</td></tr>
-    <tr><td>🏢 회의실</td><td>회의실 예약 (TPass)</td><td>—</td></tr>
-    <tr><td>🍱 급식</td><td>학교 홈페이지 급식 메뉴 (양교 토글)</td><td>—</td></tr>
-    <tr><td>📚 학사일정</td><td>학교 홈페이지 학사일정 (양교 토글)</td><td>—</td></tr>
-    <tr><td style="color:#ec4899;font-weight:700;">T (핑크) — TPass</td><td>출결 시스템 입력</td><td>—</td></tr>
-    <tr><td>↗ 외출신청</td><td>학생 외출 신청 현황 (Google Sheets)</td><td>—</td></tr>
-    <tr><td>📖 시간표</td><td>컴시간 수업 시간표 표시/숨김</td><td>—</td></tr>
-    <tr><td>🔔 알림</td><td>일정 알림 패널</td><td>—</td></tr>
-    <tr><td>⚙ 설정</td><td>개인 설정 / 학교 코드 / 연동</td><td>—</td></tr>
-    <tr><td>📌 위젯</td><td>위젯 모드 (바탕 고정 / 편집)</td><td>Ctrl+Shift+C</td></tr>
+    <tr>
+      <td>✅ <strong>할 일</strong></td>
+      <td>개인 할 일(To-Do) 관리 — 우선순위·마감일 지정, 인라인 수정 가능</td>
+    </tr>
+    <tr>
+      <td>🏢 <strong>회의실 예약</strong></td>
+      <td>
+        교내 회의실 예약 시스템 (ourssm.com) 임베드<br>
+        <span style="color:#dc2626;font-size:11px;">※ TPass와는 다른 별개 시스템입니다</span>
+      </td>
+    </tr>
   </table>
+
+  <h2>🛂 외부 시스템 연동 아이콘</h2>
+
+  <div class="info-box">
+    <div class="title">🩷 TPass (T 핑크 아이콘) — 외출·조퇴 신청 시스템</div>
+    <p style="margin:6px 0 0;">
+      학생의 <strong>외출 및 조퇴를 신청·등록</strong>하는 시스템입니다.
+      Google Apps Script 기반 입력 폼이 임베드되어 표시됩니다.
+    </p>
+  </div>
+
+  <div class="info-box">
+    <div class="title">↗ 외출신청 조회 — 등록된 외출 현황 보기</div>
+    <p style="margin:6px 0 0;">
+      <strong>TPass로 입력된 외출 신청 내용을 조회</strong>하는 화면입니다.
+      Google Sheets에 누적된 신청 현황을 실시간으로 볼 수 있습니다.<br>
+      <span style="color:#6b7280;font-size:11.5px;">※ 신청 기능이 아니라 <strong>조회 기능</strong>입니다 — 신청은 위의 TPass에서</span>
+    </p>
+  </div>
 
   <h2>🗓️ 기본 사용법</h2>
   <h3>일정 등록</h3>
@@ -406,7 +510,7 @@
   <ol class="steps">
     <li>도구막대의 <strong>⚙ 설정</strong> 아이콘 클릭</li>
     <li>"📅 캘린더 연동" 섹션 → <strong>"연동" 버튼</strong> 클릭</li>
-    <li>시스템 기본 브라우저(Chrome/Safari/Edge)에서 Google 로그인 창이 열림</li>
+    <li>시스템 기본 브라우저(Chrome/Edge)에서 Google 로그인 창이 열림</li>
     <li>"이 앱은 Google에서 확인되지 않았습니다" 경고 시:
       <ul>
         <li><strong>"고급"</strong> 클릭 → <strong>"T1T(으)로 이동(안전하지 않음)"</strong> 클릭</li>
@@ -438,25 +542,25 @@
   <ul>
     <li><strong>학사일정</strong>: 태성중·고 일정이 캘린더에 학교별 색상으로 표시</li>
     <li><strong>급식</strong>: 🍱 아이콘 클릭 시 주간 식단표 표시 (양교 토글)</li>
-    <li><strong>외출 신청</strong>: ↗ 아이콘 → Google Sheets 연결</li>
+    <li><strong>외출 신청 조회</strong>: ↗ 아이콘 → Google Sheets 연결</li>
   </ul>
 
   <h2>💬 주요 단축키 요약</h2>
-  <table style="width:100%;font-size:11.5px;border-collapse:collapse;">
-    <tr style="background:#f9fafb;border-bottom:1px solid #e5e7eb;">
-      <th style="padding:6px;text-align:left;">단축키</th>
-      <th style="padding:6px;text-align:left;">동작</th>
+  <table class="toolbar-table">
+    <tr>
+      <th style="width:200px;">단축키</th>
+      <th>동작</th>
     </tr>
     <tr><td><kbd>N</kbd></td><td>새 공유 일정</td></tr>
     <tr><td><kbd>P</kbd></td><td>새 개인 일정</td></tr>
     <tr><td><kbd>T</kbd></td><td>오늘로 이동</td></tr>
     <tr><td><kbd>/</kbd></td><td>검색</td></tr>
-    <tr><td><kbd>Ctrl/Cmd+Shift+C</kbd></td><td>위젯 모드 ↔ 편집 모드</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd></td><td>위젯 모드 ↔ 편집 모드</td></tr>
   </table>
 
   <div class="info-box">
-    <div class="title">💡 문의·버그 신고</div>
-    <p>관리자 또는 <a href="https://github.com/bonggisam/T1T/issues">GitHub Issues</a> 페이지로 문의해 주세요.</p>
+    <div class="title">💬 문의 · 버그 신고</div>
+    <p style="margin:6px 0 0;font-size:14px;"><strong>이봉기 선생님께 문의해 주세요.</strong></p>
   </div>
 
   <div class="footer">
