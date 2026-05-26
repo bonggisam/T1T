@@ -4,7 +4,6 @@ import { db } from '../../utils/firebase';
 import { useAuthStore } from '../../store/authStore';
 import { CalendarSyncSettings } from './CalendarSyncSettings';
 import { ComciganSettings } from './ComciganSettings';
-import { SlackSettings } from './SlackSettings';
 
 interface SettingsPanelProps {
   onClose: () => void;
@@ -265,11 +264,6 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
         <Section title="🔔 알림 설정">
           <ToggleRow label="알림음" value={notifSound} onChange={setNotifSound} />
           <ToggleRow label="NEW 배지 표시" value={notifBadge} onChange={setNotifBadge} />
-        </Section>
-
-        {/* Slack integration */}
-        <Section title="💬 슬랙 연동">
-          <SlackSettings />
         </Section>
 
         {/* Calendar Sync */}
