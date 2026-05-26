@@ -412,12 +412,17 @@ function setupGoogleAuthIPC(): void {
   type AuthResult = { access_token: string; expires_in: number } | { error: string };
 
   ipcMain.handle('google:auth', async () => {
-    // 사전 검증 — 자격증명 없으면 즉시 에러
+    // 사전 검증 — 자격증명 없으면 즉시 에러 (디버그 정보 포함)
+    const idLen = (GOOGLE_CLIENT_ID || '').length;
+    const secretLen = (GOOGLE_CLIENT_SECRET || '').length;
+    const injectedIdLen = (INJECTED_GOOGLE_ID || '').length;
+    const envIdLen = (process.env.GOOGLE_CLIENT_ID || '').length;
+    console.log(`[GoogleAuth] preflight — clientId len: ${idLen}, secret len: ${secretLen}, injected len: ${injectedIdLen}, env len: ${envIdLen}`);
     if (!GOOGLE_CLIENT_ID) {
-      return { error: 'GOOGLE_CLIENT_ID 미설정 — 앱 빌드 시 .env 파일이 누락되었습니다' } as AuthResult;
+      return { error: `CLIENT_ID 미설정 (injected: ${injectedIdLen}, env: ${envIdLen}) — 빌드/.env 확인 필요` } as AuthResult;
     }
     if (!GOOGLE_CLIENT_SECRET) {
-      return { error: 'GOOGLE_CLIENT_SECRET 미설정 — 앱 빌드 시 .env 파일이 누락되었습니다' } as AuthResult;
+      return { error: `CLIENT_SECRET 미설정 (secret len: ${secretLen}) — 빌드/.env 확인 필요` } as AuthResult;
     }
     return new Promise<AuthResult>((resolve) => {
       // PKCE 생성
