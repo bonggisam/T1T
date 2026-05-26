@@ -1,0 +1,15 @@
+diff --git a/node_modules/comcigan-parser/index.js b/node_modules/comcigan-parser/index.js
+index caa9e40..65b8e0d 100644
+--- a/node_modules/comcigan-parser/index.js
++++ b/node_modules/comcigan-parser/index.js
+@@ -293,7 +293,9 @@ class Timetable {
+   _getClassTimetable(codeConfig, grade, classNumber) {
+     const args = [codeConfig.data, grade, classNumber];
+     const call = codeConfig.functioName + '(' + args.join(',') + ')';
+-    const script = codeConfig.script + '\n\n' + call;
++    // Patch: 컴시간 웹사이트 JS가 numberPart 미정의 변수 참조하는 버그 회피
++    const stubs = 'var numberPart = typeof numberPart !== "undefined" ? numberPart : function(s){return s;};\n';
++    const script = stubs + codeConfig.script + '\n\n' + call;
+ 
+     /** DEAD: Sorry about using eval() **/
+     const res = eval(script);

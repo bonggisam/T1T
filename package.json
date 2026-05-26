@@ -1,9 +1,10 @@
 {
   "name": "t1t",
-  "version": "2.3.9",
+  "version": "2.4.0",
   "description": "T1T - 학교 일정 공유 시스템",
   "main": "dist/main/main.js",
   "scripts": {
+    "postinstall": "patch-package",
     "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:electron\"",
     "dev:renderer": "vite",
     "dev:electron": "wait-on http://localhost:5173 && node scripts/inject-credentials.cjs && tsc -p tsconfig.main.json && electron .",
@@ -34,6 +35,7 @@
     "concurrently": "^8.2.2",
     "electron": "^41.2.0",
     "electron-builder": "^26.8.1",
+    "patch-package": "^8.0.1",
     "typescript": "^5.3.3",
     "vite": "^5.0.12",
     "wait-on": "^7.2.0"
