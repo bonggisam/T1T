@@ -63,6 +63,9 @@ if (process.platform === 'darwin') {
 function createWindow(): void {
   const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
 
+  // 아이콘 경로 — 개발/패키지(asar) 모두 동일 (__dirname 상대)
+  const iconPath = path.join(__dirname, '../../assets', process.platform === 'win32' ? 'icon.ico' : 'icon.icns');
+
   mainWindow = new BrowserWindow({
     width: 420,
     height: 520,
@@ -76,12 +79,22 @@ function createWindow(): void {
     minimizable: true,
     skipTaskbar: false,
     backgroundColor: '#00000000',
+    icon: iconPath,
+    // 시작 속도 최적화: 페이지 로드 완료까지 show=false → 깜빡임 방지
+    show: false,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       webviewTag: true,
       preload: path.join(__dirname, 'preload.js'),
+      // 페이지 백그라운드 throttle 비활성화 → 첫 페인트 빠름
+      backgroundThrottling: false,
     },
+  });
+
+  // 페이지 로드 완료 시 한번에 표시 (깜빡임 없음)
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show();
   });
 
   if (isDev) {
@@ -585,18 +598,37 @@ function sendToRenderer(channel: string, data?: any): void {
   mainWindow?.webContents.send(channel, data);
 }
 
+// 싱글톤 락 — 이중 실행 방지 (설치 후 중복 실행 / 사용자 반복 클릭 대응)
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  console.log('[App] 이미 다른 인스턴스 실행 중 — 종료');
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    // 두 번째 인스턴스 시도 시 기존 창 활성화
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
 app.whenReady().then(() => {
   createWindow();
-  createTray();
+  // 시작 속도 최적화: 핵심 IPC만 즉시, 나머지는 지연 로드
   setupIPC();
   setupGoogleAuthIPC();
-  setupComciganIPC();
-  setupSchoolScrapeIPC();
-  setupAutoUpdater();
-
-  // Initialize comcigan service
-  if (mainWindow) comciganService.setMainWindow(mainWindow);
-  comciganService.init().catch(() => {});
+  // 트레이/업데이터/스크래퍼는 50ms 후 지연 (메인 창 페인트 우선)
+  setTimeout(() => {
+    createTray();
+    setupComciganIPC();
+    setupSchoolScrapeIPC();
+    setupAutoUpdater();
+    if (mainWindow) comciganService.setMainWindow(mainWindow);
+    // Comcigan 초기 fetch는 5초 더 지연 (네트워크 무거움)
+    setTimeout(() => comciganService.init().catch(() => {}), 5000);
+  }, 50);
 
   // Start in widget mode after window loads
   mainWindow?.webContents.on('did-finish-load', () => {

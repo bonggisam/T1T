@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence, indexedDBLocalPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 // Firebase client config (safe to expose — protected by Firestore security rules)
@@ -15,6 +15,15 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// 로그인 영구 유지 — Electron 재시작 후에도 세션 보존
+// IndexedDB 우선, 실패 시 localStorage fallback
+setPersistence(auth, indexedDBLocalPersistence).catch(() => {
+  setPersistence(auth, browserLocalPersistence).catch((e) => {
+    console.warn('[Firebase] persistence setup failed:', e);
+  });
+});
+
 export default app;
 
 // 보안: 이전 버전의 __createAdminDoc/__fb_auth/__fb_db 디버그 코드 제거됨.

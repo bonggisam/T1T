@@ -1,6 +1,6 @@
 {
   "name": "t1t",
-  "version": "2.4.3",
+  "version": "2.5.0",
   "description": "T1T - 학교 일정 공유 시스템",
   "main": "dist/main/main.js",
   "scripts": {
@@ -36,6 +36,7 @@
     "electron": "^41.2.0",
     "electron-builder": "^26.8.1",
     "patch-package": "^8.0.1",
+    "png-to-ico": "^3.0.1",
     "typescript": "^5.3.3",
     "vite": "^5.0.12",
     "wait-on": "^7.2.0"
@@ -72,7 +73,8 @@
       "identity": "-",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "type": "development"
+      "type": "development",
+      "icon": "assets/icon.icns"
     },
     "win": {
       "target": [
@@ -83,11 +85,20 @@
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "installerLanguages": [
         "ko"
       ],
-      "language": "1042"
+      "language": "1042",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "T1T",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "artifactName": "T1T-Setup-${version}.${ext}"
     },
     "publish": {
       "provider": "github",
