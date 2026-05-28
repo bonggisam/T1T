@@ -206,7 +206,7 @@ export interface ElectronAPI {
   // Auto-updater
   updaterDownload: () => Promise<void>;
   updaterInstall: () => Promise<void>;
-  updaterCheck: () => Promise<void>;
+  updaterCheck: () => Promise<{ ok: true; version?: string } | { ok: false; error: string }>;
   getAppVersion: () => Promise<string>;
   onUpdaterEvent: (callback: (channel: string, data: any) => void) => () => void;
   // Google Calendar

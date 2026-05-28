@@ -288,7 +288,25 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
           <div style={styles.settingRow}>
             <span style={styles.label}>업데이트 확인</span>
             <button
-              onClick={() => window.electronAPI?.updaterCheck()}
+              onClick={async () => {
+                const { showToast } = await import('../common/Toast');
+                showToast('업데이트 확인 중...', 'info');
+                try {
+                  const result = await window.electronAPI?.updaterCheck();
+                  if (!result) return;
+                  if (result.ok) {
+                    if (result.version) {
+                      showToast(`📥 새 버전 v${result.version} 다운로드 시작`, 'success');
+                    } else {
+                      showToast('✅ 이미 최신 버전입니다', 'success');
+                    }
+                  } else {
+                    showToast(`⚠️ ${result.error}`, 'error');
+                  }
+                } catch (e: any) {
+                  showToast(`업데이트 확인 실패: ${e?.message || '알 수 없는 오류'}`, 'error');
+                }
+              }}
               style={{
                 padding: '3px 10px',
                 fontSize: 11,

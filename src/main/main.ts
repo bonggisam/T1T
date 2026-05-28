@@ -285,8 +285,18 @@ function setupIPC(): void {
     autoUpdater.quitAndInstall(false, true);
   });
 
-  ipcMain.handle('updater:check', () => {
-    autoUpdater.checkForUpdates().catch((err) => console.warn('[Updater] Check failed:', err));
+  // 메뉴에서 수동 호출 — 사용자에게 명확한 피드백
+  ipcMain.handle('updater:check', async () => {
+    try {
+      manualCheckInProgress = true;
+      const result = await autoUpdater.checkForUpdates();
+      manualCheckInProgress = false;
+      return { ok: true, version: result?.updateInfo?.version };
+    } catch (err: any) {
+      manualCheckInProgress = false;
+      console.warn('[Updater] Manual check failed:', err);
+      return { ok: false, error: err?.message || '업데이트 확인 실패 (네트워크 확인)' };
+    }
   });
 
   ipcMain.handle('app:get-version', () => {
@@ -298,17 +308,24 @@ function setupIPC(): void {
 // Auto-updater
 // ============================================================
 
+// 수동 업데이트 확인 진행 여부 — 자동/수동 구분
+let manualCheckInProgress = false;
+
 function setupAutoUpdater(): void {
   if (isDev) return; // Skip in development
 
-  autoUpdater.autoDownload = false;
+  // 사용자 개입 없이 백그라운드 자동 다운로드 → 매끄러운 경험
+  autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+  // 다운로드 실패 시 자동 재시도 비활성 (직접 제어)
+  autoUpdater.disableWebInstaller = true;
 
   autoUpdater.on('checking-for-update', () => {
-    sendToRenderer('updater:checking');
+    if (manualCheckInProgress) sendToRenderer('updater:checking');
   });
 
   autoUpdater.on('update-available', (info) => {
+    // 자동 다운로드 시작됨을 알리지만 진행률은 background
     sendToRenderer('updater:available', {
       version: info.version,
       releaseNotes: info.releaseNotes,
@@ -316,7 +333,8 @@ function setupAutoUpdater(): void {
   });
 
   autoUpdater.on('update-not-available', () => {
-    sendToRenderer('updater:not-available');
+    // 수동 확인일 때만 '최신 버전입니다' 표시 (자동 확인은 조용히)
+    if (manualCheckInProgress) sendToRenderer('updater:not-available');
   });
 
   autoUpdater.on('download-progress', (progress) => {
@@ -328,14 +346,24 @@ function setupAutoUpdater(): void {
   });
 
   autoUpdater.on('update-downloaded', () => {
+    // 다운로드 완료 → 사용자에게 재시작 안내
     sendToRenderer('updater:downloaded');
   });
 
   autoUpdater.on('error', (err) => {
-    sendToRenderer('updater:error', err?.message || 'Update error');
+    // 네트워크/일시적 에러는 자동 확인 중엔 무시 (배너 깜빡임 방지)
+    // 수동 확인 시에만 사용자에게 표시
+    const msg = err?.message || '';
+    // 잘 알려진 무해한 에러는 silently ignore
+    const benign = /ENOTFOUND|ETIMEDOUT|ECONNRESET|ENETUNREACH|net::ERR/i.test(msg);
+    if (manualCheckInProgress) {
+      sendToRenderer('updater:error', benign ? '네트워크에 연결되지 않았습니다' : msg);
+    } else {
+      console.warn('[Updater] Silent auto-check error:', msg);
+    }
   });
 
-  // Check for updates every 30 minutes (앱 종료 시 interval 정리)
+  // 시작 시 한 번 + 30분 주기 자동 확인 (조용히)
   autoUpdater.checkForUpdates().catch(() => {});
   if (updaterInterval) clearInterval(updaterInterval);
   updaterInterval = setInterval(() => {
