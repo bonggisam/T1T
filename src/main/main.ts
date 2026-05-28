@@ -8,9 +8,11 @@ import { autoUpdater } from 'electron-updater';
 import { comciganService } from './comcigan';
 import { GOOGLE_CLIENT_ID as INJECTED_GOOGLE_ID, GOOGLE_CLIENT_SECRET as INJECTED_GOOGLE_SECRET } from './credentials.gen';
 
-// 시작 시점 진단 로그 — 사용자가 DevTools console에서 확인 가능
-console.log('[Startup] INJECTED_GOOGLE_ID:', INJECTED_GOOGLE_ID ? `${INJECTED_GOOGLE_ID.slice(0, 20)}... (length: ${INJECTED_GOOGLE_ID.length})` : '(empty)');
-console.log('[Startup] INJECTED_GOOGLE_SECRET:', INJECTED_GOOGLE_SECRET ? `(length: ${INJECTED_GOOGLE_SECRET.length})` : '(empty)');
+// 진단 로그 — 개발 모드에서만 (프로덕션 console 노이즈 제거)
+if (!app.isPackaged) {
+  console.log('[Startup] INJECTED_GOOGLE_ID:', INJECTED_GOOGLE_ID ? `${INJECTED_GOOGLE_ID.slice(0, 20)}... (length: ${INJECTED_GOOGLE_ID.length})` : '(empty)');
+  console.log('[Startup] INJECTED_GOOGLE_SECRET:', INJECTED_GOOGLE_SECRET ? `(length: ${INJECTED_GOOGLE_SECRET.length})` : '(empty)');
+}
 
 // 개발 모드에서는 .env 우선 로드 (process.env 채움)
 // 프로덕션에서는 credentials.gen.ts에 빌드 타임 inject된 값 사용
@@ -382,7 +384,7 @@ function setupGoogleAuthIPC(): void {
 
   if (!GOOGLE_CLIENT_ID) {
     console.error('[GoogleAuth] GOOGLE_CLIENT_ID 미설정 — Google Calendar 연동 불가.');
-  } else {
+  } else if (!app.isPackaged) {
     console.log(`[GoogleAuth] client_id 확인: ${GOOGLE_CLIENT_ID.slice(0, 30)}...`);
   }
 
@@ -598,6 +600,10 @@ function setupComciganIPC(): void {
     if (typeof name !== 'string') throw new Error('Invalid school name');
     const trimmed = name.trim();
     if (!trimmed || trimmed.length > 50) throw new Error('Invalid school name');
+    // 한글·영문·숫자·공백·괄호·하이픈만 허용 (입력 sanitize)
+    if (!/^[가-힣a-zA-Z0-9\s\-()()]+$/.test(trimmed)) {
+      throw new Error('학교 이름은 한글/영문/숫자만 입력 가능합니다');
+    }
     return comciganService.searchSchool(trimmed);
   });
 
