@@ -455,17 +455,18 @@ function setupGoogleAuthIPC(): void {
   type AuthResult = { access_token: string; expires_in: number } | { error: string };
 
   ipcMain.handle('google:auth', async () => {
-    // 사전 검증 — 자격증명 없으면 즉시 에러 (디버그 정보 포함)
+    // 사전 검증 — 자격증명 없으면 즉시 에러 (사용자 친화 메시지 + 진단 정보)
     const idLen = (GOOGLE_CLIENT_ID || '').length;
     const secretLen = (GOOGLE_CLIENT_SECRET || '').length;
     const injectedIdLen = (INJECTED_GOOGLE_ID || '').length;
     const envIdLen = (process.env.GOOGLE_CLIENT_ID || '').length;
-    console.log(`[GoogleAuth] preflight — clientId len: ${idLen}, secret len: ${secretLen}, injected len: ${injectedIdLen}, env len: ${envIdLen}`);
-    if (!GOOGLE_CLIENT_ID) {
-      return { error: `CLIENT_ID 미설정 (injected: ${injectedIdLen}, env: ${envIdLen}) — 빌드/.env 확인 필요` } as AuthResult;
-    }
-    if (!GOOGLE_CLIENT_SECRET) {
-      return { error: `CLIENT_SECRET 미설정 (secret len: ${secretLen}) — 빌드/.env 확인 필요` } as AuthResult;
+    const appVer = app.getVersion();
+    console.log(`[GoogleAuth] preflight v${appVer} — clientId:${idLen} secret:${secretLen} injected:${injectedIdLen} env:${envIdLen}`);
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+      const detail = `(앱 v${appVer}, injected:${injectedIdLen}, env:${envIdLen})`;
+      return {
+        error: `이 버전(v${appVer})은 Google Calendar 연동을 지원하지 않습니다. 최신 버전(v2.5.3+)을 새로 다운로드해서 설치해주세요. ${detail}`,
+      } as AuthResult;
     }
     return new Promise<AuthResult>((resolve) => {
       // PKCE 생성
