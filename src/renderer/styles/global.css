@@ -216,3 +216,34 @@ input:focus, textarea:focus, select:focus {
     margin: 8mm;
   }
 }
+
+/* ===== 다크모드 datetime/date input 가독성 ===== */
+input[type="datetime-local"],
+input[type="date"],
+input[type="time"] {
+  color-scheme: light dark;
+}
+
+[data-theme="dark"] input[type="datetime-local"],
+[data-theme="dark"] input[type="date"],
+[data-theme="dark"] input[type="time"] {
+  color-scheme: dark;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #f9fafb !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+/* 캘린더 아이콘 (날짜 픽커 트리거) 다크모드에서 밝게 */
+[data-theme="dark"] input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
+[data-theme="dark"] input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.9) brightness(1.2);
+  cursor: pointer;
+  opacity: 0.85;
+}
+
+[data-theme="dark"] input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator:hover,
+[data-theme="dark"] input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}

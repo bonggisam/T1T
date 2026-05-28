@@ -132,6 +132,38 @@ export function PersonalEventModal({ onClose }: PersonalEventModalProps) {
             <input type="datetime-local" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={styles.dateInput} />
           </div>
 
+          {/* 빠른 시작 시간 선택 (클릭) */}
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
+              빠른 시작 시간 선택
+            </div>
+            <div style={styles.hourGrid}>
+              {Array.from({ length: 14 }, (_, i) => i + 7).map((hour) => {
+                const isActive = new Date(startDate).getHours() === hour;
+                return (
+                  <button
+                    key={hour}
+                    type="button"
+                    onClick={() => {
+                      const s = new Date(startDate);
+                      s.setHours(hour, 0, 0, 0);
+                      const e = new Date(endDate);
+                      if (e <= s) e.setTime(s.getTime() + 60 * 60 * 1000);
+                      setStartDate(formatDateTimeLocal(s));
+                      setEndDate(formatDateTimeLocal(e));
+                    }}
+                    style={{
+                      ...styles.hourBtn,
+                      ...(isActive ? styles.hourBtnActive : {}),
+                    }}
+                  >
+                    {hour.toString().padStart(2, '0')}:00
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <textarea
             placeholder="메모 (선택)"
             value={description}
@@ -236,6 +268,29 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'var(--bg-secondary)',
     color: 'var(--text-primary)',
     outline: 'none',
+    colorScheme: 'light dark',
+  },
+  hourGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(7, 1fr)',
+    gap: 4,
+  },
+  hourBtn: {
+    padding: '4px 0',
+    fontSize: 11,
+    fontWeight: 600,
+    border: '1px solid var(--border-color)',
+    borderRadius: 6,
+    background: 'var(--bg-secondary)',
+    color: 'var(--text-secondary)',
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+  },
+  hourBtnActive: {
+    background: 'var(--accent)',
+    color: '#fff',
+    border: '1px solid transparent',
+    fontWeight: 700,
   },
   textarea: {
     width: '100%',
