@@ -10,6 +10,7 @@ import type { PersonalEvent } from '@shared/types';
 
 interface GoogleTokens {
   access_token: string;
+  refresh_token?: string;
   expires_at: number;
 }
 
@@ -18,7 +19,43 @@ let googleTokens: GoogleTokens | null = null;
 const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // 5분 여유
 
 export function isGoogleConnected(): boolean {
-  return googleTokens !== null && googleTokens.expires_at > Date.now() + TOKEN_EXPIRY_BUFFER_MS;
+  // refresh_token이 있으면 만료되어도 연결된 것으로 간주 (자동 갱신 가능)
+  if (googleTokens === null) return false;
+  if (googleTokens.refresh_token) return true;
+  return googleTokens.expires_at > Date.now() + TOKEN_EXPIRY_BUFFER_MS;
+}
+
+/** access_token 만료 시 refresh_token으로 자동 갱신 */
+async function ensureValidToken(): Promise<boolean> {
+  if (!googleTokens) return false;
+  // 아직 유효하면 통과
+  if (googleTokens.expires_at > Date.now() + TOKEN_EXPIRY_BUFFER_MS) return true;
+  // refresh_token이 없으면 갱신 불가 → 재인증 필요
+  if (!googleTokens.refresh_token) {
+    googleTokens = null;
+    return false;
+  }
+  // 갱신 시도
+  try {
+    const result = await window.electronAPI?.googleRefresh(googleTokens.refresh_token);
+    if (result && 'access_token' in result) {
+      googleTokens = {
+        access_token: result.access_token,
+        refresh_token: googleTokens.refresh_token, // 기존 refresh_token 유지
+        expires_at: Date.now() + result.expires_in * 1000,
+      };
+      saveTokensToStorage('google', googleTokens);
+      console.log('[CalendarSync] Token refreshed');
+      return true;
+    }
+    console.warn('[CalendarSync] Refresh failed:', result);
+    googleTokens = null;
+    removeTokensFromStorage('google');
+    return false;
+  } catch (e) {
+    console.warn('[CalendarSync] Refresh exception:', e);
+    return false;
+  }
 }
 
 /**
@@ -35,6 +72,7 @@ export async function connectGoogle(): Promise<{ success: boolean; error?: strin
     }
     googleTokens = {
       access_token: result.access_token,
+      refresh_token: result.refresh_token,
       expires_at: Date.now() + result.expires_in * 1000,
     };
     saveTokensToStorage('google', googleTokens);
@@ -54,7 +92,7 @@ export async function fetchGoogleCalendarEvents(
   timeMin: Date,
   timeMax: Date,
 ): Promise<PersonalEvent[]> {
-  if (!googleTokens) return [];
+  if (!(await ensureValidToken())) return [];
 
   try {
     const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
@@ -63,7 +101,7 @@ export async function fetchGoogleCalendarEvents(
       `singleEvents=true&orderBy=startTime&maxResults=100`;
 
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${googleTokens.access_token}` },
+      headers: { Authorization: `Bearer ${googleTokens!.access_token}` },
     });
 
     if (!res.ok) {
@@ -107,7 +145,7 @@ export async function createGoogleEvent(input: {
   endDate: Date;
   allDay?: boolean;
 }): Promise<string | null> {
-  if (!googleTokens) return null;
+  if (!(await ensureValidToken())) return null;
   try {
     const body: any = {
       summary: input.title,
@@ -123,7 +161,7 @@ export async function createGoogleEvent(input: {
     const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${googleTokens.access_token}`,
+        Authorization: `Bearer ${googleTokens!.access_token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
@@ -150,7 +188,7 @@ export async function updateGoogleEvent(externalId: string, input: {
   endDate?: Date;
   allDay?: boolean;
 }): Promise<boolean> {
-  if (!googleTokens) return false;
+  if (!(await ensureValidToken())) return false;
   try {
     const body: any = {};
     if (input.title) body.summary = input.title;
@@ -167,7 +205,7 @@ export async function updateGoogleEvent(externalId: string, input: {
     const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${externalId}`, {
       method: 'PATCH',
       headers: {
-        Authorization: `Bearer ${googleTokens.access_token}`,
+        Authorization: `Bearer ${googleTokens!.access_token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
@@ -183,11 +221,11 @@ export async function updateGoogleEvent(externalId: string, input: {
  * Google Calendar 일정 삭제.
  */
 export async function deleteGoogleEvent(externalId: string): Promise<boolean> {
-  if (!googleTokens) return false;
+  if (!(await ensureValidToken())) return false;
   try {
     const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${externalId}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${googleTokens.access_token}` },
+      headers: { Authorization: `Bearer ${googleTokens!.access_token}` },
     });
     return res.ok || res.status === 410; // 410 = 이미 삭제됨
   } catch (err) {
@@ -230,13 +268,17 @@ function removeTokensFromStorage(provider: string): void {
   }
 }
 
-/** Restore saved tokens on app load (만료 버퍼 적용) */
+/** Restore saved tokens on app load (refresh_token이 있으면 만료되어도 복원) */
 export function restoreCalendarConnections(): void {
   const gTokens = loadTokensFromStorage('google');
-  if (gTokens && gTokens.expires_at > Date.now() + TOKEN_EXPIRY_BUFFER_MS) {
+  if (!gTokens) return;
+  if (gTokens.refresh_token) {
+    // refresh_token이 있으면 만료 여부와 무관하게 복원 (자동 갱신 가능)
     googleTokens = gTokens;
-  } else if (gTokens) {
-    // 만료 임박/완료 — 정리
+  } else if (gTokens.expires_at > Date.now() + TOKEN_EXPIRY_BUFFER_MS) {
+    googleTokens = gTokens;
+  } else {
+    // refresh_token도 없고 만료됨 → 정리
     removeTokensFromStorage('google');
   }
 }

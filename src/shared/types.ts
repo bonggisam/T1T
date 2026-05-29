@@ -212,7 +212,8 @@ export interface ElectronAPI {
   setAutoLaunch: (enabled: boolean) => Promise<boolean>;
   onUpdaterEvent: (callback: (channel: string, data: any) => void) => () => void;
   // Google Calendar
-  googleAuth: () => Promise<{ access_token: string; expires_in: number } | { error: string }>;
+  googleAuth: () => Promise<{ access_token: string; refresh_token?: string; expires_in: number } | { error: string }>;
+  googleRefresh: (refreshToken: string) => Promise<{ access_token: string; expires_in: number } | { error: string }>;
   // School website scraper
   schoolFetchSchedule: (schoolKey: string) => Promise<{
     events: Array<{ startDate: string; endDate: string; title: string; seq: string }>;

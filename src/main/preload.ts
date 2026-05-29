@@ -45,6 +45,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Google Calendar OAuth
   googleAuth: () => ipcRenderer.invoke('google:auth'),
+  googleRefresh: (refreshToken: string) => ipcRenderer.invoke('google:refresh', refreshToken),
 
   // School website scraper (학사일정 + 급식)
   schoolFetchSchedule: (schoolKey: string): Promise<{ events: Array<{ startDate: string; endDate: string; title: string; seq: string }> }> => ipcRenderer.invoke('school:fetchSchedule', schoolKey),

@@ -507,7 +507,49 @@ function setupGoogleAuthIPC(): void {
     });
   }
 
-  type AuthResult = { access_token: string; expires_in: number } | { error: string };
+  type AuthResult = { access_token: string; refresh_token?: string; expires_in: number } | { error: string };
+
+  // refresh_token으로 access_token 재발급
+  ipcMain.handle('google:refresh', async (_event, refreshToken: string) => {
+    if (!refreshToken || !GOOGLE_CLIENT_ID) return { error: 'no refresh token' };
+    const https = require('https') as typeof import('https');
+    const params: Record<string, string> = {
+      client_id: GOOGLE_CLIENT_ID,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    };
+    if (GOOGLE_CLIENT_SECRET) params.client_secret = GOOGLE_CLIENT_SECRET;
+    const body = new URLSearchParams(params).toString();
+    return new Promise<{ access_token: string; expires_in: number } | { error: string }>((resolve) => {
+      const req = https.request({
+        hostname: 'oauth2.googleapis.com',
+        path: '/token',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Length': Buffer.byteLength(body),
+          'Accept': 'application/json',
+        },
+      }, (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(Buffer.concat(chunks).toString('utf-8'));
+            if (json.access_token) {
+              resolve({ access_token: json.access_token, expires_in: json.expires_in || 3600 });
+            } else {
+              resolve({ error: json.error_description || json.error || 'refresh failed' });
+            }
+          } catch (e: any) { resolve({ error: e?.message || 'parse error' }); }
+        });
+      });
+      req.on('error', (err) => resolve({ error: err.message }));
+      req.setTimeout(15000, () => req.destroy(new Error('Timeout')));
+      req.write(body);
+      req.end();
+    });
+  });
 
   ipcMain.handle('google:auth', async () => {
     // 사전 검증 — 자격증명 없으면 즉시 에러 (사용자 친화 메시지 + 진단 정보)
@@ -575,7 +617,11 @@ function setupGoogleAuthIPC(): void {
               <style>body{font-family:-apple-system,sans-serif;text-align:center;padding:48px;background:#f5f5f7;color:#1d1d1f}h2{margin-bottom:8px}p{color:#86868b}</style></head>
               <body><h2>✅ Google Calendar 연동 완료</h2><p>이 창은 자동으로 닫힙니다.</p>
               <script>setTimeout(()=>window.close(),1200);</script></body></html>`);
-            safeResolve({ access_token: result.access_token, expires_in: result.expires_in });
+            safeResolve({
+              access_token: result.access_token,
+              refresh_token: result.refresh_token,
+              expires_in: result.expires_in,
+            });
           } else {
             res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
             res.end(`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>토큰 교환 실패</title>
