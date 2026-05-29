@@ -62,17 +62,50 @@ if (process.platform === 'darwin') {
   app.commandLine.appendSwitch('disable-gpu');
 }
 
+// 창 위치/크기 영구 저장 (userData/window-state.json)
+interface WindowState { x?: number; y?: number; width: number; height: number; }
+function getWindowStatePath(): string {
+  return path.join(app.getPath('userData'), 'window-state.json');
+}
+function loadWindowState(): WindowState | null {
+  try {
+    const p = getWindowStatePath();
+    if (fs.existsSync(p)) {
+      const data = JSON.parse(fs.readFileSync(p, 'utf-8'));
+      if (typeof data.width === 'number' && typeof data.height === 'number') return data;
+    }
+  } catch (e) { console.warn('[Window] loadState failed:', e); }
+  return null;
+}
+function saveWindowState(): void {
+  try {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    const b = mainWindow.getBounds();
+    fs.writeFileSync(getWindowStatePath(), JSON.stringify(b), 'utf-8');
+  } catch (e) { console.warn('[Window] saveState failed:', e); }
+}
+
 function createWindow(): void {
   const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
 
   // 아이콘 경로 — 개발/패키지(asar) 모두 동일 (__dirname 상대)
   const iconPath = path.join(__dirname, '../../assets', process.platform === 'win32' ? 'icon.ico' : 'icon.icns');
 
+  // 저장된 창 상태 복원 (없으면 기본값)
+  const savedState = loadWindowState();
+  const initX = savedState?.x !== undefined ? savedState.x : screenWidth - 440;
+  const initY = savedState?.y !== undefined ? savedState.y : 20;
+  const initWidth = savedState?.width || 420;
+  const initHeight = savedState?.height || 520;
+  // 화면 밖으로 나간 좌표 안전 처리
+  const safeX = Math.max(0, Math.min(initX, screenWidth - 100));
+  const safeY = Math.max(0, Math.min(initY, screenHeight - 100));
+
   mainWindow = new BrowserWindow({
-    width: 420,
-    height: 520,
-    x: screenWidth - 440,
-    y: 20,
+    width: initWidth,
+    height: initHeight,
+    x: safeX,
+    y: safeY,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -93,6 +126,15 @@ function createWindow(): void {
       backgroundThrottling: false,
     },
   });
+
+  // 창 이동·크기 변경 시 상태 저장 (debounce)
+  let resizeDebounce: NodeJS.Timeout | null = null;
+  const debouncedSave = () => {
+    if (resizeDebounce) clearTimeout(resizeDebounce);
+    resizeDebounce = setTimeout(saveWindowState, 500);
+  };
+  mainWindow.on('resize', debouncedSave);
+  mainWindow.on('move', debouncedSave);
 
   // 페이지 로드 완료 시 한번에 표시 (깜빡임 없음)
   mainWindow.once('ready-to-show', () => {
@@ -303,6 +345,19 @@ function setupIPC(): void {
 
   ipcMain.handle('app:get-version', () => {
     return app.getVersion();
+  });
+
+  // 시작 시 자동 실행 (로그인 시 실행)
+  ipcMain.handle('app:get-auto-launch', () => {
+    return app.getLoginItemSettings().openAtLogin;
+  });
+  ipcMain.handle('app:set-auto-launch', (_event, enabled: boolean) => {
+    app.setLoginItemSettings({
+      openAtLogin: enabled,
+      // Windows에서는 트레이로 시작 옵션을 보낼 수 있음 (옵션)
+      openAsHidden: false,
+    });
+    return app.getLoginItemSettings().openAtLogin;
   });
 }
 
@@ -691,6 +746,11 @@ app.whenReady().then(() => {
   if (!clickThroughShortcutOk) {
     console.warn('[Shortcut] Failed to register Ctrl+Shift+X — may conflict with another app');
   }
+});
+
+app.on('before-quit', () => {
+  // 종료 직전 창 상태 저장 (마지막 위치/크기)
+  saveWindowState();
 });
 
 app.on('will-quit', () => {

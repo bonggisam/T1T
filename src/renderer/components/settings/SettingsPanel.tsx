@@ -40,6 +40,7 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
     }
   });
   const [appVersion, setAppVersion] = useState('1.0.0');
+  const [autoLaunch, setAutoLaunch] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
 
@@ -49,6 +50,7 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
 
   useEffect(() => {
     window.electronAPI?.getAppVersion().then((v) => setAppVersion(v)).catch(() => {});
+    window.electronAPI?.getAutoLaunch().then((v) => setAutoLaunch(v)).catch(() => {});
   }, []);
 
   // Resize window to narrow+tall on mount, restore on unmount
@@ -285,6 +287,23 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
             <span style={styles.label}>버전</span>
             <span style={styles.value}>v{appVersion}</span>
           </div>
+          <ToggleRow
+            label="시작 시 자동 실행"
+            value={autoLaunch}
+            onChange={async (v) => {
+              setAutoLaunch(v);
+              try {
+                const actual = await window.electronAPI?.setAutoLaunch(v);
+                if (typeof actual === 'boolean') setAutoLaunch(actual);
+                const { showToast } = await import('../common/Toast');
+                showToast(v ? '✅ 시작 시 자동 실행이 설정되었습니다' : '시작 시 자동 실행이 해제되었습니다', 'success');
+              } catch {
+                const { showToast } = await import('../common/Toast');
+                showToast('자동 실행 설정 실패', 'error');
+                setAutoLaunch(!v);
+              }
+            }}
+          />
           <div style={styles.settingRow}>
             <span style={styles.label}>업데이트 확인</span>
             <button

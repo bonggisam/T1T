@@ -208,6 +208,8 @@ export interface ElectronAPI {
   updaterInstall: () => Promise<void>;
   updaterCheck: () => Promise<{ ok: true; version?: string } | { ok: false; error: string }>;
   getAppVersion: () => Promise<string>;
+  getAutoLaunch: () => Promise<boolean>;
+  setAutoLaunch: (enabled: boolean) => Promise<boolean>;
   onUpdaterEvent: (callback: (channel: string, data: any) => void) => () => void;
   // Google Calendar
   googleAuth: () => Promise<{ access_token: string; expires_in: number } | { error: string }>;
