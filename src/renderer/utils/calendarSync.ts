@@ -70,9 +70,11 @@ export async function connectGoogle(): Promise<{ success: boolean; error?: strin
       console.warn('[CalendarSync] Google auth returned error:', result.error);
       return { success: false, error: result.error };
     }
+    // refresh_token이 응답에 없으면 기존 것 유지 (Google이 매번 발급하지 않을 수 있음)
+    const existingRefresh = googleTokens?.refresh_token || loadTokensFromStorage('google')?.refresh_token;
     googleTokens = {
       access_token: result.access_token,
-      refresh_token: result.refresh_token,
+      refresh_token: result.refresh_token || existingRefresh,
       expires_at: Date.now() + result.expires_in * 1000,
     };
     saveTokensToStorage('google', googleTokens);
@@ -167,7 +169,12 @@ export async function createGoogleEvent(input: {
       body: JSON.stringify(body),
     });
     if (!res.ok) {
-      console.warn('[CalendarSync] createGoogleEvent failed:', res.status);
+      if (res.status === 401) {
+        disconnectGoogle();
+        window.dispatchEvent(new CustomEvent('google:auth-expired'));
+      } else {
+        console.warn('[CalendarSync] createGoogleEvent failed:', res.status);
+      }
       return null;
     }
     const data = await res.json();
@@ -210,7 +217,16 @@ export async function updateGoogleEvent(externalId: string, input: {
       },
       body: JSON.stringify(body),
     });
-    return res.ok;
+    if (!res.ok) {
+      if (res.status === 401) {
+        disconnectGoogle();
+        window.dispatchEvent(new CustomEvent('google:auth-expired'));
+      } else {
+        console.warn(`[Google Sync] update failed ${res.status}`);
+      }
+      return false;
+    }
+    return true;
   } catch (err) {
     console.error('[CalendarSync] updateGoogleEvent error:', err);
     return false;
@@ -227,7 +243,14 @@ export async function deleteGoogleEvent(externalId: string): Promise<boolean> {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${googleTokens!.access_token}` },
     });
-    return res.ok || res.status === 410; // 410 = 이미 삭제됨
+    if (res.ok || res.status === 410) return true; // 410 = 이미 삭제됨
+    if (res.status === 401) {
+      disconnectGoogle();
+      window.dispatchEvent(new CustomEvent('google:auth-expired'));
+    } else {
+      console.warn(`[Google Sync] delete failed ${res.status}`);
+    }
+    return false;
   } catch (err) {
     console.error('[CalendarSync] deleteGoogleEvent error:', err);
     return false;
