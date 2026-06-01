@@ -91,5 +91,19 @@ service cloud.firestore {
       allow create: if isActive() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
+
+    // 키폰 번호부 — 활성 사용자 모두 조회 가능, 부장(head_teacher) 이상만 수정
+    function canEditKeyphone() {
+      return isAuth() && getUserData().role in ['head_teacher', 'admin', 'super_admin'];
+    }
+    match /keyphones/{entryId} {
+      allow read: if isActive();
+      allow create: if canEditKeyphone()
+        && request.resource.data.school in ['taeseong_middle', 'taeseong_high'];
+      allow update: if canEditKeyphone()
+        && (!('school' in request.resource.data.diff(resource.data).affectedKeys())
+            || request.resource.data.school in ['taeseong_middle', 'taeseong_high']);
+      allow delete: if canEditKeyphone();
+    }
   }
 }

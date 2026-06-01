@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Calendar, CheckSquare, Building2, UtensilsCrossed, BookOpen,
   Bell, Users, Settings, Sun, Moon, Pin, Minus, X,
-  GraduationCap, School as SchoolIcon, Pencil, LogOut, CalendarDays,
+  GraduationCap, School as SchoolIcon, Pencil, LogOut, CalendarDays, Phone,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/notificationStore';
@@ -28,6 +28,8 @@ interface TitleBarProps {
   showMeal?: boolean;
   onToggleSchedule?: () => void;
   showSchedule?: boolean;
+  onToggleKeyphone?: () => void;
+  showKeyphone?: boolean;
   theme?: 'light' | 'dark';
   onToggleTheme?: () => void;
   onGoHome?: () => void; // 메인 달력으로 복귀
@@ -41,6 +43,7 @@ export function TitleBar({
   onToggleReserv, showReserv,
   onToggleMeal, showMeal,
   onToggleSchedule, showSchedule,
+  onToggleKeyphone, showKeyphone,
   theme, onToggleTheme,
   onGoHome,
 }: TitleBarProps) {
@@ -90,6 +93,9 @@ export function TitleBar({
           )}
           {user && onToggleSchedule && (
             <IconBtn Icon={CalendarDays} active={showSchedule} onClick={onToggleSchedule} title={showSchedule ? '캘린더로' : '학사일정'} compact />
+          )}
+          {user && onToggleKeyphone && (
+            <IconBtn Icon={Phone} active={showKeyphone} onClick={onToggleKeyphone} title={showKeyphone ? '캘린더로' : '키폰 번호'} compact />
           )}
           {user && onToggleTPass && (
             <button
@@ -179,6 +185,9 @@ export function TitleBar({
             )}
             {onToggleSchedule && (
               <IconBtn Icon={CalendarDays} active={showSchedule} onClick={onToggleSchedule} title={showSchedule ? '캘린더로' : '학사일정'} />
+            )}
+            {onToggleKeyphone && (
+              <IconBtn Icon={Phone} active={showKeyphone} onClick={onToggleKeyphone} title={showKeyphone ? '캘린더로' : '키폰 번호'} />
             )}
             {onToggleTPass && (
               <button

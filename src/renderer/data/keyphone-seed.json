@@ -1,0 +1,818 @@
+{
+  "taeseong_middle": [
+    {
+      "department": "교 장 실",
+      "name": "",
+      "role": "집무",
+      "keyphone": "5110",
+      "phone": "031-323-5309"
+    },
+    {
+      "department": "정보환경부",
+      "name": "김지선",
+      "role": "부서장",
+      "keyphone": "5414",
+      "phone": "070-4676-3936"
+    },
+    {
+      "department": "교 장 실",
+      "name": "",
+      "role": "응접",
+      "keyphone": "5111",
+      "phone": "070-4679-3901"
+    },
+    {
+      "department": "정보환경부",
+      "name": "김경미",
+      "role": "보건실",
+      "keyphone": "5417",
+      "phone": "070-4676-3939"
+    },
+    {
+      "department": "교 감",
+      "name": "",
+      "role": "",
+      "keyphone": "5112",
+      "phone": "070-4676-3902"
+    },
+    {
+      "department": "정보환경부",
+      "name": "진준호(사서)",
+      "role": "(1-2)",
+      "keyphone": "5321",
+      "phone": "070-4676-3928"
+    },
+    {
+      "department": "행정실",
+      "name": "행정실장",
+      "role": "",
+      "keyphone": "5113",
+      "phone": "070-4676-3904"
+    },
+    {
+      "department": "학년부",
+      "name": "김정훈",
+      "role": "부서장1-1",
+      "keyphone": "5312",
+      "phone": "070-4676-3918"
+    },
+    {
+      "department": "행정실",
+      "name": "박주용 주 무 관",
+      "role": "",
+      "keyphone": "5114",
+      "phone": "070-4676-3905"
+    },
+    {
+      "department": "학년부",
+      "name": "김채환",
+      "role": "1-2",
+      "keyphone": "5227",
+      "phone": "070-4676-3914"
+    },
+    {
+      "department": "행정실",
+      "name": "최정현 주 무 관",
+      "role": "",
+      "keyphone": "5115",
+      "phone": "031-323-5310"
+    },
+    {
+      "department": "학년부",
+      "name": "윤석희",
+      "role": "2-1",
+      "keyphone": "5313",
+      "phone": "070-4676-3919"
+    },
+    {
+      "department": "행정실",
+      "name": "김성훈 기사",
+      "role": "",
+      "keyphone": "5116",
+      "phone": "031-323-5311"
+    },
+    {
+      "department": "학년부",
+      "name": "윤희수",
+      "role": "2-2",
+      "keyphone": "5416",
+      "phone": "070-4676-3938"
+    },
+    {
+      "department": "행정실",
+      "name": "허수민 영양사",
+      "role": "",
+      "keyphone": "5117",
+      "phone": "070-4676-3927"
+    },
+    {
+      "department": "학년부",
+      "name": "김은경",
+      "role": "2-3",
+      "keyphone": "5224",
+      "phone": "070-4676-3911"
+    },
+    {
+      "department": "교무기획부",
+      "name": "박경록",
+      "role": "부서장",
+      "keyphone": "5221",
+      "phone": "070-4676-3908"
+    },
+    {
+      "department": "학년부",
+      "name": "차승현",
+      "role": "3-1",
+      "keyphone": "5413",
+      "phone": "070-4676-3935"
+    },
+    {
+      "department": "교무기획부",
+      "name": "박혜란",
+      "role": "(3-4)",
+      "keyphone": "5226",
+      "phone": "070-4676-3913"
+    },
+    {
+      "department": "학년부",
+      "name": "윤현미 (진로상담)",
+      "role": "3-2",
+      "keyphone": "5222",
+      "phone": "070-4676-3909"
+    },
+    {
+      "department": "교무기획부",
+      "name": "윤지운",
+      "role": "(2-1)",
+      "keyphone": "5415",
+      "phone": "070-4676-3937"
+    },
+    {
+      "department": "학년부",
+      "name": "박상철",
+      "role": "3-3",
+      "keyphone": "5228",
+      "phone": "070-4676-3915"
+    },
+    {
+      "department": "교무기획부",
+      "name": "강현성",
+      "role": "",
+      "keyphone": "5225",
+      "phone": "031-323-5312 070-4676-3912"
+    },
+    {
+      "department": "학년부",
+      "name": "정지숙",
+      "role": "3-4",
+      "keyphone": "5512",
+      "phone": "070-4676-3925"
+    },
+    {
+      "department": "교무기획부",
+      "name": "유선미",
+      "role": "",
+      "keyphone": "5229",
+      "phone": "070-4676-3916"
+    },
+    {
+      "department": "미래교육 연구부",
+      "name": "신용주",
+      "role": "부서장(2-2)",
+      "keyphone": "5223",
+      "phone": "070-4676-3910"
+    },
+    {
+      "department": "미래교육 연구부",
+      "name": "현보라",
+      "role": "(1-1)",
+      "keyphone": "5311",
+      "phone": "070-4676-3917"
+    },
+    {
+      "department": "숙 직 실",
+      "name": "",
+      "role": "",
+      "keyphone": "8293",
+      "phone": "070-7540-8293"
+    },
+    {
+      "department": "미래교육 연구부",
+      "name": "서정호",
+      "role": "(3-2)",
+      "keyphone": "5511",
+      "phone": "070-4676-3924"
+    },
+    {
+      "department": "태성고등학교 영양사",
+      "name": "",
+      "role": "",
+      "keyphone": "*2 8295",
+      "phone": "070-7540-8295"
+    },
+    {
+      "department": "생활자치 안전부",
+      "name": "이지연",
+      "role": "부서장(3-3)",
+      "keyphone": "5513",
+      "phone": "070-4676-3926"
+    },
+    {
+      "department": "태성고등학교 행정실",
+      "name": "",
+      "role": "",
+      "keyphone": "*2 8207",
+      "phone": "031-335-9181"
+    },
+    {
+      "department": "생활자치 안전부",
+      "name": "홍성욱",
+      "role": "(2-3)",
+      "keyphone": "5411",
+      "phone": "070-4676-3933"
+    },
+    {
+      "department": "태성고등학교 교무실",
+      "name": "",
+      "role": "",
+      "keyphone": "*2 8213",
+      "phone": "031-335-9182"
+    },
+    {
+      "department": "생활자치 안전부",
+      "name": "조충연 (Wee클래스)",
+      "role": "(3-1)",
+      "keyphone": "5315",
+      "phone": "070-4676-3921"
+    },
+    {
+      "department": "정문 경비실",
+      "name": "",
+      "role": "",
+      "keyphone": "*2 8212",
+      "phone": "070-7540-8212"
+    }
+  ],
+  "taeseong_high": [
+    {
+      "department": "이사장실",
+      "name": "",
+      "role": "",
+      "keyphone": "8200",
+      "phone": "070-7540-8200"
+    },
+    {
+      "department": "1학년부",
+      "name": "양윤석",
+      "role": "부장",
+      "keyphone": "8273",
+      "phone": "070-7540-8273"
+    },
+    {
+      "department": "교 장 실",
+      "name": "",
+      "role": "",
+      "keyphone": "8201",
+      "phone": "031-332-7654 070-5053-7651"
+    },
+    {
+      "department": "1학년부",
+      "name": "백선민",
+      "role": "",
+      "keyphone": "8274",
+      "phone": "070-7540-8274"
+    },
+    {
+      "department": "교 감",
+      "name": "",
+      "role": "",
+      "keyphone": "8202",
+      "phone": "031-335-9180 070-5053-7652"
+    },
+    {
+      "department": "1학년부",
+      "name": "유진화",
+      "role": "",
+      "keyphone": "8222",
+      "phone": "070-7540-8222"
+    },
+    {
+      "department": "1학년부",
+      "name": "이규영",
+      "role": "",
+      "keyphone": "8216",
+      "phone": "070-7540-8216"
+    },
+    {
+      "department": "행정실",
+      "name": "윤지원",
+      "role": "실장",
+      "keyphone": "8203",
+      "phone": "070-7540-8203"
+    },
+    {
+      "department": "1학년부",
+      "name": "이태현",
+      "role": "",
+      "keyphone": "8240",
+      "phone": "070-7540-8240"
+    },
+    {
+      "department": "행정실",
+      "name": "정다연",
+      "role": "",
+      "keyphone": "8205",
+      "phone": "070-7540-8205"
+    },
+    {
+      "department": "1학년부",
+      "name": "윤동성",
+      "role": "",
+      "keyphone": "8286",
+      "phone": "070-7540-8286"
+    },
+    {
+      "department": "행정실",
+      "name": "김다희",
+      "role": "",
+      "keyphone": "8206",
+      "phone": "070-7540-8206"
+    },
+    {
+      "department": "1학년부",
+      "name": "최진아",
+      "role": "",
+      "keyphone": "8219",
+      "phone": "070-7540-8219"
+    },
+    {
+      "department": "행정실",
+      "name": "홍승희",
+      "role": "",
+      "keyphone": "8207",
+      "phone": "070-7540-8207"
+    },
+    {
+      "department": "1학년부",
+      "name": "김용재",
+      "role": "",
+      "keyphone": "8284",
+      "phone": "070-7540-8284"
+    },
+    {
+      "department": "행정실",
+      "name": "염영미",
+      "role": "",
+      "keyphone": "8208",
+      "phone": "070-7540-8208"
+    },
+    {
+      "department": "1학년부",
+      "name": "이하정",
+      "role": "",
+      "keyphone": "8264",
+      "phone": "070-7540-8264"
+    },
+    {
+      "department": "행정실",
+      "name": "김태호",
+      "role": "",
+      "keyphone": "8204",
+      "phone": "070-7540-8204"
+    },
+    {
+      "department": "1학년부",
+      "name": "정준형",
+      "role": "",
+      "keyphone": "8279",
+      "phone": "070-7540-8279"
+    },
+    {
+      "department": "교무 기획부",
+      "name": "이용길",
+      "role": "부장",
+      "keyphone": "8269",
+      "phone": "070-7540-8269 031-335-9183"
+    },
+    {
+      "department": "교무 기획부",
+      "name": "오세호",
+      "role": "",
+      "keyphone": "8252",
+      "phone": "070-7540-8252"
+    },
+    {
+      "department": "2학년부",
+      "name": "윤정훈",
+      "role": "부장",
+      "keyphone": "8281",
+      "phone": "070-7540-8281"
+    },
+    {
+      "department": "교무 기획부",
+      "name": "박다현",
+      "role": "",
+      "keyphone": "8211",
+      "phone": "070-7540-8211"
+    },
+    {
+      "department": "교무 기획부",
+      "name": "이지현",
+      "role": "",
+      "keyphone": "8213",
+      "phone": "070-7540-8213"
+    },
+    {
+      "department": "2학년부",
+      "name": "최정민",
+      "role": "",
+      "keyphone": "8231",
+      "phone": "070-7540-8231"
+    },
+    {
+      "department": "2학년부",
+      "name": "엄준상",
+      "role": "",
+      "keyphone": "8283",
+      "phone": "070-7540-8283"
+    },
+    {
+      "department": "연구혁신부",
+      "name": "권성미",
+      "role": "부장",
+      "keyphone": "8235",
+      "phone": "070-7540-8235"
+    },
+    {
+      "department": "2학년부",
+      "name": "김경화",
+      "role": "",
+      "keyphone": "8244",
+      "phone": "070-7540-8244"
+    },
+    {
+      "department": "연구혁신부",
+      "name": "임효진",
+      "role": "",
+      "keyphone": "8215",
+      "phone": "070-7540-8215"
+    },
+    {
+      "department": "2학년부",
+      "name": "김대중",
+      "role": "",
+      "keyphone": "8263",
+      "phone": "070-7540-8263"
+    },
+    {
+      "department": "연구혁신부",
+      "name": "류길선",
+      "role": "",
+      "keyphone": "8285",
+      "phone": "070-7540-8285"
+    },
+    {
+      "department": "2학년부",
+      "name": "조국의",
+      "role": "",
+      "keyphone": "8277",
+      "phone": "070-7540-8277"
+    },
+    {
+      "department": "2학년부",
+      "name": "민경훈",
+      "role": "",
+      "keyphone": "8267",
+      "phone": "070-7540-8267"
+    },
+    {
+      "department": "학생생활 안전상담부",
+      "name": "이준호",
+      "role": "부장",
+      "keyphone": "8250",
+      "phone": "031-335-9186"
+    },
+    {
+      "department": "2학년부",
+      "name": "김윤정",
+      "role": "",
+      "keyphone": "8275",
+      "phone": "070-7540-8275"
+    },
+    {
+      "department": "학생생활 안전상담부",
+      "name": "박정훈",
+      "role": "",
+      "keyphone": "8278",
+      "phone": "070-7540-8278"
+    },
+    {
+      "department": "2학년부",
+      "name": "신효리",
+      "role": "",
+      "keyphone": "8276",
+      "phone": "070-7540-8276"
+    },
+    {
+      "department": "학생생활 안전상담부",
+      "name": "노창우",
+      "role": "",
+      "keyphone": "8280",
+      "phone": "031-335-9187"
+    },
+    {
+      "department": "2학년부",
+      "name": "변우진",
+      "role": "",
+      "keyphone": "8288",
+      "phone": "070-7540-8288"
+    },
+    {
+      "department": "학생생활 안전상담부",
+      "name": "김진숙",
+      "role": "",
+      "keyphone": "8294",
+      "phone": "070-7540-8294"
+    },
+    {
+      "department": "3학년부",
+      "name": "조상규",
+      "role": "부장",
+      "keyphone": "8220",
+      "phone": "070-7540-8220"
+    },
+    {
+      "department": "미래융합 정보부",
+      "name": "이찬호",
+      "role": "부장",
+      "keyphone": "8272",
+      "phone": "070-7540-8272"
+    },
+    {
+      "department": "미래융합 정보부",
+      "name": "박혜진",
+      "role": "",
+      "keyphone": "8237",
+      "phone": "031-335-9189"
+    },
+    {
+      "department": "3학년부",
+      "name": "심서현",
+      "role": "",
+      "keyphone": "8230",
+      "phone": "031-321-0982"
+    },
+    {
+      "department": "교육과정부",
+      "name": "박소윤",
+      "role": "부장",
+      "keyphone": "8268",
+      "phone": "070-7540-8268"
+    },
+    {
+      "department": "3학년부",
+      "name": "윤다연",
+      "role": "",
+      "keyphone": "8289",
+      "phone": "070-7540-8289"
+    },
+    {
+      "department": "교육과정부",
+      "name": "김동현",
+      "role": "",
+      "keyphone": "8251",
+      "phone": "070-7540-8251"
+    },
+    {
+      "department": "3학년부",
+      "name": "김진희",
+      "role": "",
+      "keyphone": "8210",
+      "phone": "070-7540-8210"
+    },
+    {
+      "department": "3학년부",
+      "name": "김수영",
+      "role": "",
+      "keyphone": "8271",
+      "phone": "070-7540-8271"
+    },
+    {
+      "department": "진로진학 홍보부",
+      "name": "이은아",
+      "role": "부장",
+      "keyphone": "8287",
+      "phone": "070-7540-8287"
+    },
+    {
+      "department": "3학년부",
+      "name": "배은지",
+      "role": "",
+      "keyphone": "8261",
+      "phone": "070-7540-8261"
+    },
+    {
+      "department": "진로진학 홍보부",
+      "name": "김서영",
+      "role": "",
+      "keyphone": "8226",
+      "phone": "070-7540-8226"
+    },
+    {
+      "department": "3학년부",
+      "name": "조인영",
+      "role": "",
+      "keyphone": "8236",
+      "phone": "070-7540-8236"
+    },
+    {
+      "department": "3학년부",
+      "name": "김재호",
+      "role": "",
+      "keyphone": "8253",
+      "phone": "070-7540-8253"
+    },
+    {
+      "department": "학생성장 플랫폼부",
+      "name": "이봉기",
+      "role": "부장",
+      "keyphone": "8270",
+      "phone": "031-335-9183"
+    },
+    {
+      "department": "3학년부",
+      "name": "김소평",
+      "role": "",
+      "keyphone": "8241",
+      "phone": "070-7540-8241"
+    },
+    {
+      "department": "학생성장 플랫폼부",
+      "name": "정진유",
+      "role": "",
+      "keyphone": "8232",
+      "phone": "070-7540-8232"
+    },
+    {
+      "department": "3학년부",
+      "name": "임수연",
+      "role": "",
+      "keyphone": "8221",
+      "phone": "070-7540-8221"
+    },
+    {
+      "department": "방송실",
+      "name": "",
+      "role": "",
+      "keyphone": "8290",
+      "phone": "070-7540-8290"
+    },
+    {
+      "department": "인문환경 스포츠부",
+      "name": "곽문환",
+      "role": "부장",
+      "keyphone": "8282",
+      "phone": "070-7540-8282"
+    },
+    {
+      "department": "보건실",
+      "name": "이수진",
+      "role": "",
+      "keyphone": "8291",
+      "phone": "070-7540-8291"
+    },
+    {
+      "department": "기숙사",
+      "name": "설동흔",
+      "role": "",
+      "keyphone": "8227",
+      "phone": "070-7540-8227"
+    },
+    {
+      "department": "인문환경 스포츠부",
+      "name": "곽민호",
+      "role": "",
+      "keyphone": "8266",
+      "phone": "070-7540-8266"
+    },
+    {
+      "department": "숙직실",
+      "name": "",
+      "role": "",
+      "keyphone": "8293",
+      "phone": "070-7540-8293"
+    },
+    {
+      "department": "인문환경 스포츠부",
+      "name": "진용호",
+      "role": "",
+      "keyphone": "8218",
+      "phone": "070-7540-8218"
+    },
+    {
+      "department": "상담실",
+      "name": "김진숙",
+      "role": "",
+      "keyphone": "8294",
+      "phone": "070-7540-8294"
+    },
+    {
+      "department": "인문환경 스포츠부",
+      "name": "이수진",
+      "role": "",
+      "keyphone": "8291",
+      "phone": "070-7540-8291"
+    },
+    {
+      "department": "도서관",
+      "name": "한수정",
+      "role": "",
+      "keyphone": "8217",
+      "phone": "070-7540-8217"
+    },
+    {
+      "department": "인문환경 스포츠부",
+      "name": "한수정",
+      "role": "",
+      "keyphone": "8217",
+      "phone": "070-7540-8217"
+    },
+    {
+      "department": "영양사",
+      "name": "손분순",
+      "role": "",
+      "keyphone": "8295",
+      "phone": "070-7540-8295"
+    },
+    {
+      "department": "위탁영양사",
+      "name": "이용선",
+      "role": "",
+      "keyphone": "8223",
+      "phone": "070-7540-8223"
+    },
+    {
+      "department": "성적처리실",
+      "name": "",
+      "role": "",
+      "keyphone": "8242",
+      "phone": "070-7540-8242"
+    },
+    {
+      "department": "정문 경비실",
+      "name": "",
+      "role": "",
+      "keyphone": "8212",
+      "phone": "070-7540-8212"
+    },
+    {
+      "department": "가치나눔 종교부",
+      "name": "진미경",
+      "role": "부장",
+      "keyphone": "8262",
+      "phone": "070-7540-8262"
+    },
+    {
+      "department": "가치나눔 종교부",
+      "name": "염창용",
+      "role": "",
+      "keyphone": "8243",
+      "phone": "070-7540-8243"
+    },
+    {
+      "department": "동아아이티",
+      "name": "지문인식",
+      "role": "",
+      "keyphone": "",
+      "phone": "070-7729-7317"
+    },
+    {
+      "department": "경기정보통신",
+      "name": "컴퓨터 AS",
+      "role": "",
+      "keyphone": "",
+      "phone": "031-335-1994"
+    },
+    {
+      "department": "기숙사부",
+      "name": "한준명",
+      "role": "부장",
+      "keyphone": "8265",
+      "phone": "070-7540-8265"
+    },
+    {
+      "department": "동부솔루션",
+      "name": "대형프린터",
+      "role": "",
+      "keyphone": "",
+      "phone": "031-333-5638 010-5756-5639"
+    },
+    {
+      "department": "세한하이테크",
+      "name": "소형컬러프린터",
+      "role": "",
+      "keyphone": "plotter",
+      "phone": "010-6340-8272(담당:이해관)"
+    }
+  ]
+}

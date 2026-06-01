@@ -1,0 +1,573 @@
+import React, { useEffect, useState, useMemo } from 'react';
+import { ArrowLeft, Search, Plus, Pencil, Trash2, Check, X, Copy, RefreshCw, Database } from 'lucide-react';
+import { useAuthStore } from '../../store/authStore';
+import { useKeyphoneStore, type KeyphoneEntry } from '../../store/keyphoneStore';
+import { showToast } from '../common/Toast';
+import type { School } from '@shared/types';
+
+interface KeyphoneViewProps {
+  onBack: () => void;
+}
+
+const SCHOOLS: { key: School; label: string; icon: string; color: string }[] = [
+  { key: 'taeseong_middle', label: '태성중학교', icon: '🏫', color: '#10B981' },
+  { key: 'taeseong_high', label: '태성고등학교', icon: '🎓', color: '#8B5CF6' },
+];
+
+/** 키폰 번호부 — 양교 전화번호 조회 + 관리자 편집. */
+export function KeyphoneView({ onBack }: KeyphoneViewProps) {
+  const { user } = useAuthStore();
+  const { entries, loading, subscribe, cleanup, addEntry, updateEntry, deleteEntry, seedIfEmpty, resetAndReseed } = useKeyphoneStore();
+
+  const canEdit = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'head_teacher';
+  const isSuperAdmin = user?.role === 'super_admin';
+
+  const defaultSchool: School = (user?.school === 'taeseong_middle' || user?.school === 'taeseong_high')
+    ? user.school : 'taeseong_middle';
+  const [selectedSchool, setSelectedSchool] = useState<School>(defaultSchool);
+  const [search, setSearch] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<Partial<KeyphoneEntry>>({});
+  const [addingForSchool, setAddingForSchool] = useState<School | null>(null);
+  const [addDraft, setAddDraft] = useState<Partial<KeyphoneEntry>>({});
+  const [seeding, setSeeding] = useState(false);
+
+  useEffect(() => {
+    subscribe();
+    return () => cleanup();
+  }, [subscribe, cleanup]);
+
+  // 컬렉션이 완전히 비어 있을 때 안내 (자동 시드 X — 관리자 명시 클릭으로만)
+  const isEmpty = !loading && entries.length === 0;
+
+  const palette = SCHOOLS.find((s) => s.key === selectedSchool)!;
+
+  const filtered = useMemo(() => {
+    const list = entries.filter((e) => e.school === selectedSchool);
+    if (!search.trim()) return list;
+    const q = search.trim().toLowerCase();
+    return list.filter((e) =>
+      e.department.toLowerCase().includes(q) ||
+      e.name.toLowerCase().includes(q) ||
+      e.role.toLowerCase().includes(q) ||
+      e.keyphone.toLowerCase().includes(q) ||
+      e.phone.toLowerCase().includes(q),
+    );
+  }, [entries, selectedSchool, search]);
+
+  // 부서별 그룹핑
+  const grouped = useMemo(() => {
+    const map = new Map<string, KeyphoneEntry[]>();
+    for (const e of filtered) {
+      const key = e.department || '기타';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(e);
+    }
+    return Array.from(map.entries());
+  }, [filtered]);
+
+  function copy(text: string) {
+    if (!text) return;
+    navigator.clipboard?.writeText(text).then(
+      () => showToast(`복사됨: ${text}`, 'success'),
+      () => showToast('복사 실패', 'error'),
+    );
+  }
+
+  function startEdit(e: KeyphoneEntry) {
+    setEditingId(e.id);
+    setEditDraft({ ...e });
+  }
+  function cancelEdit() {
+    setEditingId(null);
+    setEditDraft({});
+  }
+  async function saveEdit() {
+    if (!editingId) return;
+    try {
+      await updateEntry(editingId, editDraft);
+      showToast('수정되었습니다', 'success');
+      cancelEdit();
+    } catch (err: any) {
+      showToast(`수정 실패: ${err?.message || err}`, 'error');
+    }
+  }
+  async function remove(e: KeyphoneEntry) {
+    if (!confirm(`'${e.department} / ${e.name || e.role || '항목'}'을(를) 삭제할까요?`)) return;
+    try {
+      await deleteEntry(e.id);
+      showToast('삭제되었습니다', 'success');
+    } catch (err: any) {
+      showToast(`삭제 실패: ${err?.message || err}`, 'error');
+    }
+  }
+  function startAdd(school: School) {
+    setAddingForSchool(school);
+    setAddDraft({ school, department: '', name: '', role: '', keyphone: '', phone: '' });
+  }
+  function cancelAdd() {
+    setAddingForSchool(null);
+    setAddDraft({});
+  }
+  async function saveAdd() {
+    if (!addingForSchool) return;
+    const d = addDraft;
+    if (!d.department && !d.name && !d.keyphone && !d.phone) {
+      showToast('최소 한 가지 정보는 입력해주세요', 'error');
+      return;
+    }
+    try {
+      const maxOrder = Math.max(0, ...entries.filter((e) => e.school === addingForSchool).map((e) => e.order));
+      await addEntry({
+        school: addingForSchool,
+        department: d.department || '',
+        name: d.name || '',
+        role: d.role || '',
+        keyphone: d.keyphone || '',
+        phone: d.phone || '',
+        order: maxOrder + 1,
+      });
+      showToast('추가되었습니다', 'success');
+      cancelAdd();
+    } catch (err: any) {
+      showToast(`추가 실패: ${err?.message || err}`, 'error');
+    }
+  }
+
+  async function handleSeed() {
+    if (!confirm('초기 키폰 번호부(2026.3.1 기준)를 Firestore에 등록할까요?\n(기존에 데이터가 있으면 건너뜁니다)')) return;
+    setSeeding(true);
+    try {
+      const res = await seedIfEmpty();
+      if (res.seeded) {
+        showToast(`초기 데이터 ${res.count}건 등록 완료`, 'success');
+      } else {
+        showToast(`이미 ${res.count}건의 데이터가 있어 건너뜁니다`, 'info');
+      }
+    } catch (err: any) {
+      showToast(`시드 실패: ${err?.message || err}`, 'error');
+    }
+    setSeeding(false);
+  }
+
+  async function handleReset() {
+    if (!confirm('⚠️ 기존 키폰 번호부를 모두 삭제하고 초기 데이터(2026.3.1 기준)로 다시 채울까요?\n이 작업은 되돌릴 수 없습니다.')) return;
+    setSeeding(true);
+    try {
+      const n = await resetAndReseed();
+      showToast(`재시드 완료: ${n}건 등록`, 'success');
+    } catch (err: any) {
+      showToast(`재시드 실패: ${err?.message || err}`, 'error');
+    }
+    setSeeding(false);
+  }
+
+  return (
+    <div style={styles.wrap}>
+      {/* 헤더 */}
+      <div style={styles.header}>
+        <button onClick={onBack} style={styles.backBtn} title="돌아가기" aria-label="뒤로">
+          <ArrowLeft size={18} />
+        </button>
+        <span style={styles.headerTitle}>📞 키폰 번호부</span>
+        <span style={{ flex: 1 }} />
+        {canEdit && isEmpty && (
+          <button onClick={handleSeed} disabled={seeding} style={styles.seedBtn}>
+            <Database size={13} /> 초기 데이터 등록
+          </button>
+        )}
+        {isSuperAdmin && !isEmpty && (
+          <button onClick={handleReset} disabled={seeding} style={styles.resetBtn} title="기존 데이터 삭제 후 초기 데이터로 재등록">
+            <RefreshCw size={13} /> 재시드
+          </button>
+        )}
+      </div>
+
+      {/* 학교 탭 */}
+      <div style={styles.tabRow}>
+        {SCHOOLS.map((s) => {
+          const active = selectedSchool === s.key;
+          const count = entries.filter((e) => e.school === s.key).length;
+          return (
+            <button
+              key={s.key}
+              onClick={() => setSelectedSchool(s.key)}
+              style={{
+                ...styles.tab,
+                background: active ? `${s.color}22` : 'transparent',
+                color: active ? s.color : 'var(--text-secondary)',
+                borderColor: active ? s.color : 'var(--border-subtle)',
+              }}
+            >
+              {s.icon} {s.label}
+              <span style={{
+                ...styles.countPill,
+                background: active ? `${s.color}33` : 'var(--bg-hover)',
+                color: active ? s.color : 'var(--text-muted)',
+              }}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 검색 + 추가 */}
+      <div style={styles.toolbar}>
+        <div style={styles.searchBox}>
+          <Search size={14} color="var(--text-muted)" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="부서·이름·직책·번호 검색"
+            style={styles.searchInput}
+          />
+        </div>
+        {canEdit && (
+          <button onClick={() => startAdd(selectedSchool)} style={{ ...styles.addBtn, background: `${palette.color}22`, color: palette.color }}>
+            <Plus size={14} /> 추가
+          </button>
+        )}
+      </div>
+
+      {/* 본문 */}
+      <div style={styles.body}>
+        {loading ? (
+          <div style={styles.placeholder}>로딩 중…</div>
+        ) : isEmpty ? (
+          <div style={styles.placeholder}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>📞</div>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>등록된 키폰 번호가 없습니다</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              {canEdit ? '상단의 "초기 데이터 등록" 버튼을 눌러주세요.' : '관리자가 초기 데이터를 등록할 때까지 기다려주세요.'}
+            </div>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={styles.placeholder}>
+            <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>검색 결과가 없습니다</div>
+          </div>
+        ) : (
+          <>
+            {/* 추가 폼 */}
+            {addingForSchool === selectedSchool && (
+              <div style={{ ...styles.row, background: 'var(--bg-hover)', borderLeft: `3px solid ${palette.color}` }}>
+                <input style={styles.editInput} placeholder="부서명" value={addDraft.department || ''} onChange={(e) => setAddDraft({ ...addDraft, department: e.target.value })} />
+                <input style={styles.editInput} placeholder="이름" value={addDraft.name || ''} onChange={(e) => setAddDraft({ ...addDraft, name: e.target.value })} />
+                <input style={styles.editInput} placeholder="직책/담당" value={addDraft.role || ''} onChange={(e) => setAddDraft({ ...addDraft, role: e.target.value })} />
+                <input style={styles.editInput} placeholder="키폰 (예: 8273)" value={addDraft.keyphone || ''} onChange={(e) => setAddDraft({ ...addDraft, keyphone: e.target.value })} />
+                <input style={styles.editInput} placeholder="외부 전화" value={addDraft.phone || ''} onChange={(e) => setAddDraft({ ...addDraft, phone: e.target.value })} />
+                <div style={styles.actionGroup}>
+                  <button onClick={saveAdd} style={styles.iconBtnSuccess} title="저장"><Check size={14} /></button>
+                  <button onClick={cancelAdd} style={styles.iconBtnGhost} title="취소"><X size={14} /></button>
+                </div>
+              </div>
+            )}
+
+            {grouped.map(([dept, list]) => (
+              <div key={dept} style={styles.group}>
+                <div style={{ ...styles.groupHeader, color: palette.color, borderBottomColor: `${palette.color}44` }}>
+                  {dept}
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 6, fontWeight: 400 }}>· {list.length}명</span>
+                </div>
+                {list.map((e) => {
+                  const isEditing = editingId === e.id;
+                  if (isEditing) {
+                    return (
+                      <div key={e.id} style={{ ...styles.row, background: 'var(--bg-hover)' }}>
+                        <input style={styles.editInput} value={editDraft.department || ''} onChange={(ev) => setEditDraft({ ...editDraft, department: ev.target.value })} placeholder="부서" />
+                        <input style={styles.editInput} value={editDraft.name || ''} onChange={(ev) => setEditDraft({ ...editDraft, name: ev.target.value })} placeholder="이름" />
+                        <input style={styles.editInput} value={editDraft.role || ''} onChange={(ev) => setEditDraft({ ...editDraft, role: ev.target.value })} placeholder="직책" />
+                        <input style={styles.editInput} value={editDraft.keyphone || ''} onChange={(ev) => setEditDraft({ ...editDraft, keyphone: ev.target.value })} placeholder="키폰" />
+                        <input style={styles.editInput} value={editDraft.phone || ''} onChange={(ev) => setEditDraft({ ...editDraft, phone: ev.target.value })} placeholder="전화" />
+                        <div style={styles.actionGroup}>
+                          <button onClick={saveEdit} style={styles.iconBtnSuccess} title="저장"><Check size={14} /></button>
+                          <button onClick={cancelEdit} style={styles.iconBtnGhost} title="취소"><X size={14} /></button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={e.id} style={styles.row}>
+                      <div style={styles.cellName}>
+                        <span style={styles.nameText}>{e.name || <span style={{ color: 'var(--text-muted)' }}>—</span>}</span>
+                        {e.role && <span style={styles.roleBadge}>{e.role}</span>}
+                      </div>
+                      <div style={styles.cellKp}>
+                        {e.keyphone ? (
+                          <button onClick={() => copy(e.keyphone)} style={{ ...styles.copyBtn, color: palette.color, borderColor: `${palette.color}55` }} title={`복사: ${e.keyphone}`}>
+                            <Copy size={10} style={{ verticalAlign: '-1px', marginRight: 3 }} />{e.keyphone}
+                          </button>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>—</span>
+                        )}
+                      </div>
+                      <div style={styles.cellPhone}>
+                        {e.phone ? (
+                          <button onClick={() => copy(e.phone)} style={styles.phoneBtn} title={`복사: ${e.phone}`}>
+                            {e.phone}
+                          </button>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>—</span>
+                        )}
+                      </div>
+                      {canEdit && (
+                        <div style={styles.actionGroup}>
+                          <button onClick={() => startEdit(e)} style={styles.iconBtnGhost} title="수정"><Pencil size={12} /></button>
+                          <button onClick={() => remove(e)} style={{ ...styles.iconBtnGhost, color: 'var(--danger)' }} title="삭제"><Trash2 size={12} /></button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
+      <div style={styles.footnote}>
+        {canEdit
+          ? '관리자 모드: 항목을 추가·수정·삭제할 수 있습니다.'
+          : '조회 전용 모드 — 관리자(부장 이상)만 수정 가능합니다.'}
+      </div>
+    </div>
+  );
+}
+
+const styles: Record<string, React.CSSProperties> = {
+  wrap: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    background: 'var(--bg-primary)',
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '10px 14px',
+    borderBottom: '1px solid var(--border-subtle)',
+  },
+  headerTitle: {
+    fontSize: 15,
+    fontWeight: 700,
+    color: 'var(--text-primary)',
+  },
+  backBtn: {
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    color: 'var(--text-secondary)',
+    padding: 4,
+    borderRadius: 6,
+    display: 'inline-flex',
+    alignItems: 'center',
+  },
+  seedBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    padding: '5px 10px',
+    fontSize: 11,
+    fontWeight: 600,
+    background: 'rgba(74,144,226,0.15)',
+    color: 'var(--accent)',
+    border: '1px solid rgba(74,144,226,0.4)',
+    borderRadius: 6,
+    cursor: 'pointer',
+  },
+  resetBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    padding: '4px 8px',
+    fontSize: 10,
+    fontWeight: 600,
+    background: 'rgba(245,158,11,0.12)',
+    color: '#F59E0B',
+    border: '1px solid rgba(245,158,11,0.3)',
+    borderRadius: 6,
+    cursor: 'pointer',
+  },
+  tabRow: {
+    display: 'flex',
+    gap: 6,
+    padding: '8px 14px',
+    borderBottom: '1px solid var(--border-subtle)',
+  },
+  tab: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '6px 12px',
+    fontSize: 12,
+    fontWeight: 600,
+    border: '1px solid',
+    borderRadius: 8,
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+  },
+  countPill: {
+    fontSize: 10,
+    fontWeight: 700,
+    padding: '1px 6px',
+    borderRadius: 8,
+    minWidth: 16,
+    textAlign: 'center',
+  },
+  toolbar: {
+    display: 'flex',
+    gap: 8,
+    padding: '8px 14px',
+    borderBottom: '1px solid var(--border-subtle)',
+  },
+  searchBox: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '6px 10px',
+    border: '1px solid var(--border-subtle)',
+    borderRadius: 8,
+    background: 'var(--bg-secondary)',
+  },
+  searchInput: {
+    flex: 1,
+    border: 'none',
+    outline: 'none',
+    background: 'transparent',
+    color: 'var(--text-primary)',
+    fontSize: 12,
+  },
+  addBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    padding: '6px 12px',
+    fontSize: 11,
+    fontWeight: 600,
+    border: 'none',
+    borderRadius: 8,
+    cursor: 'pointer',
+  },
+  body: {
+    flex: 1,
+    overflowY: 'auto',
+    padding: '8px 0 16px',
+  },
+  group: {
+    marginBottom: 8,
+  },
+  groupHeader: {
+    fontSize: 12,
+    fontWeight: 700,
+    padding: '8px 14px 4px',
+    borderBottom: '1px solid',
+    letterSpacing: 0.2,
+  },
+  row: {
+    display: 'grid',
+    gridTemplateColumns: '1.4fr 0.9fr 1.4fr auto',
+    alignItems: 'center',
+    gap: 8,
+    padding: '7px 14px',
+    fontSize: 12,
+    borderBottom: '1px solid var(--border-subtle)',
+  },
+  cellName: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 0,
+  },
+  nameText: {
+    fontWeight: 500,
+    color: 'var(--text-primary)',
+  },
+  roleBadge: {
+    fontSize: 10,
+    padding: '1px 6px',
+    borderRadius: 6,
+    background: 'var(--bg-hover)',
+    color: 'var(--text-muted)',
+    whiteSpace: 'nowrap',
+  },
+  cellKp: {
+    fontSize: 11,
+  },
+  cellPhone: {
+    fontSize: 11,
+    color: 'var(--text-secondary)',
+  },
+  copyBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '2px 8px',
+    fontSize: 11,
+    fontWeight: 700,
+    background: 'transparent',
+    border: '1px solid',
+    borderRadius: 6,
+    cursor: 'pointer',
+    fontFamily: 'monospace',
+  },
+  phoneBtn: {
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    color: 'var(--text-secondary)',
+    padding: '2px 4px',
+    fontSize: 11,
+    fontFamily: 'monospace',
+    textAlign: 'left',
+  },
+  actionGroup: {
+    display: 'flex',
+    gap: 2,
+  },
+  iconBtnGhost: {
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    color: 'var(--text-muted)',
+    padding: 4,
+    borderRadius: 4,
+    display: 'inline-flex',
+    alignItems: 'center',
+  },
+  iconBtnSuccess: {
+    background: 'rgba(16,185,129,0.15)',
+    border: 'none',
+    cursor: 'pointer',
+    color: '#10B981',
+    padding: 4,
+    borderRadius: 4,
+    display: 'inline-flex',
+    alignItems: 'center',
+  },
+  editInput: {
+    padding: '4px 6px',
+    fontSize: 11,
+    border: '1px solid var(--border-subtle)',
+    borderRadius: 4,
+    background: 'var(--bg-primary)',
+    color: 'var(--text-primary)',
+    minWidth: 0,
+    width: '100%',
+  },
+  placeholder: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+    color: 'var(--text-secondary)',
+    fontSize: 13,
+  },
+  footnote: {
+    padding: '8px 14px',
+    fontSize: 10,
+    color: 'var(--text-muted)',
+    borderTop: '1px solid var(--border-subtle)',
+    textAlign: 'center',
+  },
+};
