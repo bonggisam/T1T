@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getWidgetMode: () => ipcRenderer.invoke('window:get-widget-mode'),
   getBounds: () => ipcRenderer.invoke('window:get-bounds'),
   setBounds: (bounds: { x: number; y: number; width: number; height: number }) => ipcRenderer.invoke('window:set-bounds', bounds),
+  startEdgeResize: (edge: string) => ipcRenderer.invoke('window:start-edge-resize', edge),
+  stopEdgeResize: () => ipcRenderer.invoke('window:stop-edge-resize'),
   onWidgetModeChanged: (callback: (enabled: boolean) => void) => {
     const listener = (_event: any, enabled: boolean) => callback(enabled);
     ipcRenderer.on('widget-mode-changed', listener);

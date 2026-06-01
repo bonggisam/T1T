@@ -29,6 +29,7 @@ import { useReminder } from './hooks/useReminder';
 import { ScheduleView } from './components/schedule/ScheduleView';
 import { KeyphoneView } from './components/keyphone/KeyphoneView';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { ResizeHandles } from './components/common/ResizeHandles';
 import { startSchoolScheduleAutoSync } from './utils/schoolScheduleSync';
 
 type AuthScreen = 'login' | 'signup';
@@ -308,6 +309,7 @@ export function App() {
         {showPersonalModal && <PersonalEventModal onClose={() => setShowPersonalModal(false)} />}
       </div>
       <ToastContainer />
+      <ResizeHandles />
     </div>
   );
 }

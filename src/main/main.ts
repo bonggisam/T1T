@@ -314,6 +314,62 @@ function setupIPC(): void {
     if (!wasResizable) mainWindow.setResizable(false);
   });
 
+  // 가장자리 드래그 리사이즈 — frameless+transparent 윈도우에서 OS 핸들이 안 보이는 문제 해결.
+  // 'top'|'right'|'bottom'|'left'|'top-left'|'top-right'|'bottom-left'|'bottom-right'
+  type ResizeEdge = 'top'|'right'|'bottom'|'left'|'top-left'|'top-right'|'bottom-left'|'bottom-right';
+  const VALID_EDGES: ResizeEdge[] = ['top','right','bottom','left','top-left','top-right','bottom-left','bottom-right'];
+  let resizeState: null | {
+    edge: ResizeEdge;
+    initBounds: Electron.Rectangle;
+    initCursor: { x: number; y: number };
+    interval: NodeJS.Timeout;
+  } = null;
+
+  function stopEdgeResize() {
+    if (!resizeState) return;
+    clearInterval(resizeState.interval);
+    resizeState = null;
+  }
+
+  ipcMain.handle('window:start-edge-resize', (_event, edge: ResizeEdge) => {
+    if (!mainWindow || !VALID_EDGES.includes(edge)) return;
+    stopEdgeResize();
+    const initBounds = mainWindow.getBounds();
+    const initCursor = screen.getCursorScreenPoint();
+    const MIN_W = 320, MIN_H = 280;
+    const interval = setInterval(() => {
+      if (!mainWindow || mainWindow.isDestroyed()) { stopEdgeResize(); return; }
+      const cur = screen.getCursorScreenPoint();
+      const dx = cur.x - initCursor.x;
+      const dy = cur.y - initCursor.y;
+      let { x, y, width, height } = initBounds;
+      if (edge.includes('right')) {
+        width = Math.max(MIN_W, initBounds.width + dx);
+      }
+      if (edge.includes('left')) {
+        const newWidth = Math.max(MIN_W, initBounds.width - dx);
+        x = initBounds.x + (initBounds.width - newWidth);
+        width = newWidth;
+      }
+      if (edge.includes('bottom')) {
+        height = Math.max(MIN_H, initBounds.height + dy);
+      }
+      if (edge.includes('top')) {
+        const newHeight = Math.max(MIN_H, initBounds.height - dy);
+        y = initBounds.y + (initBounds.height - newHeight);
+        height = newHeight;
+      }
+      try {
+        mainWindow.setBounds({ x: Math.round(x), y: Math.round(y), width: Math.round(width), height: Math.round(height) });
+      } catch {}
+    }, 16);
+    resizeState = { edge, initBounds, initCursor, interval };
+  });
+
+  ipcMain.handle('window:stop-edge-resize', () => {
+    stopEdgeResize();
+  });
+
   ipcMain.handle('tray:set-badge', (_event, hasBadge: boolean) => {
     if (tray) {
       tray.setToolTip(hasBadge ? 'T1T (새 알림)' : 'T1T');

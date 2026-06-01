@@ -8,6 +8,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/notificationStore';
 import { useComciganStore } from '../../store/comciganStore';
 import { useUIStore } from '../../store/uiStore';
+import { useDarkMode } from '../../hooks/useDarkMode';
 import { SCHOOL_LABELS } from '@shared/types';
 import type { School } from '@shared/types';
 
@@ -52,6 +53,12 @@ export function TitleBar({
   const { showTimetable, toggleTimetable } = useComciganStore();
   const { viewingSchool, setViewingSchool } = useUIStore();
   const [widgetMode, setWidgetMode] = useState(true);
+  const isDark = useDarkMode();
+  // 다크모드 가독성: 보라/그린 텍스트 색상 — 라이트는 진하게, 다크는 밝게
+  const HIGH_TEXT = isDark ? '#C4B5FD' : '#7C3AED'; // violet-300 / violet-600
+  const MIDDLE_TEXT = isDark ? '#34D399' : '#059669'; // emerald-400 / emerald-600
+  const HIGH_BG = isDark ? 'rgba(196,181,253,0.18)' : 'rgba(124,58,237,0.15)';
+  const MIDDLE_BG = isDark ? 'rgba(52,211,153,0.18)' : 'rgba(5,150,105,0.15)';
 
   useEffect(() => {
     window.electronAPI?.getWidgetMode().then((v) => setWidgetMode(v)).catch(() => {});
@@ -154,16 +161,16 @@ export function TitleBar({
         ) : user.school === 'taeseong_high' ? (
           <span style={{
             ...styles.schoolPill,
-            background: 'rgba(139,92,246,0.15)',
-            color: '#8B5CF6',
+            background: HIGH_BG,
+            color: HIGH_TEXT,
           }}>
             <GraduationCap size={11} strokeWidth={2.5} style={{ verticalAlign: '-1px' }} /> 태성고
           </span>
         ) : (
           <span style={{
             ...styles.schoolPill,
-            background: 'rgba(16,185,129,0.15)',
-            color: '#10B981',
+            background: MIDDLE_BG,
+            color: MIDDLE_TEXT,
           }}>
             <SchoolIcon size={11} strokeWidth={2.5} style={{ verticalAlign: '-1px' }} /> 태성중
           </span>
@@ -268,17 +275,22 @@ function WidgetSchoolToggle({
   };
   const currentIdx = order.indexOf(viewingSchool);
   const currentLabel = labels[viewingSchool] ?? '🌐';
+  const isDarkLocal = useDarkMode();
+  // 다크 모드에서 보라색 가독성 강화
+  const bg = isDarkLocal ? 'rgba(196,181,253,0.18)' : 'rgba(124,58,237,0.15)';
+  const border = isDarkLocal ? 'rgba(196,181,253,0.4)' : 'rgba(124,58,237,0.35)';
+  const text = isDarkLocal ? '#C4B5FD' : '#7C3AED';
   return (
     <button
       onClick={() => setViewingSchool(order[(currentIdx + 1) % order.length])}
       style={{
-        background: 'rgba(139,92,246,0.15)',
-        border: '1px solid rgba(139,92,246,0.3)',
+        background: bg,
+        border: `1px solid ${border}`,
         cursor: 'pointer',
         padding: '3px 8px',
         fontSize: 11,
         fontWeight: 700,
-        color: '#8B5CF6',
+        color: text,
         borderRadius: 6,
       }}
       title={`보는 학교: ${viewingSchool === 'all' ? '전체' : SCHOOL_LABELS[viewingSchool as School]}`}

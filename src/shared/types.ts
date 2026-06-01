@@ -200,6 +200,8 @@ export interface ElectronAPI {
   getWidgetMode: () => Promise<boolean>;
   getBounds: () => Promise<{ x: number; y: number; width: number; height: number }>;
   setBounds: (bounds: { x: number; y: number; width: number; height: number }) => Promise<void>;
+  startEdgeResize: (edge: 'top'|'right'|'bottom'|'left'|'top-left'|'top-right'|'bottom-left'|'bottom-right') => Promise<void>;
+  stopEdgeResize: () => Promise<void>;
   onWidgetModeChanged: (callback: (enabled: boolean) => void) => () => void;
   onClickThroughChanged: (callback: (enabled: boolean) => void) => () => void;
   setTrayBadge: (hasBadge: boolean) => Promise<void>;
