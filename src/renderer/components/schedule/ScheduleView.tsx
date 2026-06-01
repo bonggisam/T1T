@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { format, parseISO, isSameDay } from 'date-fns';
+import { format, parseISO, isSameDay, isValid } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useAuthStore } from '../../store/authStore';
 import type { School } from '@shared/types';
@@ -130,10 +130,20 @@ export function ScheduleView({ onBack }: ScheduleViewProps) {
                   const isToday = ev.startDate === today;
                   const start = parseISO(ev.startDate);
                   const end = parseISO(ev.endDate);
-                  const sameDay = isSameDay(start, end);
-                  const dateLabel = sameDay
-                    ? format(start, 'M/d (EEE)', { locale: ko })
-                    : `${format(start, 'M/d (EEE)', { locale: ko })} ~ ${format(end, 'M/d (EEE)', { locale: ko })}`;
+                  // 학교 사이트가 비정상 날짜를 줄 가능성 → 흰 화면 방지
+                  let dateLabel: string;
+                  try {
+                    if (!isValid(start) || !isValid(end)) {
+                      dateLabel = `${ev.startDate}${ev.endDate && ev.endDate !== ev.startDate ? ' ~ ' + ev.endDate : ''}`;
+                    } else {
+                      const sameDay = isSameDay(start, end);
+                      dateLabel = sameDay
+                        ? format(start, 'M/d (EEE)', { locale: ko })
+                        : `${format(start, 'M/d (EEE)', { locale: ko })} ~ ${format(end, 'M/d (EEE)', { locale: ko })}`;
+                    }
+                  } catch {
+                    dateLabel = ev.startDate || '';
+                  }
                   return (
                     <div
                       key={ev.seq}

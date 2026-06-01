@@ -371,7 +371,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     height: '100%',
-    background: 'var(--bg-primary)',
+    // 다크모드에서 글래스 배경 대비 강화 — 살짝 어둡게 깔아 텍스트 가독성 확보
+    background: 'var(--bg-secondary)',
   },
   header: {
     display: 'flex',
@@ -425,7 +426,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     gap: 6,
     padding: '8px 14px',
-    borderBottom: '1px solid var(--border-subtle)',
+    borderBottom: '1px solid var(--border-color)', // 다크에서도 보이게
   },
   tab: {
     display: 'inline-flex',
@@ -433,7 +434,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 6,
     padding: '6px 12px',
     fontSize: 12,
-    fontWeight: 600,
+    fontWeight: 700, // 다크모드 가독성
     border: '1px solid',
     borderRadius: 8,
     cursor: 'pointer',
@@ -459,9 +460,9 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: 6,
     padding: '6px 10px',
-    border: '1px solid var(--border-subtle)',
+    border: '1px solid var(--border-color)', // 더 진한 테두리
     borderRadius: 8,
-    background: 'var(--bg-secondary)',
+    background: 'var(--bg-hover)', // 약간 밝게 → 다크모드에서 검색박스 윤곽 명확
   },
   searchInput: {
     flex: 1,
@@ -502,9 +503,9 @@ const styles: Record<string, React.CSSProperties> = {
     gridTemplateColumns: '1.4fr 0.9fr 1.4fr auto',
     alignItems: 'center',
     gap: 8,
-    padding: '7px 14px',
+    padding: '8px 14px',
     fontSize: 12,
-    borderBottom: '1px solid var(--border-subtle)',
+    borderBottom: '1px solid var(--border-color)', // 행 구분선 강화
   },
   cellName: {
     display: 'flex',
@@ -513,15 +514,16 @@ const styles: Record<string, React.CSSProperties> = {
     minWidth: 0,
   },
   nameText: {
-    fontWeight: 500,
+    fontWeight: 600, // 다크모드에서 더 굵게
     color: 'var(--text-primary)',
   },
   roleBadge: {
     fontSize: 10,
-    padding: '1px 6px',
+    fontWeight: 600,
+    padding: '2px 7px',
     borderRadius: 6,
-    background: 'var(--bg-hover)',
-    color: 'var(--text-muted)',
+    background: 'var(--bg-active)', // bg-hover보다 진해서 다크에서도 윤곽 보임
+    color: 'var(--text-secondary)', // muted → secondary로 (85% 가시성)
     whiteSpace: 'nowrap',
   },
   cellKp: {
@@ -529,7 +531,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   cellPhone: {
     fontSize: 11,
-    color: 'var(--text-secondary)',
+    color: 'var(--text-primary)', // 전화번호도 primary로 (다크에서 100% 흰색)
   },
   copyBtn: {
     display: 'inline-flex',
@@ -547,10 +549,11 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'transparent',
     border: 'none',
     cursor: 'pointer',
-    color: 'var(--text-secondary)',
+    color: 'var(--text-primary)', // 다크에서도 진하게
     padding: '2px 4px',
     fontSize: 11,
     fontFamily: 'monospace',
+    fontWeight: 500,
     textAlign: 'left',
   },
   actionGroup: {
@@ -561,7 +564,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'transparent',
     border: 'none',
     cursor: 'pointer',
-    color: 'var(--text-muted)',
+    color: 'var(--text-secondary)', // muted → secondary
     padding: 4,
     borderRadius: 4,
     display: 'inline-flex',
@@ -578,11 +581,11 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
   },
   editInput: {
-    padding: '4px 6px',
+    padding: '5px 8px',
     fontSize: 11,
-    border: '1px solid var(--border-subtle)',
+    border: '1px solid var(--border-color)', // 더 진한 테두리 → 다크에서도 입력 영역 명확
     borderRadius: 4,
-    background: 'var(--bg-primary)',
+    background: 'var(--bg-hover)', // transparent 대신 살짝 밝게 → 다크에서도 식별 가능
     color: 'var(--text-primary)',
     minWidth: 0,
     width: '100%',

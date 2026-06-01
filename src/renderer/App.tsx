@@ -28,6 +28,7 @@ import { useUIStore } from './store/uiStore';
 import { useReminder } from './hooks/useReminder';
 import { ScheduleView } from './components/schedule/ScheduleView';
 import { KeyphoneView } from './components/keyphone/KeyphoneView';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { startSchoolScheduleAutoSync } from './utils/schoolScheduleSync';
 
 type AuthScreen = 'login' | 'signup';
@@ -275,27 +276,29 @@ export function App() {
         </div>
       )}
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-        {showSettings ? (
-          <SettingsPanel onClose={() => setActiveTab(null)} theme={theme} setTheme={setTheme} />
-        ) : showAdmin ? (
-          <AdminPanel onClose={() => setActiveTab(null)} />
-        ) : showTPass ? (
-          <TPassView onBack={() => setActiveTab(null)} />
-        ) : showOuting ? (
-          <OutingView onBack={() => setActiveTab(null)} />
-        ) : showTodos ? (
-          <TodosView onBack={() => setActiveTab(null)} />
-        ) : showReserv ? (
-          <ReservView onBack={() => setActiveTab(null)} />
-        ) : showMeal ? (
-          <MealView onBack={() => setActiveTab(null)} />
-        ) : showSchedule ? (
-          <ScheduleView onBack={() => setActiveTab(null)} />
-        ) : showKeyphone ? (
-          <KeyphoneView onBack={() => setActiveTab(null)} />
-        ) : (
-          <Calendar onAddPersonalEvent={() => setShowPersonalModal(true)} />
-        )}
+        <ErrorBoundary key={activeTab || 'calendar'}>
+          {showSettings ? (
+            <SettingsPanel onClose={() => setActiveTab(null)} theme={theme} setTheme={setTheme} />
+          ) : showAdmin ? (
+            <AdminPanel onClose={() => setActiveTab(null)} />
+          ) : showTPass ? (
+            <TPassView onBack={() => setActiveTab(null)} />
+          ) : showOuting ? (
+            <OutingView onBack={() => setActiveTab(null)} />
+          ) : showTodos ? (
+            <TodosView onBack={() => setActiveTab(null)} />
+          ) : showReserv ? (
+            <ReservView onBack={() => setActiveTab(null)} />
+          ) : showMeal ? (
+            <MealView onBack={() => setActiveTab(null)} />
+          ) : showSchedule ? (
+            <ScheduleView onBack={() => setActiveTab(null)} />
+          ) : showKeyphone ? (
+            <KeyphoneView onBack={() => setActiveTab(null)} />
+          ) : (
+            <Calendar onAddPersonalEvent={() => setShowPersonalModal(true)} />
+          )}
+        </ErrorBoundary>
 
         {showEventModal && <EventModal />}
         {showEventDetail && <EventDetail />}

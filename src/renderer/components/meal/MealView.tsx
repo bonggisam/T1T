@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { format, parseISO, addDays, isSameDay, isWithinInterval } from 'date-fns';
+import { format, parseISO, addDays, isSameDay, isWithinInterval, isValid } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useAuthStore } from '../../store/authStore';
 import type { School } from '@shared/types';
@@ -74,8 +74,20 @@ export function MealView({ onBack }: MealViewProps) {
   const today = new Date();
   const todayStr = format(today, 'yyyy-MM-dd');
 
-  const weekLabel = data
-    ? `${format(parseISO(data.weekStart), 'M월 d일', { locale: ko })} ~ ${format(parseISO(data.weekEnd), 'M월 d일', { locale: ko })}`
+  /** date-fns가 throw하지 않도록 안전한 포매터 */
+  function safeFormat(dateStr: string | undefined, fmt: string): string {
+    if (!dateStr) return '';
+    try {
+      const d = parseISO(dateStr);
+      if (!isValid(d)) return '';
+      return format(d, fmt, { locale: ko });
+    } catch {
+      return '';
+    }
+  }
+
+  const weekLabel = data && data.weekStart && data.weekEnd
+    ? `${safeFormat(data.weekStart, 'M월 d일')} ~ ${safeFormat(data.weekEnd, 'M월 d일')}`
     : '';
 
   return (
@@ -128,12 +140,13 @@ export function MealView({ onBack }: MealViewProps) {
         {!loading && error && (
           <div style={styles.error}>⚠️ {error}</div>
         )}
-        {!loading && !error && data && data.days.length === 0 && (
+        {!loading && !error && data && (!data.days || data.days.length === 0) && (
           <div style={styles.empty}>📭 이번 주 급식 정보가 없습니다</div>
         )}
-        {!loading && !error && data && data.days.map((day) => {
+        {!loading && !error && data && data.days && data.days.map((day) => {
           const isToday = day.date === todayStr;
-          const hasMenu = day.menu.length > 0;
+          const hasMenu = day.menu && day.menu.length > 0;
+          const dayLabel = safeFormat(day.date, 'M/d');
           return (
             <div
               key={day.date}
@@ -147,7 +160,7 @@ export function MealView({ onBack }: MealViewProps) {
                 <div style={styles.dayDate}>
                   {isToday && <span style={{ ...styles.todayBadge, background: palette.color }}>오늘</span>}
                   <span style={{ ...styles.dayLabel, color: day.weekday === '일' ? '#EF4444' : day.weekday === '토' ? '#3B82F6' : 'var(--text-primary)' }}>
-                    {format(parseISO(day.date), 'M/d', { locale: ko })} ({day.weekday})
+                    {dayLabel || day.date} ({day.weekday})
                   </span>
                 </div>
                 {day.calorie && (
