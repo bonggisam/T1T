@@ -277,9 +277,7 @@ export function App() {
       )}
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         <ErrorBoundary key={activeTab || 'calendar'}>
-          {showSettings ? (
-            <SettingsPanel onClose={() => setActiveTab(null)} theme={theme} setTheme={setTheme} />
-          ) : showAdmin ? (
+          {showAdmin ? (
             <AdminPanel onClose={() => setActiveTab(null)} />
           ) : showTPass ? (
             <TPassView onBack={() => setActiveTab(null)} />
@@ -299,6 +297,10 @@ export function App() {
             <Calendar onAddPersonalEvent={() => setShowPersonalModal(true)} />
           )}
         </ErrorBoundary>
+        {/* 설정은 모달 오버레이로 표시 — 메인 콘텐츠를 가리지 않음 */}
+        {showSettings && (
+          <SettingsPanel onClose={() => setActiveTab(null)} theme={theme} setTheme={setTheme} />
+        )}
 
         {showEventModal && <EventModal />}
         {showEventDetail && <EventDetail />}

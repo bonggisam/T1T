@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../utils/firebase';
 import { useAuthStore } from '../../store/authStore';
@@ -18,8 +18,7 @@ const COLOR_PRESETS = [
   '#D946EF', '#EC4899', '#F43F5E', '#78716C', '#475569',
 ];
 
-const SETTINGS_WIDTH = 360;
-const SETTINGS_HEIGHT = 620;
+// (이전 모드에서 사용하던 리사이즈 폭/높이 상수 — 현재 모달 오버레이라 사용 안 함)
 
 export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) {
   const { user, logout } = useAuthStore();
@@ -44,44 +43,13 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
 
-  const originalBoundsRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
-
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
   useEffect(() => {
     window.electronAPI?.getAppVersion().then((v) => setAppVersion(v)).catch(() => {});
     window.electronAPI?.getAutoLaunch().then((v) => setAutoLaunch(v)).catch(() => {});
   }, []);
-
-  // Resize window to narrow+tall on mount, restore on unmount
-  useEffect(() => {
-    let mounted = true;
-    async function resizeForSettings() {
-      try {
-        const bounds = await window.electronAPI?.getBounds();
-        if (bounds && mounted) {
-          originalBoundsRef.current = bounds;
-          // Center the settings panel at the same position
-          const newX = bounds.x + Math.round((bounds.width - SETTINGS_WIDTH) / 2);
-          const newY = bounds.y + Math.round((bounds.height - SETTINGS_HEIGHT) / 2);
-          await window.electronAPI?.setBounds({
-            x: Math.max(0, newX),
-            y: Math.max(0, newY),
-            width: SETTINGS_WIDTH,
-            height: SETTINGS_HEIGHT,
-          });
-        }
-      } catch {}
-    }
-    resizeForSettings();
-    return () => {
-      mounted = false;
-      // 언마운트 시 원래 크기로 복원 (save/close 경로 외 강제 언마운트 대비)
-      if (originalBoundsRef.current) {
-        window.electronAPI?.setBounds(originalBoundsRef.current).catch(() => {});
-      }
-    };
-  }, []);
+  // 이전: 설정창이 전체 화면을 차지하던 시절 윈도우 리사이즈 로직 — 이제 모달이라 불필요
 
   // Apply font size CSS variable in real-time
   useEffect(() => {
@@ -122,12 +90,9 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
     return () => unsub?.();
   }, []);
 
+  // 이전 윈도우 리사이즈 모드에서 사용하던 함수 — 모달 전환 후 no-op으로 유지 (참조 위치 호환성)
   async function restoreOriginalBounds() {
-    if (originalBoundsRef.current) {
-      try {
-        await window.electronAPI?.setBounds(originalBoundsRef.current);
-      } catch {}
-    }
+    // intentionally empty
   }
 
   async function handleSave() {
@@ -177,7 +142,11 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
   }
 
   return (
-    <div className="animate-fade-in" style={styles.container}>
+    <div
+      style={styles.overlay}
+      onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
+    >
+      <div className="animate-fade-in glass" style={styles.modal} onClick={(e) => e.stopPropagation()}>
       <div style={styles.header}>
         <h3 style={styles.title}>⚙️ 설정</h3>
         <button onClick={handleClose} style={styles.closeBtn}>✕</button>
@@ -349,6 +318,7 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
         {saveMsg && <span style={{ fontSize: 11, color: '#EF4444', alignSelf: 'center' }}>{saveMsg}</span>}
         <button onClick={logout} style={styles.logoutBtn}>로그아웃</button>
       </div>
+      </div>
     </div>
   );
 }
@@ -401,13 +371,28 @@ const sectionStyles: Record<string, React.CSSProperties> = {
 };
 
 const styles: Record<string, React.CSSProperties> = {
-  container: {
+  // 모달 오버레이 — 메인 콘텐츠 위에 떠 있는 형태
+  overlay: {
+    position: 'absolute',
+    inset: 0,
+    background: 'rgba(0,0,0,0.35)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 90,
+    padding: 12,
+  },
+  modal: {
     display: 'flex',
     flexDirection: 'column',
-    height: '100%',
-    padding: '0 12px',
+    width: '100%',
+    maxWidth: 460,
+    maxHeight: '92%',
     background: 'var(--bg-modal)',
     borderRadius: 'var(--radius-lg)',
+    border: '1px solid var(--border-color)',
+    boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
+    overflow: 'hidden',
   },
   header: {
     display: 'flex',
