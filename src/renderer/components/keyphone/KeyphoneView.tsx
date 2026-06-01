@@ -37,7 +37,9 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
   useEffect(() => {
     subscribe();
     return () => cleanup();
-  }, [subscribe, cleanup]);
+    // M6: zustand 함수는 마운트 시 1회만 호출 — 의존성에 넣으면 매 렌더 재구독 위험
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isEmpty = !loading && entries.length === 0;
 
@@ -89,10 +91,28 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
 
   function copy(text: string) {
     if (!text) return;
-    navigator.clipboard?.writeText(text).then(
-      () => showToast(`복사됨: ${text}`, 'success'),
-      () => showToast('복사 실패', 'error'),
-    );
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => showToast(`복사됨: ${text}`, 'success'))
+        .catch(() => fallbackCopy(text));
+    } else {
+      fallbackCopy(text);
+    }
+  }
+  function fallbackCopy(text: string) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast(ok ? `복사됨: ${text}` : '복사 실패', ok ? 'success' : 'error');
+    } catch {
+      showToast('복사 실패', 'error');
+    }
   }
 
   function startEdit(e: KeyphoneEntry) {
@@ -105,8 +125,13 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
   }
   async function saveEdit() {
     if (!editingId) return;
+    // M8: trim 적용 (문자열 필드만)
+    const trimmed: any = { ...editDraft };
+    for (const k of ['department', 'name', 'role', 'keyphone', 'phone', 'note']) {
+      if (typeof trimmed[k] === 'string') trimmed[k] = trimmed[k].trim();
+    }
     try {
-      await updateEntry(editingId, editDraft);
+      await updateEntry(editingId, trimmed);
       showToast('수정되었습니다', 'success');
       cancelEdit();
     } catch (err: any) {
@@ -132,20 +157,29 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
   }
   async function saveAdd() {
     if (!addingForSchool) return;
-    const d = addDraft;
-    if (!d.department && !d.name && !d.keyphone && !d.phone) {
+    // M8: 모든 필드 trim 후 검증
+    const dept = (addDraft.department || '').trim();
+    const name = (addDraft.name || '').trim();
+    const role = (addDraft.role || '').trim();
+    const keyphone = (addDraft.keyphone || '').trim();
+    const phone = (addDraft.phone || '').trim();
+    if (!dept && !name && !keyphone && !phone) {
       showToast('최소 한 가지 정보는 입력해주세요', 'error');
+      return;
+    }
+    if (!keyphone && !phone) {
+      showToast('키폰 또는 전화번호 중 하나는 필수입니다', 'error');
       return;
     }
     try {
       const maxOrder = Math.max(0, ...entries.filter((e) => e.school === addingForSchool).map((e) => e.order));
       await addEntry({
         school: addingForSchool,
-        department: d.department || '',
-        name: d.name || '',
-        role: d.role || '',
-        keyphone: d.keyphone || '',
-        phone: d.phone || '',
+        department: dept,
+        name,
+        role,
+        keyphone,
+        phone,
         order: maxOrder + 1,
       });
       showToast('추가되었습니다', 'success');

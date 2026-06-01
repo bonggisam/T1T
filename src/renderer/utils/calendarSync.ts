@@ -15,8 +15,11 @@ interface GoogleTokens {
 }
 
 let googleTokens: GoogleTokens | null = null;
+// M1: refresh 중복 호출 방지용 in-flight promise
+let refreshPromise: Promise<boolean> | null = null;
 
 const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // 5분 여유
+const TOKEN_SAFETY_MARGIN_SEC = 30; // M7: expires_in에서 빼서 안전 마진 확보
 
 export function isGoogleConnected(): boolean {
   // refresh_token이 있으면 만료되어도 연결된 것으로 간주 (자동 갱신 가능)
@@ -25,7 +28,13 @@ export function isGoogleConnected(): boolean {
   return googleTokens.expires_at > Date.now() + TOKEN_EXPIRY_BUFFER_MS;
 }
 
-/** access_token 만료 시 refresh_token으로 자동 갱신 */
+/** Date.now() + expires_in을 안전 마진 적용해 변환 */
+function computeExpiresAt(expiresInSec: number): number {
+  const safeSec = Math.max(expiresInSec - TOKEN_SAFETY_MARGIN_SEC, 60);
+  return Date.now() + safeSec * 1000;
+}
+
+/** access_token 만료 시 refresh_token으로 자동 갱신 (M1: 동시 호출 안전) */
 async function ensureValidToken(): Promise<boolean> {
   if (!googleTokens) return false;
   // 아직 유효하면 통과
@@ -35,27 +44,35 @@ async function ensureValidToken(): Promise<boolean> {
     googleTokens = null;
     return false;
   }
-  // 갱신 시도
-  try {
-    const result = await window.electronAPI?.googleRefresh(googleTokens.refresh_token);
-    if (result && 'access_token' in result) {
-      googleTokens = {
-        access_token: result.access_token,
-        refresh_token: googleTokens.refresh_token, // 기존 refresh_token 유지
-        expires_at: Date.now() + result.expires_in * 1000,
-      };
-      saveTokensToStorage('google', googleTokens);
-      console.log('[CalendarSync] Token refreshed');
-      return true;
+  // 이미 갱신 중이면 그 결과를 공유 (race condition 방지)
+  if (refreshPromise) return refreshPromise;
+
+  const currentRefresh = googleTokens.refresh_token;
+  refreshPromise = (async () => {
+    try {
+      const result = await window.electronAPI?.googleRefresh(currentRefresh);
+      if (result && 'access_token' in result) {
+        googleTokens = {
+          access_token: result.access_token,
+          refresh_token: currentRefresh, // 기존 refresh_token 유지
+          expires_at: computeExpiresAt(result.expires_in),
+        };
+        saveTokensToStorage('google', googleTokens);
+        console.log('[CalendarSync] Token refreshed');
+        return true;
+      }
+      console.warn('[CalendarSync] Refresh failed:', result);
+      googleTokens = null;
+      removeTokensFromStorage('google');
+      return false;
+    } catch (e) {
+      console.warn('[CalendarSync] Refresh exception:', e);
+      return false;
+    } finally {
+      refreshPromise = null;
     }
-    console.warn('[CalendarSync] Refresh failed:', result);
-    googleTokens = null;
-    removeTokensFromStorage('google');
-    return false;
-  } catch (e) {
-    console.warn('[CalendarSync] Refresh exception:', e);
-    return false;
-  }
+  })();
+  return refreshPromise;
 }
 
 /**
@@ -75,7 +92,7 @@ export async function connectGoogle(): Promise<{ success: boolean; error?: strin
     googleTokens = {
       access_token: result.access_token,
       refresh_token: result.refresh_token || existingRefresh,
-      expires_at: Date.now() + result.expires_in * 1000,
+      expires_at: computeExpiresAt(result.expires_in),
     };
     saveTokensToStorage('google', googleTokens);
     return { success: true };

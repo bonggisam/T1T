@@ -102,5 +102,11 @@ service cloud.firestore {
             || request.resource.data.school in ['taeseong_middle', 'taeseong_high']);
       allow delete: if isAdmin();
     }
+
+    // 키폰 시드 동시 진입 방지용 sentinel — 관리자만
+    match /keyphones_meta/{docId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
   }
 }

@@ -16,7 +16,14 @@ async function syncOneSchool(
   userId: string,
   userName: string,
 ): Promise<number> {
-  const result = await window.electronAPI?.schoolFetchSchedule(schoolKey);
+  // 🔴 C2 수정: IPC 호출 자체가 reject할 수 있으므로 try-catch
+  let result;
+  try {
+    result = await window.electronAPI?.schoolFetchSchedule(schoolKey);
+  } catch (err: any) {
+    console.warn(`[SchoolSchedule] ${schoolKey} IPC error:`, err?.message || err);
+    return 0;
+  }
   if (!result || result.events.length === 0) return 0;
 
   // 기존 import 일정 조회 — 단일 필드 쿼리로 변경 (복합 인덱스 불필요)

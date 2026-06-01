@@ -33,9 +33,27 @@ const SCHOOLS: Record<SchoolKey, SchoolUrls> = {
 };
 
 const COMMON_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+  // 최신 Chrome User-Agent (2026-06 기준)
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
   'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
 };
+
+/** Set-Cookie 헤더 배열에서 모든 쿠키의 name=value만 추출 (속성 제거) */
+function buildCookieHeader(setCookies: string[]): string {
+  return setCookies
+    .map((c) => c.split(';')[0].trim())
+    .filter((c) => c.length > 0)
+    .join('; ');
+}
+
+/** 에러 메시지를 사용자 UI에 표시 가능한 길이(150자)로 자르고 콘솔에 상세 로그 */
+function shortError(prefix: string, detail: string): Error {
+  const MAX = 150;
+  const trimmed = detail.length > MAX ? detail.slice(0, MAX) + '…' : detail;
+  console.warn(`[schoolScrape:${prefix}] ${detail}`);
+  return new Error(`[${prefix}] ${trimmed}`);
+}
 
 function httpRequest(urlStr: string, options: https.RequestOptions, body?: string): Promise<{ status: number; body: string; setCookie: string[] }> {
   return new Promise((resolve, reject) => {
@@ -88,14 +106,12 @@ export async function fetchSchoolSchedule(schoolKey: SchoolKey): Promise<{
   try {
     page = await httpRequest(mainUrl, { method: 'GET', headers: COMMON_HEADERS });
   } catch (e: any) {
-    throw new Error(`[학사일정] 학교 홈페이지 접속 실패 — ${e?.message || e}`);
+    throw shortError('학사일정', `메인 페이지 접속 실패 — ${e?.message || e}`);
   }
   if (page.status !== 200) {
-    throw new Error(`[학사일정] 메인 페이지 HTTP ${page.status} (URL: ${mainUrl})`);
+    throw shortError('학사일정', `메인 페이지 HTTP ${page.status}`);
   }
-  const cookieHeader = page.setCookie
-    .map((c) => c.split(';')[0])
-    .join('; ');
+  const cookieHeader = buildCookieHeader(page.setCookie);
 
   // 2단계: AJAX 호출로 연간 일정 받기
   const ajaxBody = 'schdulLevel=Y&fromDate=&toDate=&date=&schdulSeq=';
@@ -109,19 +125,19 @@ export async function fetchSchoolSchedule(schoolKey: SchoolKey): Promise<{
         'Referer': mainUrl,
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
         'Content-Length': String(Buffer.byteLength(ajaxBody)),
-        'Cookie': cookieHeader,
+        ...(cookieHeader && { 'Cookie': cookieHeader }),
       },
     }, ajaxBody);
   } catch (e: any) {
-    throw new Error(`[학사일정] AJAX 요청 실패 — ${e?.message || e}`);
+    throw shortError('학사일정', `AJAX 요청 실패 — ${e?.message || e}`);
   }
 
-  if (resp.status !== 200) throw new Error(`[학사일정] AJAX HTTP ${resp.status} (URL: ${ajaxUrl})`);
+  if (resp.status !== 200) throw shortError('학사일정', `AJAX HTTP ${resp.status}`);
   if (!resp.body || resp.body.length < 50) {
-    throw new Error(`[학사일정] 응답 본문 부족 (${resp.body?.length || 0} bytes)`);
+    throw shortError('학사일정', `응답 본문 부족 (${resp.body?.length || 0} bytes)`);
   }
 
-  // 응답은 JSON-escaped HTML 문자열. JSON.parse로 풀기
+  // 응답은 JSON-escaped HTML 문자열일 수 있음
   let html: string;
   try {
     const parsed = JSON.parse(resp.body);
@@ -130,37 +146,35 @@ export async function fetchSchoolSchedule(schoolKey: SchoolKey): Promise<{
     html = resp.body;
   }
 
-  // 파싱 — 학교가 HTML 구조를 바꿔도 일정 비슷한 패턴이면 잡을 수 있게 여러 변형 시도
+  // 파싱 — 여러 패턴 폴백 (학교 사이트 HTML 변경 내성)
   const events: Array<{ startDate: string; endDate: string; title: string; seq: string }> = [];
+
   // 패턴 A: viewSchdulInfo('SEQ', 'YYYY/MM/DD', 'YYYY/MM/DD', '...');">제목</a>
-  const reA = /viewSchdulInfo\('(\d+)',\s*'(\d{4}\/\d{2}\/\d{2})',\s*'(\d{4}\/\d{2}\/\d{2})',\s*'[^']*'\);">([^<]+)<\/a>/g;
-  // 패턴 B: 닫는 따옴표·괄호 약간 다른 변형 (4번째 인자 없는 경우)
-  const reB = /viewSchdulInfo\('(\d+)',\s*'(\d{4}\/\d{2}\/\d{2})',\s*'(\d{4}\/\d{2}\/\d{2})'[^)]*\)[^>]*>([^<]+)<\/a>/g;
-  let m;
-  while ((m = reA.exec(html)) !== null) {
-    events.push({
-      seq: m[1],
-      startDate: m[2].replace(/\//g, '-'),
-      endDate: m[3].replace(/\//g, '-'),
-      title: m[4].trim(),
-    });
-  }
-  if (events.length === 0) {
-    // 폴백 B 시도
-    while ((m = reB.exec(html)) !== null) {
+  const reA = /viewSchdulInfo\(['"](\d+)['"],\s*['"](\d{4}\/\d{2}\/\d{2})['"],\s*['"](\d{4}\/\d{2}\/\d{2})['"][^)]*\)[^>]*>([^<]+)<\/a>/g;
+  // 패턴 B: 따옴표 형식이 escape된 경우 (\")
+  const reB = /viewSchdulInfo\(\\?['"](\d+)\\?['"],\s*\\?['"](\d{4}\/\d{2}\/\d{2})\\?['"],\s*\\?['"](\d{4}\/\d{2}\/\d{2})\\?['"][^)]*\)[^>]*>([^<]+)<\/a>/g;
+  // 패턴 C: title 위치가 a 태그 다른 속성 안에 있는 경우 (title="...")
+  const reC = /viewSchdulInfo\(['"](\d+)['"],\s*['"](\d{4}\/\d{2}\/\d{2})['"],\s*['"](\d{4}\/\d{2}\/\d{2})['"][^)]*\)[^>]*title=['"]([^'"]+)['"]/g;
+
+  for (const re of [reA, reB, reC]) {
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      const seq = m[1];
+      // 중복 SEQ 방지
+      if (events.some((e) => e.seq === seq)) continue;
       events.push({
-        seq: m[1],
+        seq,
         startDate: m[2].replace(/\//g, '-'),
         endDate: m[3].replace(/\//g, '-'),
         title: m[4].trim(),
       });
     }
+    if (events.length > 0) break; // 첫 패턴이 잡으면 다음 안 시도
   }
 
   if (events.length === 0) {
-    // 응답은 받았지만 일정이 0건 — 사용자에게 진단 정보
-    const snippet = html.slice(0, 200).replace(/\s+/g, ' ');
-    throw new Error(`[학사일정] 일정 0건 — 학교 사이트 HTML 구조가 변경된 것 같습니다 (응답 ${html.length} bytes, 시작: "${snippet}...")`);
+    const snippet = html.slice(0, 100).replace(/\s+/g, ' ');
+    throw shortError('학사일정', `일정 0건 — 학교 사이트 구조 변경 의심 (${html.length} bytes, 시작: ${snippet})`);
   }
 
   return { events };
@@ -174,44 +188,61 @@ export async function fetchSchoolMeal(schoolKey: SchoolKey, dateYMD?: string): P
 }> {
   const s = SCHOOLS[schoolKey];
 
-  // 페이지 GET — 날짜 파라미터를 ymd 형태로 전달 시 해당 주차로 이동
-  const url = dateYMD
-    ? `${s.base}/${s.sysId}/ad/fm/foodmenu/selectFoodMenuView.do?mi=${s.mealMi}&schulCode=&ymd=${dateYMD}`
-    : `${s.base}/${s.sysId}/ad/fm/foodmenu/selectFoodMenuView.do?mi=${s.mealMi}`;
-  let resp;
+  // 🔴 C1 수정: 1단계로 메인(또는 학교 첫) 페이지에서 세션 쿠키 받기
+  const seedUrl = `${s.base}/${s.sysId}/ad/fm/foodmenu/selectFoodMenuView.do?mi=${s.mealMi}`;
+  let seed;
   try {
-    resp = await httpRequest(url, { method: 'GET', headers: COMMON_HEADERS });
+    seed = await httpRequest(seedUrl, { method: 'GET', headers: COMMON_HEADERS });
   } catch (e: any) {
-    throw new Error(`[급식] 학교 홈페이지 접속 실패 — ${e?.message || e}`);
+    throw shortError('급식', `학교 사이트 접속 실패 — ${e?.message || e}`);
   }
-  if (resp.status !== 200) throw new Error(`[급식] HTTP ${resp.status} (URL: ${url})`);
-  const html = resp.body;
-  if (!html || html.length < 200) {
-    throw new Error(`[급식] 응답 본문 부족 (${html?.length || 0} bytes)`);
+  if (seed.status !== 200) throw shortError('급식', `메인 페이지 HTTP ${seed.status}`);
+  const cookieHeader = buildCookieHeader(seed.setCookie);
+
+  // 2단계: 날짜 지정 페이지 — 세션 쿠키 포함
+  // (dateYMD 미지정이면 seed 응답을 그대로 사용)
+  let html = seed.body;
+  if (dateYMD) {
+    const url = `${seedUrl}&schulCode=&ymd=${dateYMD}`;
+    let resp;
+    try {
+      resp = await httpRequest(url, {
+        method: 'GET',
+        headers: {
+          ...COMMON_HEADERS,
+          'Referer': seedUrl,
+          ...(cookieHeader && { 'Cookie': cookieHeader }),
+        },
+      });
+    } catch (e: any) {
+      throw shortError('급식', `날짜 페이지 접속 실패 — ${e?.message || e}`);
+    }
+    if (resp.status !== 200) throw shortError('급식', `날짜 페이지 HTTP ${resp.status}`);
+    html = resp.body;
   }
 
-  // 주차 헤더: 급식일 : 2026년05월17일 ~ 2026년05월23일
+  if (!html || html.length < 200) {
+    throw shortError('급식', `응답 본문 부족 (${html?.length || 0} bytes)`);
+  }
+
+  // 주차 헤더
   const weekMatch = html.match(/급식일\s*:\s*(\d{4})년(\d{2})월(\d{2})일\s*~\s*(\d{4})년(\d{2})월(\d{2})일/);
   const weekStart = weekMatch ? `${weekMatch[1]}-${weekMatch[2]}-${weekMatch[3]}` : '';
   const weekEnd = weekMatch ? `${weekMatch[4]}-${weekMatch[5]}-${weekMatch[6]}` : '';
 
-  // 7일 날짜 헤더 (일~토): <th scope="col">일 <br>2026-05-17</th> — 띄어쓰기·br 표기 변형 대응
-  const headerRe = /<th[^>]*scope="col"[^>]*>\s*([일월화수목금토])\s*<br\s*\/?>\s*(\d{4}-\d{2}-\d{2})\s*<\/th>/g;
+  // 7일 날짜 헤더 — 다양한 br/공백 변형 대응
+  const headerRe = /<th[^>]*scope=['"]col['"][^>]*>\s*([일월화수목금토])\s*<br[^>]*>\s*(\d{4}-\d{2}-\d{2})\s*<\/th>/g;
   const headers: Array<{ weekday: string; date: string }> = [];
   let hm;
   while ((hm = headerRe.exec(html)) !== null) {
     headers.push({ weekday: hm[1], date: hm[2] });
   }
   if (headers.length === 0) {
-    // 진단: HTML이 변경되었거나 급식 데이터가 없는 경우
-    const hasFoodMenuKeyword = /급식|food|menu/i.test(html);
-    const snippet = html.slice(0, 200).replace(/\s+/g, ' ');
-    throw new Error(`[급식] 일자 헤더 0건 — 학교 사이트 HTML 변경 가능성 (응답 ${html.length} bytes, 키워드:${hasFoodMenuKeyword}, 시작: "${snippet}...")`);
+    const snippet = html.slice(0, 100).replace(/\s+/g, ' ');
+    throw shortError('급식', `일자 헤더 0건 — 사이트 구조 변경 의심 (${html.length} bytes, 시작: ${snippet})`);
   }
 
-  // <tbody>...<tr> ... <th>중식</th><td>...메뉴...</td>...
-  // 각 td 안의 <p class="">메뉴</p> 추출 + <p class="fm_tit_p mgt15">XXXKcal</p>
-  // tbody 내 첫 번째 <tr> (중식)만 대상 — tr 구조에서 td만 7개 추출
+  // tbody 내 td 파싱
   const tbodyMatch = html.match(/<tbody>([\s\S]*?)<\/tbody>/);
   const days: Array<{ date: string; weekday: string; menu: string[]; calorie: string }> = headers.map((h) => ({
     ...h,
@@ -220,24 +251,19 @@ export async function fetchSchoolMeal(schoolKey: SchoolKey, dateYMD?: string): P
   }));
   if (tbodyMatch) {
     const tbody = tbodyMatch[1];
-    // 모든 td 추출
     const tdRe = /<td>([\s\S]*?)<\/td>/g;
     const tds: string[] = [];
     let tdm;
     while ((tdm = tdRe.exec(tbody)) !== null) {
       tds.push(tdm[1]);
     }
-    // 헤더(td 수)와 매칭
     for (let i = 0; i < days.length && i < tds.length; i++) {
       const td = tds[i];
-      // 칼로리: <p class="fm_tit_p mgt15">1,304Kcal</p>
       const calMatch = td.match(/fm_tit_p[^>]*>([^<]+)</);
       days[i].calorie = calMatch ? calMatch[1].trim() : '';
-      // 메뉴: <p class="">아이템1<br/>(알레르기)<br/>아이템2...</p> — 마지막 <p class="">만
       const menuMatches = [...td.matchAll(/<p class="">([\s\S]*?)<\/p>/g)];
       if (menuMatches.length > 0) {
         const menuRaw = menuMatches[menuMatches.length - 1][1];
-        // 알레르기 정보 (숫자.숫자) 제거, <br/> 줄바꿈
         const items = menuRaw
           .split(/<br\s*\/?>/g)
           .map((item) => item.replace(/<[^>]+>/g, '').replace(/\([\d.,\s]+\)/g, '').trim())

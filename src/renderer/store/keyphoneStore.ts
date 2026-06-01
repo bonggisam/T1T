@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import {
-  collection, query, where, onSnapshot,
+  collection, query, onSnapshot,
   addDoc, updateDoc, deleteDoc, doc,
   writeBatch, getDocs,
+  runTransaction,
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../utils/firebase';
@@ -115,14 +116,37 @@ export const useKeyphoneStore = create<KeyphoneState>((set, get) => ({
   },
 
   seedIfEmpty: async () => {
-    // 안전장치: 현재 컬렉션이 정말 비어 있는지 확인
-    const existing = await getDocs(collection(db, 'keyphones'));
-    if (existing.size > 0) {
+    // M4: 동시 진입 시 중복 시드 방지를 위해 sentinel 문서를 트랜잭션으로 잠금
+    // 'keyphones_meta/seed-lock' 문서를 원자적으로 생성 — 이미 있으면 다른 관리자가 진행 중
+    const lockRef = doc(db, 'keyphones_meta', 'seed-lock');
+    let acquired = false;
+    try {
+      await runTransaction(db, async (tx) => {
+        const lock = await tx.get(lockRef);
+        if (lock.exists()) {
+          // 이미 시드되었거나 다른 인스턴스 진행 중
+          throw new Error('already-seeded-or-locked');
+        }
+        // 같은 트랜잭션 내에서 실제 컬렉션 비어있는지 한 번 더 확인
+        // (참고: 트랜잭션 내 컬렉션 조회는 제한적 — sentinel 패턴으로 보장)
+        tx.set(lockRef, { seededAt: serverTimestamp() });
+        acquired = true;
+      });
+    } catch (err: any) {
+      if (err?.message === 'already-seeded-or-locked') {
+        const existing = await getDocs(collection(db, 'keyphones'));
+        return { seeded: false, count: existing.size };
+      }
+      throw err;
+    }
+    if (!acquired) {
+      const existing = await getDocs(collection(db, 'keyphones'));
       return { seeded: false, count: existing.size };
     }
+
+    // Lock 획득 — 실제 시드 진행
     const seed: any = seedData;
     let count = 0;
-    // Firestore batch: 한 번에 최대 500개 — 본 데이터는 ~116개라 1배치로 충분
     const batch = writeBatch(db);
     const col = collection(db, 'keyphones');
     for (const school of ['taeseong_middle', 'taeseong_high'] as const) {
@@ -149,19 +173,29 @@ export const useKeyphoneStore = create<KeyphoneState>((set, get) => ({
   },
 
   resetAndReseed: async () => {
-    // 기존 데이터 모두 삭제
+    // 기존 데이터 모두 삭제 — Firestore batch 한도 500개 안전 분할
     const snap = await getDocs(collection(db, 'keyphones'));
     if (snap.size > 0) {
-      // 500개 단위로 분할 삭제
+      const BATCH_SIZE = 500;
       const chunks: typeof snap.docs[] = [];
-      for (let i = 0; i < snap.docs.length; i += 400) {
-        chunks.push(snap.docs.slice(i, i + 400));
+      for (let i = 0; i < snap.docs.length; i += BATCH_SIZE) {
+        chunks.push(snap.docs.slice(i, i + BATCH_SIZE));
       }
       for (const ch of chunks) {
         const b = writeBatch(db);
         ch.forEach((d) => b.delete(d.ref));
         await b.commit();
       }
+    }
+    // seed-lock 해제 — 다음 자동 시드가 동작하지 않도록 sentinel은 유지하지만
+    // 명시적 reset의 경우 갱신해서 추적
+    try {
+      await updateDoc(doc(db, 'keyphones_meta', 'seed-lock'), {
+        seededAt: serverTimestamp(),
+        resetAt: serverTimestamp(),
+      });
+    } catch {
+      // sentinel이 없으면 무시 (수동 reset 후 자동시드가 다시 잡을 수 있게)
     }
     // 다시 seed
     const seed: any = seedData;
