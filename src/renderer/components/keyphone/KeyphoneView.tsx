@@ -9,10 +9,14 @@ interface KeyphoneViewProps {
   onBack: () => void;
 }
 
-const SCHOOLS: { key: School; label: string; icon: string; color: string }[] = [
-  { key: 'taeseong_middle', label: '태성중학교', icon: '🏫', color: '#10B981' },
-  { key: 'taeseong_high', label: '태성고등학교', icon: '🎓', color: '#8B5CF6' },
-];
+/**
+ * 학교별 색상 — 라이트/다크 모드 분리.
+ * 다크 모드에서 보라가 너무 어두워 안 보이는 문제 해결을 위해 밝은 색조 사용.
+ */
+const SCHOOL_COLORS = {
+  taeseong_middle: { light: '#10B981', dark: '#34D399' }, // 그린(light) → 그린-400(dark)
+  taeseong_high:   { light: '#8B5CF6', dark: '#C4B5FD' }, // 바이올렛-500 → 바이올렛-300 (훨씬 밝게)
+};
 
 /** 키폰 번호부 — 양교 전화번호 조회 + 관리자 편집. */
 export function KeyphoneView({ onBack }: KeyphoneViewProps) {
@@ -23,6 +27,23 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
   const canEdit = user?.role === 'super_admin' || user?.role === 'admin';
   const isSuperAdmin = user?.role === 'super_admin';
   const autoSeedAttempted = React.useRef(false);
+
+  // 다크모드 감지 — data-theme 속성 변경 추적 (실시간 반영)
+  const [isDark, setIsDark] = useState<boolean>(
+    () => document.documentElement.getAttribute('data-theme') === 'dark'
+  );
+  useEffect(() => {
+    const obs = new MutationObserver(() => {
+      setIsDark(document.documentElement.getAttribute('data-theme') === 'dark');
+    });
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => obs.disconnect();
+  }, []);
+
+  const SCHOOLS = useMemo<{ key: School; label: string; icon: string; color: string }[]>(() => [
+    { key: 'taeseong_middle', label: '태성중학교', icon: '🏫', color: isDark ? SCHOOL_COLORS.taeseong_middle.dark : SCHOOL_COLORS.taeseong_middle.light },
+    { key: 'taeseong_high',   label: '태성고등학교', icon: '🎓', color: isDark ? SCHOOL_COLORS.taeseong_high.dark : SCHOOL_COLORS.taeseong_high.light },
+  ], [isDark]);
 
   const defaultSchool: School = (user?.school === 'taeseong_middle' || user?.school === 'taeseong_high')
     ? user.school : 'taeseong_middle';
@@ -297,9 +318,16 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
 
             {grouped.map(([dept, list]) => (
               <div key={dept} style={styles.group}>
-                <div style={{ ...styles.groupHeader, color: palette.color, borderBottomColor: `${palette.color}44` }}>
+                <div
+                  style={{
+                    ...styles.groupHeader,
+                    color: palette.color,
+                    borderBottomColor: `${palette.color}55`,
+                    background: `${palette.color}12`, // 다크모드 가독성: 부서 헤더 배경 틴트
+                  }}
+                >
                   {dept}
-                  <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 6, fontWeight: 400 }}>· {list.length}명</span>
+                  <span style={{ fontSize: 10, color: 'var(--text-secondary)', marginLeft: 6, fontWeight: 500 }}>· {list.length}명</span>
                 </div>
                 {list.map((e) => {
                   const isEditing = editingId === e.id;
@@ -326,7 +354,16 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
                       </div>
                       <div style={styles.cellKp}>
                         {e.keyphone ? (
-                          <button onClick={() => copy(e.keyphone)} style={{ ...styles.copyBtn, color: palette.color, borderColor: `${palette.color}55` }} title={`복사: ${e.keyphone}`}>
+                          <button
+                            onClick={() => copy(e.keyphone)}
+                            style={{
+                              ...styles.copyBtn,
+                              color: palette.color,
+                              borderColor: `${palette.color}66`,
+                              background: `${palette.color}18`, // 다크모드 가독성: 색 틴트 배경
+                            }}
+                            title={`복사: ${e.keyphone}`}
+                          >
                             <Copy size={10} style={{ verticalAlign: '-1px', marginRight: 3 }} />{e.keyphone}
                           </button>
                         ) : (
