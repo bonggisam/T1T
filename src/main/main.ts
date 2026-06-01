@@ -486,8 +486,15 @@ function setupGoogleAuthIPC(): void {
                 expires_in: json.expires_in || 3600,
               });
             } else {
-              // Google이 반환한 에러 그대로 전달
-              const errMsg = json.error_description || json.error || `HTTP ${res.statusCode}`;
+              // Google이 반환한 에러 그대로 전달 (+ 진단 정보)
+              const errCode = json.error || `HTTP_${res.statusCode}`;
+              const errDesc = json.error_description || '';
+              const hint =
+                errCode === 'invalid_grant' ? ' (코드 만료 또는 재사용 시도 — 다시 인증해주세요)' :
+                errCode === 'invalid_client' ? ' (client_id/secret 불일치 — Google Cloud Console 확인)' :
+                errCode === 'redirect_uri_mismatch' ? ` (redirect URI 미등록 — Console에 ${redirectUri} 등록 필요)` :
+                '';
+              const errMsg = `${errCode}${errDesc ? ': ' + errDesc : ''}${hint}`;
               console.warn('[GoogleAuth] token exchange failed:', errMsg, '— full response:', json);
               resolve({ error: errMsg });
             }
@@ -637,12 +644,29 @@ function setupGoogleAuthIPC(): void {
         }
       });
 
-      // 고정 포트 8123 우선, 사용 중이면 0(랜덤)
+      // 고정 포트 8123 우선, 사용 중이면 0(랜덤). 둘 다 실패하면 즉시 에러.
       const FIXED_PORT = 8123;
-      server.once('error', () => {
+      const tryRandomPort = () => {
         server.removeAllListeners('error');
-        console.warn('[GoogleAuth] Port 8123 in use, using random port');
+        server.once('error', (err: any) => {
+          console.error('[GoogleAuth] Random port bind also failed:', err);
+          safeResolve({
+            error: `로컬 인증 서버를 시작할 수 없습니다 — Windows 방화벽이 T1T를 차단했을 가능성. 방화벽에서 T1T를 허용해주세요. (${err?.code || err?.message || 'unknown'})`,
+          });
+        });
+        console.warn('[GoogleAuth] Port 8123 in use, trying random port');
         server.listen(0, '127.0.0.1');
+      };
+      server.once('error', (err: any) => {
+        // 포트 8123 점유 시 랜덤 포트 재시도. EACCES(권한)는 즉시 실패
+        if (err?.code === 'EACCES' || err?.code === 'EPERM') {
+          console.error('[GoogleAuth] Port bind denied:', err);
+          safeResolve({
+            error: `포트 권한 거부 (${err.code}) — Windows 방화벽 / 보안 프로그램에서 T1T 차단 가능성. 방화벽 설정 확인 필요.`,
+          });
+          return;
+        }
+        tryRandomPort();
       });
       server.on('listening', () => {
         const addr = server.address();
@@ -659,17 +683,20 @@ function setupGoogleAuthIPC(): void {
             `&state=${state}` +
             `&code_challenge=${codeChallenge}` +
             `&code_challenge_method=S256`;
-          console.log('[GoogleAuth] Opening browser, redirect:', redirectUri);
+          console.log(`[GoogleAuth] Server listening on ${port}, redirect: ${redirectUri}`);
+          console.log(`[GoogleAuth] Opening browser to Google auth URL (length=${authUrl.length})`);
           shell.openExternal(authUrl).catch((err) => {
             console.error('[GoogleAuth] openExternal failed:', err);
-            safeResolve({ error: '브라우저를 열 수 없습니다: ' + (err?.message || '') });
+            safeResolve({ error: `브라우저를 열 수 없습니다: ${err?.message || '시스템 브라우저 호출 실패'}` });
           });
         }
       });
       server.listen(FIXED_PORT, '127.0.0.1');
 
-      // 5분 후 타임아웃
-      setTimeout(() => safeResolve({ error: '시간 초과 (5분) — 다시 시도해주세요' }), 5 * 60 * 1000);
+      // 5분 후 타임아웃 (사용자가 인증 안 하고 방치)
+      setTimeout(() => safeResolve({
+        error: '시간 초과 (5분) — Google 로그인을 완료하지 못했습니다. 브라우저 창을 닫고 다시 시도해주세요.'
+      }), 5 * 60 * 1000);
     });
   });
 }
