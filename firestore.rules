@@ -92,18 +92,15 @@ service cloud.firestore {
       allow update, delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
-    // 키폰 번호부 — 활성 사용자 모두 조회 가능, 부장(head_teacher) 이상만 수정
-    function canEditKeyphone() {
-      return isAuth() && getUserData().role in ['head_teacher', 'admin', 'super_admin'];
-    }
+    // 키폰 번호부 — 활성 사용자 모두 조회 가능, 관리자(admin/super_admin)만 수정
     match /keyphones/{entryId} {
       allow read: if isActive();
-      allow create: if canEditKeyphone()
+      allow create: if isAdmin()
         && request.resource.data.school in ['taeseong_middle', 'taeseong_high'];
-      allow update: if canEditKeyphone()
+      allow update: if isAdmin()
         && (!('school' in request.resource.data.diff(resource.data).affectedKeys())
             || request.resource.data.school in ['taeseong_middle', 'taeseong_high']);
-      allow delete: if canEditKeyphone();
+      allow delete: if isAdmin();
     }
   }
 }

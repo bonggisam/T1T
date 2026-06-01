@@ -80,36 +80,46 @@ export async function fetchSchoolSchedule(schoolKey: SchoolKey): Promise<{
   events: Array<{ startDate: string; endDate: string; title: string; seq: string }>;
 }> {
   const s = SCHOOLS[schoolKey];
+  const mainUrl = `${s.base}/${s.sysId}/ps/schdul/selectSchdulMainList.do?mi=${s.scheduleMi}`;
+  const ajaxUrl = `${s.base}/${s.sysId}/ps/schdul/selectSchdulList.do?mi=${s.scheduleMi}`;
 
   // 1단계: 메인 페이지로 세션 쿠키 받기
-  const page = await httpRequest(
-    `${s.base}/${s.sysId}/ps/schdul/selectSchdulMainList.do?mi=${s.scheduleMi}`,
-    { method: 'GET', headers: COMMON_HEADERS },
-  );
+  let page;
+  try {
+    page = await httpRequest(mainUrl, { method: 'GET', headers: COMMON_HEADERS });
+  } catch (e: any) {
+    throw new Error(`[학사일정] 학교 홈페이지 접속 실패 — ${e?.message || e}`);
+  }
+  if (page.status !== 200) {
+    throw new Error(`[학사일정] 메인 페이지 HTTP ${page.status} (URL: ${mainUrl})`);
+  }
   const cookieHeader = page.setCookie
     .map((c) => c.split(';')[0])
     .join('; ');
 
   // 2단계: AJAX 호출로 연간 일정 받기
   const ajaxBody = 'schdulLevel=Y&fromDate=&toDate=&date=&schdulSeq=';
-  const resp = await httpRequest(
-    `${s.base}/${s.sysId}/ps/schdul/selectSchdulList.do?mi=${s.scheduleMi}`,
-    {
+  let resp;
+  try {
+    resp = await httpRequest(ajaxUrl, {
       method: 'POST',
       headers: {
         ...COMMON_HEADERS,
         'X-Requested-With': 'XMLHttpRequest',
-        'Referer': `${s.base}/${s.sysId}/ps/schdul/selectSchdulMainList.do?mi=${s.scheduleMi}`,
+        'Referer': mainUrl,
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
         'Content-Length': String(Buffer.byteLength(ajaxBody)),
         'Cookie': cookieHeader,
       },
-    },
-    ajaxBody,
-  );
+    }, ajaxBody);
+  } catch (e: any) {
+    throw new Error(`[학사일정] AJAX 요청 실패 — ${e?.message || e}`);
+  }
 
-  if (resp.status !== 200) throw new Error(`학사일정 HTTP ${resp.status}`);
-  if (!resp.body || resp.body.length < 50) throw new Error('학사일정 응답 본문이 비어있습니다');
+  if (resp.status !== 200) throw new Error(`[학사일정] AJAX HTTP ${resp.status} (URL: ${ajaxUrl})`);
+  if (!resp.body || resp.body.length < 50) {
+    throw new Error(`[학사일정] 응답 본문 부족 (${resp.body?.length || 0} bytes)`);
+  }
 
   // 응답은 JSON-escaped HTML 문자열. JSON.parse로 풀기
   let html: string;
@@ -120,18 +130,37 @@ export async function fetchSchoolSchedule(schoolKey: SchoolKey): Promise<{
     html = resp.body;
   }
 
-  // 파싱: viewSchdulInfo('SEQ', 'YYYY/MM/DD', 'YYYY/MM/DD', '...');"...">제목</a>
+  // 파싱 — 학교가 HTML 구조를 바꿔도 일정 비슷한 패턴이면 잡을 수 있게 여러 변형 시도
   const events: Array<{ startDate: string; endDate: string; title: string; seq: string }> = [];
-  // 예: <a href="javascript:viewSchdulInfo('62087', '2026/01/01', '2026/01/01', '');">신정</a>
-  const re = /viewSchdulInfo\('(\d+)',\s*'(\d{4}\/\d{2}\/\d{2})',\s*'(\d{4}\/\d{2}\/\d{2})',\s*'[^']*'\);">([^<]+)<\/a>/g;
+  // 패턴 A: viewSchdulInfo('SEQ', 'YYYY/MM/DD', 'YYYY/MM/DD', '...');">제목</a>
+  const reA = /viewSchdulInfo\('(\d+)',\s*'(\d{4}\/\d{2}\/\d{2})',\s*'(\d{4}\/\d{2}\/\d{2})',\s*'[^']*'\);">([^<]+)<\/a>/g;
+  // 패턴 B: 닫는 따옴표·괄호 약간 다른 변형 (4번째 인자 없는 경우)
+  const reB = /viewSchdulInfo\('(\d+)',\s*'(\d{4}\/\d{2}\/\d{2})',\s*'(\d{4}\/\d{2}\/\d{2})'[^)]*\)[^>]*>([^<]+)<\/a>/g;
   let m;
-  while ((m = re.exec(html)) !== null) {
+  while ((m = reA.exec(html)) !== null) {
     events.push({
       seq: m[1],
       startDate: m[2].replace(/\//g, '-'),
       endDate: m[3].replace(/\//g, '-'),
       title: m[4].trim(),
     });
+  }
+  if (events.length === 0) {
+    // 폴백 B 시도
+    while ((m = reB.exec(html)) !== null) {
+      events.push({
+        seq: m[1],
+        startDate: m[2].replace(/\//g, '-'),
+        endDate: m[3].replace(/\//g, '-'),
+        title: m[4].trim(),
+      });
+    }
+  }
+
+  if (events.length === 0) {
+    // 응답은 받았지만 일정이 0건 — 사용자에게 진단 정보
+    const snippet = html.slice(0, 200).replace(/\s+/g, ' ');
+    throw new Error(`[학사일정] 일정 0건 — 학교 사이트 HTML 구조가 변경된 것 같습니다 (응답 ${html.length} bytes, 시작: "${snippet}...")`);
   }
 
   return { events };
@@ -149,21 +178,35 @@ export async function fetchSchoolMeal(schoolKey: SchoolKey, dateYMD?: string): P
   const url = dateYMD
     ? `${s.base}/${s.sysId}/ad/fm/foodmenu/selectFoodMenuView.do?mi=${s.mealMi}&schulCode=&ymd=${dateYMD}`
     : `${s.base}/${s.sysId}/ad/fm/foodmenu/selectFoodMenuView.do?mi=${s.mealMi}`;
-  const resp = await httpRequest(url, { method: 'GET', headers: COMMON_HEADERS });
-  if (resp.status !== 200) throw new Error(`HTTP ${resp.status}`);
+  let resp;
+  try {
+    resp = await httpRequest(url, { method: 'GET', headers: COMMON_HEADERS });
+  } catch (e: any) {
+    throw new Error(`[급식] 학교 홈페이지 접속 실패 — ${e?.message || e}`);
+  }
+  if (resp.status !== 200) throw new Error(`[급식] HTTP ${resp.status} (URL: ${url})`);
   const html = resp.body;
+  if (!html || html.length < 200) {
+    throw new Error(`[급식] 응답 본문 부족 (${html?.length || 0} bytes)`);
+  }
 
   // 주차 헤더: 급식일 : 2026년05월17일 ~ 2026년05월23일
   const weekMatch = html.match(/급식일\s*:\s*(\d{4})년(\d{2})월(\d{2})일\s*~\s*(\d{4})년(\d{2})월(\d{2})일/);
   const weekStart = weekMatch ? `${weekMatch[1]}-${weekMatch[2]}-${weekMatch[3]}` : '';
   const weekEnd = weekMatch ? `${weekMatch[4]}-${weekMatch[5]}-${weekMatch[6]}` : '';
 
-  // 7일 날짜 헤더 (일~토): <th scope="col">일 <br>2026-05-17</th>
-  const headerRe = /<th scope="col">([일월화수목금토])\s*<br>(\d{4}-\d{2}-\d{2})<\/th>/g;
+  // 7일 날짜 헤더 (일~토): <th scope="col">일 <br>2026-05-17</th> — 띄어쓰기·br 표기 변형 대응
+  const headerRe = /<th[^>]*scope="col"[^>]*>\s*([일월화수목금토])\s*<br\s*\/?>\s*(\d{4}-\d{2}-\d{2})\s*<\/th>/g;
   const headers: Array<{ weekday: string; date: string }> = [];
   let hm;
   while ((hm = headerRe.exec(html)) !== null) {
     headers.push({ weekday: hm[1], date: hm[2] });
+  }
+  if (headers.length === 0) {
+    // 진단: HTML이 변경되었거나 급식 데이터가 없는 경우
+    const hasFoodMenuKeyword = /급식|food|menu/i.test(html);
+    const snippet = html.slice(0, 200).replace(/\s+/g, ' ');
+    throw new Error(`[급식] 일자 헤더 0건 — 학교 사이트 HTML 변경 가능성 (응답 ${html.length} bytes, 키워드:${hasFoodMenuKeyword}, 시작: "${snippet}...")`);
   }
 
   // <tbody>...<tr> ... <th>중식</th><td>...메뉴...</td>...

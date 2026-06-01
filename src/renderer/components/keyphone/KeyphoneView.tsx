@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { ArrowLeft, Search, Plus, Pencil, Trash2, Check, X, Copy, RefreshCw, Database } from 'lucide-react';
+import { ArrowLeft, Search, Plus, Pencil, Trash2, Check, X, Copy, RefreshCw } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useKeyphoneStore, type KeyphoneEntry } from '../../store/keyphoneStore';
 import { showToast } from '../common/Toast';
@@ -19,8 +19,10 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
   const { user } = useAuthStore();
   const { entries, loading, subscribe, cleanup, addEntry, updateEntry, deleteEntry, seedIfEmpty, resetAndReseed } = useKeyphoneStore();
 
-  const canEdit = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'head_teacher';
+  // 수정 권한: admin / super_admin 만 (부장 제외)
+  const canEdit = user?.role === 'super_admin' || user?.role === 'admin';
   const isSuperAdmin = user?.role === 'super_admin';
+  const autoSeedAttempted = React.useRef(false);
 
   const defaultSchool: School = (user?.school === 'taeseong_middle' || user?.school === 'taeseong_high')
     ? user.school : 'taeseong_middle';
@@ -37,8 +39,27 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
     return () => cleanup();
   }, [subscribe, cleanup]);
 
-  // 컬렉션이 완전히 비어 있을 때 안내 (자동 시드 X — 관리자 명시 클릭으로만)
   const isEmpty = !loading && entries.length === 0;
+
+  // 관리자가 진입하고 컬렉션이 비어 있으면 자동으로 1회 시드
+  useEffect(() => {
+    if (!canEdit) return;
+    if (loading) return;
+    if (!isEmpty) return;
+    if (autoSeedAttempted.current) return;
+    autoSeedAttempted.current = true;
+    (async () => {
+      try {
+        const res = await seedIfEmpty();
+        if (res.seeded) {
+          showToast(`키폰 번호부 ${res.count}건 자동 등록 완료`, 'success');
+        }
+      } catch (err: any) {
+        console.error('[Keyphone] auto-seed failed:', err);
+        showToast(`자동 시드 실패: ${err?.message || err}`, 'error');
+      }
+    })();
+  }, [canEdit, loading, isEmpty, seedIfEmpty]);
 
   const palette = SCHOOLS.find((s) => s.key === selectedSchool)!;
 
@@ -134,22 +155,6 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
     }
   }
 
-  async function handleSeed() {
-    if (!confirm('초기 키폰 번호부(2026.3.1 기준)를 Firestore에 등록할까요?\n(기존에 데이터가 있으면 건너뜁니다)')) return;
-    setSeeding(true);
-    try {
-      const res = await seedIfEmpty();
-      if (res.seeded) {
-        showToast(`초기 데이터 ${res.count}건 등록 완료`, 'success');
-      } else {
-        showToast(`이미 ${res.count}건의 데이터가 있어 건너뜁니다`, 'info');
-      }
-    } catch (err: any) {
-      showToast(`시드 실패: ${err?.message || err}`, 'error');
-    }
-    setSeeding(false);
-  }
-
   async function handleReset() {
     if (!confirm('⚠️ 기존 키폰 번호부를 모두 삭제하고 초기 데이터(2026.3.1 기준)로 다시 채울까요?\n이 작업은 되돌릴 수 없습니다.')) return;
     setSeeding(true);
@@ -171,11 +176,6 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
         </button>
         <span style={styles.headerTitle}>📞 키폰 번호부</span>
         <span style={{ flex: 1 }} />
-        {canEdit && isEmpty && (
-          <button onClick={handleSeed} disabled={seeding} style={styles.seedBtn}>
-            <Database size={13} /> 초기 데이터 등록
-          </button>
-        )}
         {isSuperAdmin && !isEmpty && (
           <button onClick={handleReset} disabled={seeding} style={styles.resetBtn} title="기존 데이터 삭제 후 초기 데이터로 재등록">
             <RefreshCw size={13} /> 재시드
@@ -235,9 +235,9 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
         ) : isEmpty ? (
           <div style={styles.placeholder}>
             <div style={{ fontSize: 36, marginBottom: 8 }}>📞</div>
-            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>등록된 키폰 번호가 없습니다</div>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>키폰 번호부 준비 중…</div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              {canEdit ? '상단의 "초기 데이터 등록" 버튼을 눌러주세요.' : '관리자가 초기 데이터를 등록할 때까지 기다려주세요.'}
+              {canEdit ? '잠시 후 초기 데이터가 자동 등록됩니다.' : '관리자가 처음 접속하면 초기 데이터가 자동 등록됩니다.'}
             </div>
           </div>
         ) : filtered.length === 0 ? (
@@ -326,7 +326,7 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
       <div style={styles.footnote}>
         {canEdit
           ? '관리자 모드: 항목을 추가·수정·삭제할 수 있습니다.'
-          : '조회 전용 모드 — 관리자(부장 이상)만 수정 가능합니다.'}
+          : '조회 전용 모드 — 관리자만 수정 가능합니다.'}
       </div>
     </div>
   );
