@@ -278,19 +278,23 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
             <button
               onClick={async () => {
                 const { showToast } = await import('../common/Toast');
-                showToast('업데이트 확인 중...', 'info');
+                showToast('🔍 업데이트 확인 중…', 'info');
                 try {
                   const result = await window.electronAPI?.updaterCheck();
-                  if (!result) return;
-                  if (result.ok) {
-                    if (result.version) {
-                      showToast(`📥 새 버전 v${result.version} 다운로드 시작`, 'success');
-                    } else {
-                      showToast('✅ 이미 최신 버전입니다', 'success');
-                    }
-                  } else {
-                    showToast(`⚠️ ${result.error}`, 'error');
+                  if (!result) {
+                    showToast('업데이트 응답 없음', 'error');
+                    return;
                   }
+                  if (!result.ok) {
+                    showToast(`⚠️ ${result.error}`, 'error');
+                    return;
+                  }
+                  // ok=true: UpdateBanner가 'updater:available' / 'updater:not-available' 이벤트로 명확히 표시.
+                  // 여기서는 짧은 토스트만 — 중복 안내 방지.
+                  if (result.version) {
+                    showToast(`📥 새 버전 v${result.version} — 상단 배너에서 진행 상황 확인`, 'success');
+                  }
+                  // 최신 버전인 경우 → UpdateBanner의 up-to-date 상태가 5초간 표시됨 (토스트 중복 안 함)
                 } catch (e: any) {
                   showToast(`업데이트 확인 실패: ${e?.message || '알 수 없는 오류'}`, 'error');
                 }

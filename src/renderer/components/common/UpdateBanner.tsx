@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 
-type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error';
+type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error' | 'up-to-date';
 
 interface UpdateInfo {
   version?: string;
   percent?: number;
+  transferred?: number;
+  total?: number;
   error?: string;
 }
 
@@ -23,21 +25,25 @@ export function UpdateBanner() {
           setInfo({ version: data?.version });
           break;
         case 'updater:not-available':
-          setStatus('idle');
+          // 수동 확인 시 사용자에게 "최신 상태" 명시적 표시 (5초 후 자동 사라짐)
+          setStatus('up-to-date');
+          setTimeout(() => setStatus('idle'), 5000);
           break;
         case 'updater:progress':
           setStatus('downloading');
-          setInfo((prev) => ({ ...prev, percent: data?.percent }));
+          setInfo({
+            percent: data?.percent,
+            transferred: data?.transferred,
+            total: data?.total,
+          });
           break;
         case 'updater:downloaded':
           setStatus('downloaded');
           break;
         case 'updater:error':
           setStatus('error');
-          // error 진입 시 이전 다운로드 진행률 초기화
           setInfo({ error: typeof data === 'string' ? data : 'Unknown error' });
-          // Auto-dismiss error after 5 seconds
-          setTimeout(() => setStatus('idle'), 5000);
+          setTimeout(() => setStatus('idle'), 8000);
           break;
       }
     });
@@ -46,31 +52,39 @@ export function UpdateBanner() {
 
   if (status === 'idle' || status === 'checking') return null;
 
+  const fmtMB = (b?: number) => b ? `${(b / 1024 / 1024).toFixed(1)}MB` : '';
+
+  const bg =
+    status === 'error' ? 'var(--danger)' :
+    status === 'up-to-date' ? '#10B981' :
+    status === 'downloaded' ? '#059669' :
+    'var(--accent)';
+
   return (
-    <div style={{
-      ...styles.banner,
-      background: status === 'error' ? 'var(--danger)' : 'var(--accent)',
-    }}>
+    <div style={{ ...styles.banner, background: bg }}>
+      {status === 'up-to-date' && (
+        <>
+          <span style={styles.text}>✅ 최신 버전을 사용 중입니다</span>
+          <button onClick={() => setStatus('idle')} style={styles.dismissBtn}>✕</button>
+        </>
+      )}
       {status === 'available' && (
         <>
           <span style={styles.text}>
-            새 버전 {info.version}이 있습니다
+            🎉 새 버전 v{info.version} — 자동 다운로드 중
           </span>
-          <button onClick={() => window.electronAPI?.updaterDownload()} style={styles.btn}>
-            다운로드
-          </button>
           <button onClick={() => setStatus('idle')} style={styles.dismissBtn}>✕</button>
         </>
       )}
       {status === 'downloading' && (
         <span style={styles.text}>
-          업데이트 다운로드 중... {info.percent ?? 0}%
+          ⬇️ 다운로드 {info.percent ?? 0}% {info.transferred && info.total ? `(${fmtMB(info.transferred)}/${fmtMB(info.total)})` : ''}
         </span>
       )}
       {status === 'downloaded' && (
         <>
           <span style={styles.text}>
-            업데이트 준비 완료!
+            ✨ 업데이트 준비 완료 — 재시작하면 적용됩니다
           </span>
           <button onClick={() => window.electronAPI?.updaterInstall()} style={styles.btn}>
             지금 재시작
@@ -79,7 +93,10 @@ export function UpdateBanner() {
         </>
       )}
       {status === 'error' && (
-        <span style={styles.text}>업데이트 오류: {info.error}</span>
+        <>
+          <span style={styles.text}>⚠️ 업데이트 오류: {info.error}</span>
+          <button onClick={() => setStatus('idle')} style={styles.dismissBtn}>✕</button>
+        </>
       )}
     </div>
   );

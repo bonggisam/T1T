@@ -25,7 +25,7 @@ interface TodayViewProps {
  * - − 버튼: 표시 범위 −1일 (최소 1일)
  */
 export function TodayView({ onAddPersonalEvent, onPersonalClick }: TodayViewProps = {}) {
-  const { setSelectedEvent, setShowEventDetail, setShowEventModal } = useCalendarStore();
+  const { setSelectedEvent, setShowEventDetail, setShowEventModal, setSelectedDate } = useCalendarStore();
   const { user } = useAuthStore();
   const events = useVisibleEvents();
   const { allPersonalEvents } = usePersonalEventStore();
@@ -131,6 +131,13 @@ export function TodayView({ onAddPersonalEvent, onPersonalClick }: TodayViewProp
           onEventClick={(e) => { setSelectedEvent(e); setShowEventDetail(true); }}
           onPersonalClick={(pe) => onPersonalClick?.(pe)}
           onAddShared={() => setShowEventModal(true)}
+          onAddAtTime={(hour, minute) => {
+            // 클릭된 시간으로 selectedDate 설정 후 모달 열기 → EventModal이 그 시간으로 자동 채움
+            const d = new Date(rangeStart);
+            d.setHours(hour, minute, 0, 0);
+            setSelectedDate(d);
+            setShowEventModal(true);
+          }}
           onAddPersonal={onAddPersonalEvent}
         />
       ) : (
@@ -199,7 +206,7 @@ export function TodayView({ onAddPersonalEvent, onPersonalClick }: TodayViewProp
  */
 function DayTimeline({
   date, events, personalEvents, user,
-  onEventClick, onPersonalClick, onAddShared, onAddPersonal,
+  onEventClick, onPersonalClick, onAddShared, onAddAtTime, onAddPersonal,
 }: {
   date: Date;
   events: CalendarEvent[];
@@ -208,8 +215,11 @@ function DayTimeline({
   onEventClick: (e: CalendarEvent) => void;
   onPersonalClick: (pe: PersonalEvent) => void;
   onAddShared: () => void;
+  onAddAtTime?: (hour: number, minute: number) => void;
   onAddPersonal?: () => void;
 }) {
+  // 호버 상태 — 빈 영역 클릭 시 시간 미리보기
+  const [hoverInfo, setHoverInfo] = useState<{ hour: number; minute: number; y: number } | null>(null);
   const allDayEvents = events.filter((e) => e.allDay);
   const timedEvents = events.filter((e) => !e.allDay);
   const allDayPersonal = personalEvents.filter((pe) => pe.allDay);
@@ -282,7 +292,38 @@ function DayTimeline({
 
       {/* 24시간 그리드 */}
       <div style={timelineStyles.gridScroll}>
-        <div style={{ position: 'relative', height: HOUR_HEIGHT * 24 }}>
+        <div
+          style={{ position: 'relative', height: HOUR_HEIGHT * 24 }}
+          onMouseMove={(e) => {
+            if (!onAddAtTime) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+            // 시간 라벨 영역(0-52px)이면 무시
+            if (e.clientX - rect.left < 52) { setHoverInfo(null); return; }
+            const totalMin = (y / HOUR_HEIGHT) * 60;
+            // 15분 단위로 스냅
+            const snappedMin = Math.floor(totalMin / 15) * 15;
+            const hour = Math.floor(snappedMin / 60);
+            const minute = snappedMin % 60;
+            if (hour < 0 || hour > 23) return;
+            setHoverInfo({ hour, minute, y: (snappedMin / 60) * HOUR_HEIGHT });
+          }}
+          onMouseLeave={() => setHoverInfo(null)}
+          onClick={(e) => {
+            if (!onAddAtTime) return;
+            // 이벤트 블록을 클릭한 경우는 그대로 (button onClick으로 처리됨)
+            if ((e.target as HTMLElement).closest('button')) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            if (e.clientX - rect.left < 52) return; // 시간 라벨 영역
+            const y = e.clientY - rect.top;
+            const totalMin = (y / HOUR_HEIGHT) * 60;
+            const snappedMin = Math.floor(totalMin / 15) * 15;
+            const hour = Math.floor(snappedMin / 60);
+            const minute = snappedMin % 60;
+            if (hour < 0 || hour > 23) return;
+            onAddAtTime(hour, minute);
+          }}
+        >
           {/* 시간 격자 */}
           {HOURS.map((h) => (
             <div
@@ -293,6 +334,7 @@ function DayTimeline({
                 left: 0, right: 0, height: HOUR_HEIGHT,
                 borderTop: '1px solid var(--border-subtle)',
                 display: 'flex',
+                cursor: onAddAtTime ? 'crosshair' : 'default',
               }}
             >
               <div style={timelineStyles.hourLabel}>
@@ -301,6 +343,28 @@ function DayTimeline({
               <div style={{ flex: 1 }} />
             </div>
           ))}
+
+          {/* 호버 가이드 — 클릭 가능한 시간 미리보기 */}
+          {onAddAtTime && hoverInfo && (
+            <div style={{
+              position: 'absolute',
+              left: 52, right: 4,
+              top: hoverInfo.y,
+              height: 24,
+              background: 'var(--accent)',
+              opacity: 0.15,
+              borderTop: '2px dashed var(--accent)',
+              pointerEvents: 'none',
+              zIndex: 3,
+              display: 'flex',
+              alignItems: 'center',
+              paddingLeft: 8,
+            }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent)', background: 'var(--bg-modal, #fff)', padding: '1px 6px', borderRadius: 3 }}>
+                + {hoverInfo.hour.toString().padStart(2, '0')}:{hoverInfo.minute.toString().padStart(2, '0')} 일정 추가
+              </span>
+            </div>
+          )}
 
           {/* 현재 시간선 */}
           {isToday && (
