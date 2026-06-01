@@ -72,7 +72,13 @@ function loadWindowState(): WindowState | null {
     const p = getWindowStatePath();
     if (fs.existsSync(p)) {
       const data = JSON.parse(fs.readFileSync(p, 'utf-8'));
-      if (typeof data.width === 'number' && typeof data.height === 'number') return data;
+      if (typeof data.width === 'number' && typeof data.height === 'number') {
+        // 너무 작거나 비정상 크기는 기본값으로 fallback
+        const MIN_W = 320, MIN_H = 280, MAX_W = 4000, MAX_H = 4000;
+        if (data.width < MIN_W || data.height < MIN_H) return null;
+        if (data.width > MAX_W || data.height > MAX_H) return null;
+        return data;
+      }
     }
   } catch (e) { console.warn('[Window] loadState failed:', e); }
   return null;
@@ -337,8 +343,16 @@ function setupIPC(): void {
     const initBounds = mainWindow.getBounds();
     const initCursor = screen.getCursorScreenPoint();
     const MIN_W = 320, MIN_H = 280;
+    const startedAt = Date.now();
+    const SAFETY_TIMEOUT_MS = 15000; // 15초 — 정상 사용자는 절대 안 걸림, 폴링 안전망
     const interval = setInterval(() => {
+      // 안전망 1: 윈도우가 destroy되었거나 15초 경과 → 강제 종료
       if (!mainWindow || mainWindow.isDestroyed()) { stopEdgeResize(); return; }
+      if (Date.now() - startedAt > SAFETY_TIMEOUT_MS) {
+        console.warn('[EdgeResize] Safety timeout — auto stop');
+        stopEdgeResize();
+        return;
+      }
       const cur = screen.getCursorScreenPoint();
       const dx = cur.x - initCursor.x;
       const dy = cur.y - initCursor.y;

@@ -2,11 +2,16 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { format, parseISO, isSameDay, isValid } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useAuthStore } from '../../store/authStore';
+import { useDarkMode } from '../../hooks/useDarkMode';
 import type { School } from '@shared/types';
 
-const SCHOOL_OPTIONS: { key: School; label: string; icon: string; color: string }[] = [
+const SCHOOL_OPTIONS_LIGHT: { key: School; label: string; icon: string; color: string }[] = [
   { key: 'taeseong_middle', label: '태성중', icon: '🏫', color: '#10B981' },
   { key: 'taeseong_high', label: '태성고', icon: '🎓', color: '#8B5CF6' },
+];
+const SCHOOL_OPTIONS_DARK: { key: School; label: string; icon: string; color: string }[] = [
+  { key: 'taeseong_middle', label: '태성중', icon: '🏫', color: '#34D399' },
+  { key: 'taeseong_high', label: '태성고', icon: '🎓', color: '#C4B5FD' },
 ];
 
 interface SchoolScheduleItem {
@@ -33,6 +38,8 @@ export function ScheduleView({ onBack }: ScheduleViewProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isDark = useDarkMode();
+  const SCHOOL_OPTIONS = isDark ? SCHOOL_OPTIONS_DARK : SCHOOL_OPTIONS_LIGHT;
   const palette = SCHOOL_OPTIONS.find((s) => s.key === selectedSchool)!;
 
   async function load() {

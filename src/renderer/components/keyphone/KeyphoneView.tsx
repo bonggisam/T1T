@@ -575,10 +575,10 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-secondary)',
     marginLeft: 3,
   },
-  // 편집/추가용 grid (admin 폼 전용)
+  // 편집/추가용 grid (admin 폼 전용) — 좁은 창에서 자동 wrap
   editRow: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr 0.8fr 0.7fr 1fr auto',
+    display: 'flex',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 4,
     padding: '6px 8px',
@@ -647,8 +647,8 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 3,
     background: 'var(--bg-hover)',
     color: 'var(--text-primary)',
-    minWidth: 0,
-    width: '100%',
+    minWidth: 60,
+    flex: '1 1 90px', // 좁은 창에서 자동 wrap
   },
   placeholder: {
     flex: 1,
