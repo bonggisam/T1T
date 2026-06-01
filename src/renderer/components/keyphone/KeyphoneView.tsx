@@ -301,14 +301,14 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
           </div>
         ) : (
           <>
-            {/* 추가 폼 */}
+            {/* 추가 폼 — 전체 폭 */}
             {addingForSchool === selectedSchool && (
-              <div style={{ ...styles.row, background: 'var(--bg-hover)', borderLeft: `3px solid ${palette.color}` }}>
+              <div style={{ ...styles.editRow, background: 'var(--bg-hover)', borderLeft: `3px solid ${palette.color}`, margin: '0 8px 8px' }}>
                 <input style={styles.editInput} placeholder="부서명" value={addDraft.department || ''} onChange={(e) => setAddDraft({ ...addDraft, department: e.target.value })} />
                 <input style={styles.editInput} placeholder="이름" value={addDraft.name || ''} onChange={(e) => setAddDraft({ ...addDraft, name: e.target.value })} />
-                <input style={styles.editInput} placeholder="직책/담당" value={addDraft.role || ''} onChange={(e) => setAddDraft({ ...addDraft, role: e.target.value })} />
-                <input style={styles.editInput} placeholder="키폰 (예: 8273)" value={addDraft.keyphone || ''} onChange={(e) => setAddDraft({ ...addDraft, keyphone: e.target.value })} />
-                <input style={styles.editInput} placeholder="외부 전화" value={addDraft.phone || ''} onChange={(e) => setAddDraft({ ...addDraft, phone: e.target.value })} />
+                <input style={styles.editInput} placeholder="직책" value={addDraft.role || ''} onChange={(e) => setAddDraft({ ...addDraft, role: e.target.value })} />
+                <input style={styles.editInput} placeholder="키폰" value={addDraft.keyphone || ''} onChange={(e) => setAddDraft({ ...addDraft, keyphone: e.target.value })} />
+                <input style={styles.editInput} placeholder="외부전화" value={addDraft.phone || ''} onChange={(e) => setAddDraft({ ...addDraft, phone: e.target.value })} />
                 <div style={styles.actionGroup}>
                   <button onClick={saveAdd} style={styles.iconBtnSuccess} title="저장"><Check size={14} /></button>
                   <button onClick={cancelAdd} style={styles.iconBtnGhost} title="취소"><X size={14} /></button>
@@ -316,43 +316,45 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
               </div>
             )}
 
-            {grouped.map(([dept, list]) => (
-              <div key={dept} style={styles.group}>
-                <div
-                  style={{
-                    ...styles.groupHeader,
-                    color: palette.color,
-                    borderBottomColor: `${palette.color}55`,
-                    background: `${palette.color}12`, // 다크모드 가독성: 부서 헤더 배경 틴트
-                  }}
-                >
-                  {dept}
-                  <span style={{ fontSize: 10, color: 'var(--text-secondary)', marginLeft: 6, fontWeight: 500 }}>· {list.length}명</span>
-                </div>
-                {list.map((e) => {
-                  const isEditing = editingId === e.id;
-                  if (isEditing) {
-                    return (
-                      <div key={e.id} style={{ ...styles.row, background: 'var(--bg-hover)' }}>
-                        <input style={styles.editInput} value={editDraft.department || ''} onChange={(ev) => setEditDraft({ ...editDraft, department: ev.target.value })} placeholder="부서" />
-                        <input style={styles.editInput} value={editDraft.name || ''} onChange={(ev) => setEditDraft({ ...editDraft, name: ev.target.value })} placeholder="이름" />
-                        <input style={styles.editInput} value={editDraft.role || ''} onChange={(ev) => setEditDraft({ ...editDraft, role: ev.target.value })} placeholder="직책" />
-                        <input style={styles.editInput} value={editDraft.keyphone || ''} onChange={(ev) => setEditDraft({ ...editDraft, keyphone: ev.target.value })} placeholder="키폰" />
-                        <input style={styles.editInput} value={editDraft.phone || ''} onChange={(ev) => setEditDraft({ ...editDraft, phone: ev.target.value })} placeholder="전화" />
-                        <div style={styles.actionGroup}>
-                          <button onClick={saveEdit} style={styles.iconBtnSuccess} title="저장"><Check size={14} /></button>
-                          <button onClick={cancelEdit} style={styles.iconBtnGhost} title="취소"><X size={14} /></button>
+            {/* 2-컬럼 흐름 — 부서 단위로 컬럼 사이 끊김 방지 */}
+            <div style={styles.columnsWrap}>
+              {grouped.map(([dept, list]) => (
+                <div key={dept} style={styles.group}>
+                  <div
+                    style={{
+                      ...styles.groupHeader,
+                      color: palette.color,
+                      borderBottomColor: `${palette.color}55`,
+                      background: `${palette.color}14`,
+                    }}
+                  >
+                    {dept}
+                    <span style={styles.groupCount}>· {list.length}</span>
+                  </div>
+                  {list.map((e) => {
+                    const isEditing = editingId === e.id;
+                    if (isEditing) {
+                      return (
+                        <div key={e.id} style={{ ...styles.editRow, background: 'var(--bg-hover)' }}>
+                          <input style={styles.editInput} value={editDraft.department || ''} onChange={(ev) => setEditDraft({ ...editDraft, department: ev.target.value })} placeholder="부서" />
+                          <input style={styles.editInput} value={editDraft.name || ''} onChange={(ev) => setEditDraft({ ...editDraft, name: ev.target.value })} placeholder="이름" />
+                          <input style={styles.editInput} value={editDraft.role || ''} onChange={(ev) => setEditDraft({ ...editDraft, role: ev.target.value })} placeholder="직책" />
+                          <input style={styles.editInput} value={editDraft.keyphone || ''} onChange={(ev) => setEditDraft({ ...editDraft, keyphone: ev.target.value })} placeholder="키폰" />
+                          <input style={styles.editInput} value={editDraft.phone || ''} onChange={(ev) => setEditDraft({ ...editDraft, phone: ev.target.value })} placeholder="전화" />
+                          <div style={styles.actionGroup}>
+                            <button onClick={saveEdit} style={styles.iconBtnSuccess} title="저장"><Check size={14} /></button>
+                            <button onClick={cancelEdit} style={styles.iconBtnGhost} title="취소"><X size={14} /></button>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div key={e.id} style={styles.row}>
-                      <div style={styles.cellName}>
-                        <span style={styles.nameText}>{e.name || <span style={{ color: 'var(--text-muted)' }}>—</span>}</span>
-                        {e.role && <span style={styles.roleBadge}>{e.role}</span>}
-                      </div>
-                      <div style={styles.cellKp}>
+                      );
+                    }
+                    return (
+                      <div key={e.id} style={styles.row}>
+                        {/* 좌측정렬 단일 라인: 이름(직책) · 키폰 · 전화 */}
+                        <span style={styles.nameText}>
+                          {e.name || <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                          {e.role && <span style={styles.roleInline}>({e.role})</span>}
+                        </span>
                         {e.keyphone ? (
                           <button
                             onClick={() => copy(e.keyphone)}
@@ -360,36 +362,30 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
                               ...styles.copyBtn,
                               color: palette.color,
                               borderColor: `${palette.color}66`,
-                              background: `${palette.color}18`, // 다크모드 가독성: 색 틴트 배경
+                              background: `${palette.color}18`,
                             }}
                             title={`복사: ${e.keyphone}`}
                           >
-                            <Copy size={10} style={{ verticalAlign: '-1px', marginRight: 3 }} />{e.keyphone}
+                            {e.keyphone}
                           </button>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>—</span>
-                        )}
-                      </div>
-                      <div style={styles.cellPhone}>
+                        ) : null}
                         {e.phone ? (
                           <button onClick={() => copy(e.phone)} style={styles.phoneBtn} title={`복사: ${e.phone}`}>
                             {e.phone}
                           </button>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>—</span>
+                        ) : null}
+                        {canEdit && (
+                          <div style={styles.actionGroup}>
+                            <button onClick={() => startEdit(e)} style={styles.iconBtnGhost} title="수정"><Pencil size={11} /></button>
+                            <button onClick={() => remove(e)} style={{ ...styles.iconBtnGhost, color: 'var(--danger)' }} title="삭제"><Trash2 size={11} /></button>
+                          </div>
                         )}
                       </div>
-                      {canEdit && (
-                        <div style={styles.actionGroup}>
-                          <button onClick={() => startEdit(e)} style={styles.iconBtnGhost} title="수정"><Pencil size={12} /></button>
-                          <button onClick={() => remove(e)} style={{ ...styles.iconBtnGhost, color: 'var(--danger)' }} title="삭제"><Trash2 size={12} /></button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
           </>
         )}
       </div>
@@ -523,75 +519,99 @@ const styles: Record<string, React.CSSProperties> = {
   body: {
     flex: 1,
     overflowY: 'auto',
-    padding: '8px 0 16px',
+    padding: '6px 0 12px',
   },
+  // 2-컬럼 흐름 — 좁은 창에서는 1컬럼으로 자동 떨어짐 (column-width 사용)
+  columnsWrap: {
+    columnCount: 2,
+    columnGap: 6,
+    padding: '0 6px',
+  } as React.CSSProperties,
   group: {
-    marginBottom: 8,
+    breakInside: 'avoid' as any,
+    pageBreakInside: 'avoid', // 부서 블록이 컬럼 사이로 끊기지 않게
+    marginBottom: 6,
+    display: 'inline-block', // column-count + breakInside 신뢰성
+    width: '100%',
   },
   groupHeader: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 700,
-    padding: '8px 14px 4px',
+    padding: '4px 8px 3px',
     borderBottom: '1px solid',
     letterSpacing: 0.2,
-  },
-  row: {
-    display: 'grid',
-    gridTemplateColumns: '1.4fr 0.9fr 1.4fr auto',
+    display: 'flex',
     alignItems: 'center',
-    gap: 8,
-    padding: '8px 14px',
-    fontSize: 12,
-    borderBottom: '1px solid var(--border-color)', // 행 구분선 강화
   },
-  cellName: {
+  groupCount: {
+    fontSize: 9,
+    color: 'var(--text-secondary)',
+    marginLeft: 6,
+    fontWeight: 500,
+  },
+  // 단일 라인 좌측정렬 행
+  row: {
     display: 'flex',
     alignItems: 'center',
     gap: 6,
-    minWidth: 0,
+    padding: '3px 8px',
+    fontSize: 11,
+    lineHeight: 1.3,
+    borderBottom: '1px solid var(--border-subtle)',
   },
   nameText: {
-    fontWeight: 600, // 다크모드에서 더 굵게
-    color: 'var(--text-primary)',
-  },
-  roleBadge: {
-    fontSize: 10,
     fontWeight: 600,
-    padding: '2px 7px',
-    borderRadius: 6,
-    background: 'var(--bg-active)', // bg-hover보다 진해서 다크에서도 윤곽 보임
-    color: 'var(--text-secondary)', // muted → secondary로 (85% 가시성)
+    color: 'var(--text-primary)',
     whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    minWidth: 0,
+    flexShrink: 0,
   },
-  cellKp: {
-    fontSize: 11,
+  roleInline: {
+    fontSize: 9,
+    fontWeight: 500,
+    color: 'var(--text-secondary)',
+    marginLeft: 3,
   },
-  cellPhone: {
+  // 편집/추가용 grid (admin 폼 전용)
+  editRow: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr 0.8fr 0.7fr 1fr auto',
+    alignItems: 'center',
+    gap: 4,
+    padding: '6px 8px',
     fontSize: 11,
-    color: 'var(--text-primary)', // 전화번호도 primary로 (다크에서 100% 흰색)
+    borderRadius: 6,
   },
   copyBtn: {
     display: 'inline-flex',
     alignItems: 'center',
-    padding: '2px 8px',
-    fontSize: 11,
+    padding: '1px 6px',
+    fontSize: 10,
     fontWeight: 700,
     background: 'transparent',
     border: '1px solid',
-    borderRadius: 6,
+    borderRadius: 4,
     cursor: 'pointer',
     fontFamily: 'monospace',
+    flexShrink: 0,
   },
   phoneBtn: {
     background: 'transparent',
     border: 'none',
     cursor: 'pointer',
-    color: 'var(--text-primary)', // 다크에서도 진하게
-    padding: '2px 4px',
-    fontSize: 11,
+    color: 'var(--text-secondary)',
+    padding: '1px 3px',
+    fontSize: 10,
     fontFamily: 'monospace',
     fontWeight: 500,
     textAlign: 'left',
+    flexShrink: 1,
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
   actionGroup: {
     display: 'flex',
@@ -618,11 +638,11 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
   },
   editInput: {
-    padding: '5px 8px',
-    fontSize: 11,
-    border: '1px solid var(--border-color)', // 더 진한 테두리 → 다크에서도 입력 영역 명확
-    borderRadius: 4,
-    background: 'var(--bg-hover)', // transparent 대신 살짝 밝게 → 다크에서도 식별 가능
+    padding: '3px 5px',
+    fontSize: 10,
+    border: '1px solid var(--border-color)',
+    borderRadius: 3,
+    background: 'var(--bg-hover)',
     color: 'var(--text-primary)',
     minWidth: 0,
     width: '100%',
