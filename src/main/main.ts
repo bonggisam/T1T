@@ -385,6 +385,30 @@ function setupIPC(): void {
   });
 
   // ============================================================
+  // 외부 링크 열기 (도서관 시스템 등) — URL 화이트리스트로 안전 보장
+  ipcMain.handle('shell:open-external', async (_event, url: string) => {
+    if (typeof url !== 'string') return { ok: false, reason: 'invalid' };
+    // https 만 허용 + 신뢰 도메인 화이트리스트
+    const ALLOWED_HOSTS = [
+      'read365.edunet.net',         // 학교 도서관(독서로)
+      'comci.net',                  // 컴시간
+      'taesung-m.goeyi.kr',         // 태성중 홈페이지
+      'taesung-h.goeyi.kr',         // 태성고 홈페이지
+      'github.com',                 // 릴리스 페이지
+    ];
+    try {
+      const u = new URL(url);
+      if (u.protocol !== 'https:') return { ok: false, reason: 'protocol' };
+      if (!ALLOWED_HOSTS.some((h) => u.hostname === h || u.hostname.endsWith('.' + h))) {
+        return { ok: false, reason: 'host not allowed' };
+      }
+      await shell.openExternal(url);
+      return { ok: true };
+    } catch (e: any) {
+      return { ok: false, reason: e?.message || 'unknown' };
+    }
+  });
+
   // TPass 자동 로그인 — iframe sandbox 안의 비밀번호 입력에 직접 주입
   // ============================================================
   // 입력 검증: webContentsId만 받고 password는 main 프로세스에서 하드코딩(상수 노출 방지)

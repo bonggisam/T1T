@@ -9,6 +9,7 @@ import { useNotificationStore } from '../../store/notificationStore';
 import { useComciganStore } from '../../store/comciganStore';
 import { useUIStore } from '../../store/uiStore';
 import { useDarkMode } from '../../hooks/useDarkMode';
+import { LibraryButton } from './LibraryButton';
 import { SCHOOL_LABELS } from '@shared/types';
 import type { School } from '@shared/types';
 
@@ -104,6 +105,7 @@ export function TitleBar({
           {user && onToggleKeyphone && (
             <IconBtn Icon={Phone} active={showKeyphone} onClick={onToggleKeyphone} title={showKeyphone ? '캘린더로' : '키폰 번호'} compact />
           )}
+          {user && <LibraryButton compact />}
           {user && onToggleTPass && (
             <button
               onClick={onToggleTPass}
@@ -196,6 +198,7 @@ export function TitleBar({
             {onToggleKeyphone && (
               <IconBtn Icon={Phone} active={showKeyphone} onClick={onToggleKeyphone} title={showKeyphone ? '캘린더로' : '키폰 번호'} />
             )}
+            <LibraryButton />
             {onToggleTPass && (
               <button
                 onClick={onToggleTPass}
