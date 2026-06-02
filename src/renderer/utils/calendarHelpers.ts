@@ -131,8 +131,11 @@ export function formatPersonalTooltip(pe: PersonalEvent, canDrag: boolean): stri
 /**
  * 학교 색과 겹쳐 가독성/구분이 떨어지는 색 목록.
  * 개인 일정이 이 색으로 저장되어 있으면 사용자의 profileColor로 대체 표시.
+ *
+ * `export` 처리 — PersonalEventDetail 편집 폼에서도 동일 set 사용해
+ * 단일 진실 소스(SSOT) 유지. 학교 색 추가 시 한 곳에서만 갱신.
  */
-const CONFLICTING_PERSONAL_COLORS = new Set([
+export const CONFLICTING_PERSONAL_COLORS = new Set([
   '#2ECC71', // 옛 기본값 (PersonalEventModal default) — 태성중 emerald와 겹침
   '#2ecc71',
   '#10B981', // 태성중 emerald 라이트

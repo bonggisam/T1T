@@ -76,9 +76,20 @@ export function LibraryView({ onBack }: LibraryViewProps) {
     }
   }
 
+  // 빠른 연속 클릭 시 webview 재생성 누적 방지
+  const switchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   function handleSchoolChange(s: School) {
-    setLibrarySchool(s);
+    if (switchDebounceRef.current) clearTimeout(switchDebounceRef.current);
+    switchDebounceRef.current = setTimeout(() => {
+      setLibrarySchool(s);
+      switchDebounceRef.current = null;
+    }, 250);
   }
+  useEffect(() => {
+    return () => {
+      if (switchDebounceRef.current) clearTimeout(switchDebounceRef.current);
+    };
+  }, []);
 
   function handleOpenExternal() {
     window.electronAPI?.openExternal(target.url);

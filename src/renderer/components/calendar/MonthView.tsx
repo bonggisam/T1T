@@ -296,9 +296,11 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                 opacity: inMonth ? 1 : 0.35,
                 outline: selected ? '2px solid var(--accent)' : isDropTarget ? '2px dashed var(--accent)' : 'none',
                 outlineOffset: -2,
-                // 콘텐츠가 많으면 셀(그리고 행 전체)이 자동 확장되도록 overflow 허용
+                // 콘텐츠가 많으면 셀(그리고 행 전체)이 자동 확장.
+                // overflow: hidden으로 셀 경계를 명확히 → 텍스트가 인접 셀로 침범 방지.
+                // 행은 minmax(60px, auto)로 자동 확장되므로 hidden 사용해도 콘텐츠가 잘리지 않음.
                 minWidth: 0,
-                overflow: 'visible',
+                overflow: 'hidden',
                 ...(isDropTarget ? { background: 'rgba(74,144,226,0.2)' } : {}),
               }}
             >

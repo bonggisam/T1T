@@ -5,7 +5,7 @@ import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useAuthStore } from '../../store/authStore';
 import { showToast } from '../common/Toast';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
-import { PERSONAL_SUFFIX } from '../../utils/calendarHelpers';
+import { PERSONAL_SUFFIX, CONFLICTING_PERSONAL_COLORS } from '../../utils/calendarHelpers';
 import type { PersonalEvent, ChecklistItem } from '@shared/types';
 
 interface PersonalEventDetailProps {
@@ -22,9 +22,9 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
   const [startDate, setStartDate] = useState(formatDTL(event.startDate));
   const [endDate, setEndDate] = useState(formatDTL(event.endDate));
   // 저장된 색이 학교 색과 겹치면 사용자 profileColor로 초기화 (편집 시 표시)
+  // 충돌 색 목록은 calendarHelpers에서 단일 소스로 관리 — 학교 색 추가 시 자동 반영
   const initialColor = (() => {
-    const conflicting = new Set(['#2ECC71', '#2ecc71', '#10B981', '#10b981', '#34D399', '#34d399', '#8B5CF6', '#8b5cf6', '#C4B5FD', '#c4b5fd']);
-    if (event.color && !conflicting.has(event.color)) return event.color;
+    if (event.color && !CONFLICTING_PERSONAL_COLORS.has(event.color)) return event.color;
     return user?.profileColor || '#4A90E2';
   })();
   const [color, setColor] = useState(initialColor);

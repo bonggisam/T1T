@@ -11,8 +11,11 @@
 !macroend
 
 ; 제거 시작 시 추가 정리
+; 주의: deleteAppDataOnUninstall=true이지만, 자동 업데이트는 uninstaller를 호출하지 않으므로
+;       사용자 데이터(설정, 캐시 외) 손실 없음. 명시적 "Uninstall" 메뉴 사용 시에만 적용.
 !macro customUnInstall
   DetailPrint "임시 파일 및 캐시 정리 중..."
+  ; 캐시/임시 파일 (사용자 데이터 아님)
   RMDir /r "$LOCALAPPDATA\T1T\Cache"
   RMDir /r "$LOCALAPPDATA\T1T\Code Cache"
   RMDir /r "$LOCALAPPDATA\T1T\GPUCache"
