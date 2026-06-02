@@ -28,6 +28,7 @@ import { useUIStore } from './store/uiStore';
 import { useReminder } from './hooks/useReminder';
 import { ScheduleView } from './components/schedule/ScheduleView';
 import { KeyphoneView } from './components/keyphone/KeyphoneView';
+import { LibraryView } from './components/library/LibraryView';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ResizeHandles } from './components/common/ResizeHandles';
 import { startSchoolScheduleAutoSync } from './utils/schoolScheduleSync';
@@ -44,7 +45,7 @@ export function App() {
   const { subscribeToUsers, cleanup: cleanupUsers } = useUsersStore();
   const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
   // 단일 activeTab 상태 — 한 번에 하나의 탭만 활성, race condition 제거
-  type Tab = null | 'settings' | 'admin' | 'tpass' | 'outing' | 'todos' | 'reserv' | 'meal' | 'schedule' | 'keyphone';
+  type Tab = null | 'settings' | 'admin' | 'tpass' | 'outing' | 'todos' | 'reserv' | 'meal' | 'schedule' | 'keyphone' | 'library';
   const [activeTab, setActiveTab] = useState<Tab>(null);
   const [showPersonalModal, setShowPersonalModal] = useState(false);
   const showSettings = activeTab === 'settings';
@@ -56,6 +57,7 @@ export function App() {
   const showMeal = activeTab === 'meal';
   const showSchedule = activeTab === 'schedule';
   const showKeyphone = activeTab === 'keyphone';
+  const showLibrary = activeTab === 'library';
   const toggle = (tab: Exclude<Tab, null>) => setActiveTab((cur) => cur === tab ? null : tab);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -274,6 +276,8 @@ export function App() {
         showSchedule={showSchedule}
         onToggleKeyphone={() => toggle('keyphone')}
         showKeyphone={showKeyphone}
+        onToggleLibrary={() => toggle('library')}
+        showLibrary={showLibrary}
         theme={theme}
         onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         onGoHome={goHome}
@@ -310,6 +314,8 @@ export function App() {
             <ScheduleView onBack={() => setActiveTab(null)} />
           ) : showKeyphone ? (
             <KeyphoneView onBack={() => setActiveTab(null)} />
+          ) : showLibrary ? (
+            <LibraryView onBack={() => setActiveTab(null)} />
           ) : (
             <Calendar onAddPersonalEvent={() => setShowPersonalModal(true)} />
           )}

@@ -36,11 +36,16 @@ interface UIState {
   setViewingSchool: (s: 'all' | School) => void;
   /** 로그인 시 본인 학교로 초기화 (localStorage 값 없을 때만) */
   initViewingSchoolForUser: (userSchool?: School | null) => void;
+  /** 도서관(read365) 어느 학교 기준으로 볼지 — LibraryView 진입 시 설정 */
+  librarySchool: School | null;
+  setLibrarySchool: (s: School | null) => void;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
   categoryFilter: 'all',
   setCategoryFilter: (c) => set({ categoryFilter: c }),
+  librarySchool: null,
+  setLibrarySchool: (s) => set({ librarySchool: s }),
   // 초기값: localStorage 값 없으면 'all' (로그인 후 본인 학교로 대체됨)
   viewingSchool: loadViewingSchool() || 'all',
   setViewingSchool: (s) => {

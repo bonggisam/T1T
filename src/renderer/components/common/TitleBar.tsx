@@ -2,14 +2,13 @@ import React, { useState, useEffect } from 'react';
 import {
   Calendar, CheckSquare, Building2, UtensilsCrossed, BookOpen,
   Bell, Users, Settings, Sun, Moon, Pin, Minus, X,
-  GraduationCap, School as SchoolIcon, Pencil, LogOut, CalendarDays, Phone,
+  GraduationCap, School as SchoolIcon, Pencil, LogOut, CalendarDays, Phone, BookMarked,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/notificationStore';
 import { useComciganStore } from '../../store/comciganStore';
 import { useUIStore } from '../../store/uiStore';
 import { useDarkMode } from '../../hooks/useDarkMode';
-import { LibraryButton } from './LibraryButton';
 import { SCHOOL_LABELS } from '@shared/types';
 import type { School } from '@shared/types';
 
@@ -32,6 +31,8 @@ interface TitleBarProps {
   showSchedule?: boolean;
   onToggleKeyphone?: () => void;
   showKeyphone?: boolean;
+  onToggleLibrary?: () => void;
+  showLibrary?: boolean;
   theme?: 'light' | 'dark';
   onToggleTheme?: () => void;
   onGoHome?: () => void; // 메인 달력으로 복귀
@@ -46,6 +47,7 @@ export function TitleBar({
   onToggleMeal, showMeal,
   onToggleSchedule, showSchedule,
   onToggleKeyphone, showKeyphone,
+  onToggleLibrary, showLibrary,
   theme, onToggleTheme,
   onGoHome,
 }: TitleBarProps) {
@@ -105,7 +107,9 @@ export function TitleBar({
           {user && onToggleKeyphone && (
             <IconBtn Icon={Phone} active={showKeyphone} onClick={onToggleKeyphone} title={showKeyphone ? '캘린더로' : '키폰 번호'} compact />
           )}
-          {user && <LibraryButton compact />}
+          {user && onToggleLibrary && (
+            <IconBtn Icon={BookMarked} active={showLibrary} onClick={onToggleLibrary} title={showLibrary ? '캘린더로' : '도서관 도서검색'} compact color="#D97706" />
+          )}
           {user && onToggleTPass && (
             <button
               onClick={onToggleTPass}
@@ -198,7 +202,9 @@ export function TitleBar({
             {onToggleKeyphone && (
               <IconBtn Icon={Phone} active={showKeyphone} onClick={onToggleKeyphone} title={showKeyphone ? '캘린더로' : '키폰 번호'} />
             )}
-            <LibraryButton />
+            {onToggleLibrary && (
+              <IconBtn Icon={BookMarked} active={showLibrary} onClick={onToggleLibrary} title={showLibrary ? '캘린더로' : '도서관 도서검색'} color="#D97706" />
+            )}
             {onToggleTPass && (
               <button
                 onClick={onToggleTPass}
