@@ -202,6 +202,7 @@ export interface ElectronAPI {
   setBounds: (bounds: { x: number; y: number; width: number; height: number }) => Promise<void>;
   startEdgeResize: (edge: 'top'|'right'|'bottom'|'left'|'top-left'|'top-right'|'bottom-left'|'bottom-right') => Promise<void>;
   stopEdgeResize: () => Promise<void>;
+  tpassAutoLogin: (webContentsId: number) => Promise<{ ok: boolean; reason?: string; attempt?: number }>;
   onWidgetModeChanged: (callback: (enabled: boolean) => void) => () => void;
   onClickThroughChanged: (callback: (enabled: boolean) => void) => () => void;
   setTrayBadge: (hasBadge: boolean) => Promise<void>;

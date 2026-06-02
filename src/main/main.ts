@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, screen, shell, type NativeImage } from 'electron';
+import { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, screen, shell, webContents as electronWebContents, type NativeImage } from 'electron';
 import * as http from 'http';
 import * as crypto from 'crypto';
 import * as path from 'path';
@@ -382,6 +382,71 @@ function setupIPC(): void {
 
   ipcMain.handle('window:stop-edge-resize', () => {
     stopEdgeResize();
+  });
+
+  // ============================================================
+  // TPass 자동 로그인 — iframe sandbox 안의 비밀번호 입력에 직접 주입
+  // ============================================================
+  // 입력 검증: webContentsId만 받고 password는 main 프로세스에서 하드코딩(상수 노출 방지)
+  const TPASS_PASSWORD = '62';
+  ipcMain.handle('tpass:auto-login', async (_event, webContentsId: number) => {
+    if (typeof webContentsId !== 'number' || webContentsId <= 0) return { ok: false, reason: 'invalid id' };
+    const wc = electronWebContents.fromId(webContentsId);
+    if (!wc || wc.isDestroyed()) return { ok: false, reason: 'no webContents' };
+    // 모든 하위 프레임을 순회 — Google Apps Script 콘텐츠 프레임(googleusercontent.com) 탐색
+    const tryFrames = () => {
+      const frames = wc.mainFrame?.framesInSubtree || [];
+      const targets = frames.filter((f) =>
+        f.url.includes('googleusercontent.com') ||
+        f.url.includes('userCodeAppPanel') ||
+        f.url.includes('script.google.com'),
+      );
+      return targets;
+    };
+    // 최대 12회 (300ms 간격) 재시도 — iframe 로딩이 늦을 수 있음
+    const MAX_ATTEMPTS = 12;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const frames = tryFrames();
+      for (const frame of frames) {
+        try {
+          const result = await frame.executeJavaScript(`
+            (function() {
+              const pw = document.getElementById('password');
+              if (!pw) return { found: false };
+              if (pw.dataset.t1tFilled === '1') return { found: true, alreadyFilled: true };
+              // React 호환 setter 사용
+              const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+              nativeSetter.call(pw, ${JSON.stringify(TPASS_PASSWORD)});
+              pw.dataset.t1tFilled = '1';
+              pw.dispatchEvent(new Event('input', { bubbles: true }));
+              pw.dispatchEvent(new Event('change', { bubbles: true }));
+              // 페이지에 정의된 checkPassword() 호출 우선, 없으면 직접 DOM 조작
+              try {
+                if (typeof checkPassword === 'function') {
+                  checkPassword();
+                } else {
+                  const lb = document.getElementById('login-box');
+                  const fs = document.getElementById('form-section');
+                  if (lb) lb.style.display = 'none';
+                  if (fs) fs.style.display = 'block';
+                }
+                return { found: true, submitted: true };
+              } catch (e) {
+                return { found: true, submitted: false, error: String(e) };
+              }
+            })();
+          `, true);
+          if (result && (result as any).found) {
+            console.log(`[TPass] auto-login success (attempt ${attempt + 1}):`, result);
+            return { ok: true, attempt: attempt + 1 };
+          }
+        } catch (err) {
+          // 프레임이 cross-origin 차단 등으로 실패 시 다음 프레임 시도
+        }
+      }
+      await new Promise((r) => setTimeout(r, 300));
+    }
+    return { ok: false, reason: 'password input not found after retries' };
   });
 
   ipcMain.handle('tray:set-badge', (_event, hasBadge: boolean) => {

@@ -31,59 +31,29 @@ export function TPassView({ onBack }: TPassViewProps) {
     webview.addEventListener('did-stop-loading', onStopLoad);
     webview.addEventListener('did-fail-load', onFailLoad);
 
-    // 페이지 로드 완료 후 암호 "62" 자동 입력 + 제출
+    // 페이지 로드 완료 후 자동 로그인 — main 프로세스에서 iframe 내부에 직접 주입
+    // (TPass는 Google Apps Script로, 실제 폼은 sandbox iframe 내부에 있어
+    //  webview.executeJavaScript로는 접근 불가 — IPC로 main 프로세스가 처리)
     const onDomReady = () => {
-      const TPASS_PASSWORD = '62';
-      const script = `
-        (function() {
-          let attempts = 0;
-          const tryFill = () => {
-            attempts++;
-            // 다양한 패턴으로 비밀번호 필드 탐색
-            const pw = document.querySelector('input[type="password"]')
-              || document.querySelector('input[name*="pass" i]')
-              || document.querySelector('input[id*="pass" i]')
-              || document.querySelector('input[placeholder*="암호"]')
-              || document.querySelector('input[placeholder*="비밀번호"]')
-              || document.querySelector('input[type="text"][maxlength="2"]')
-              || document.querySelector('input[type="number"]');
-            if (pw && !pw.dataset.t1tFilled) {
-              pw.dataset.t1tFilled = '1';
-              pw.focus();
-              // React 호환 — nativeInputValueSetter로 강제 set
-              const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-              nativeSetter.call(pw, ${JSON.stringify(TPASS_PASSWORD)});
-              pw.dispatchEvent(new Event('input', { bubbles: true }));
-              pw.dispatchEvent(new Event('change', { bubbles: true }));
-              // 폼 제출 또는 버튼 클릭
-              setTimeout(() => {
-                const form = pw.closest('form');
-                const submitBtn = document.querySelector('button[type="submit"]')
-                  || document.querySelector('input[type="submit"]')
-                  || Array.from(document.querySelectorAll('button')).find(b =>
-                      /확인|로그인|들어가기|입력|시작|enter|submit/i.test(b.textContent || ''));
-                if (submitBtn) submitBtn.click();
-                else if (form) form.submit();
-              }, 100);
-              return true;
-            }
-            return false;
-          };
-          // 즉시 시도 + 페이지 동적 로딩 대비 폴링
-          if (tryFill()) return;
-          const poll = setInterval(() => {
-            if (tryFill() || attempts > 30) clearInterval(poll);
-          }, 200);
-        })();
-      `;
       try {
-        // Electron webview는 HTMLElement 확장이지만 executeJavaScript 메서드를 가짐
-        // 타입 표준에 없어 any cast 사용
-        (webview as any).executeJavaScript(script).catch((e: any) => {
-          console.warn('[TPass] auto-fill failed:', e);
-        });
+        const id = (webview as any).getWebContentsId();
+        if (typeof id !== 'number') {
+          console.warn('[TPass] webContentsId not available');
+          return;
+        }
+        // iframe 로드 + Apps Script 초기화 시간 확보 → 약간 대기 후 호출
+        // (main 프로세스 내부에도 12회 재시도 폴링 있음)
+        setTimeout(() => {
+          window.electronAPI?.tpassAutoLogin(id).then((res) => {
+            if (!res?.ok) {
+              console.warn('[TPass] auto-login result:', res);
+            } else {
+              console.log('[TPass] auto-login OK (attempt', res.attempt, ')');
+            }
+          }).catch((e) => console.warn('[TPass] auto-login error:', e));
+        }, 800);
       } catch (e) {
-        console.warn('[TPass] executeJavaScript not available:', e);
+        console.warn('[TPass] dom-ready handler error:', e);
       }
     };
     webview.addEventListener('dom-ready', onDomReady);
