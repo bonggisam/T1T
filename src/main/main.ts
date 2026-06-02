@@ -396,7 +396,9 @@ function setupIPC(): void {
   });
 
   ipcMain.handle('updater:install', () => {
-    autoUpdater.quitAndInstall(false, true);
+    // isSilent=true: 가능한 경우 NSIS 인스톨러를 silent 모드로 실행 → 매끄러운 업데이트
+    // isForceRunAfter=true: 설치 후 앱 자동 실행
+    autoUpdater.quitAndInstall(true, true);
   });
 
   // 메뉴에서 수동 호출 — 사용자에게 명확한 피드백

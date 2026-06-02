@@ -269,17 +269,17 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 6,
   },
   dayDate: { display: 'flex', alignItems: 'center', gap: 6 },
-  dayLabel: { fontSize: 13, fontWeight: 700 },
+  dayLabel: { fontSize: 15, fontWeight: 700 },
   todayBadge: {
-    fontSize: 9, fontWeight: 800,
-    padding: '1px 6px', borderRadius: 8,
+    fontSize: 10, fontWeight: 800,
+    padding: '2px 7px', borderRadius: 8,
     color: '#fff',
   },
   calorie: {
-    fontSize: 11, fontWeight: 600,
+    fontSize: 12, fontWeight: 600,
     color: 'var(--text-muted)',
     background: 'rgba(245, 158, 11, 0.1)',
-    padding: '2px 8px',
+    padding: '3px 9px',
     borderRadius: 12,
   },
   menuList: {
@@ -288,18 +288,18 @@ const styles: Record<string, React.CSSProperties> = {
     listStyle: 'none',
     display: 'flex',
     flexWrap: 'wrap' as const,
-    gap: 4,
+    gap: 5,
   },
   menuItem: {
-    fontSize: 11,
+    fontSize: 13, // 사용자 요청 — 급식 메뉴 글자 크게
     fontWeight: 500,
     color: 'var(--text-primary)',
     background: 'var(--bg-primary)',
-    padding: '3px 8px',
+    padding: '4px 10px',
     borderRadius: 6,
     border: '1px solid var(--border-subtle)',
   },
   noMeal: {
-    margin: 0, fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' as const,
+    margin: 0, fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' as const,
   },
 };

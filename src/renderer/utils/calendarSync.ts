@@ -61,9 +61,15 @@ async function ensureValidToken(): Promise<boolean> {
         console.log('[CalendarSync] Token refreshed');
         return true;
       }
-      console.warn('[CalendarSync] Refresh failed:', result);
+      // 갱신 실패 사유 노출 (사용자에게 친절한 안내)
+      const errMsg = (result && 'error' in result) ? result.error : '알 수 없음';
+      console.warn('[CalendarSync] Refresh failed:', errMsg);
       googleTokens = null;
       removeTokensFromStorage('google');
+      // 사용자에게 재인증 안내 토스트
+      window.dispatchEvent(new CustomEvent('google:auth-expired', {
+        detail: { reason: 'refresh-failed', error: errMsg },
+      }));
       return false;
     } catch (e) {
       console.warn('[CalendarSync] Refresh exception:', e);

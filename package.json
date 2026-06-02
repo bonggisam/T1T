@@ -1,6 +1,6 @@
 {
   "name": "t1t",
-  "version": "2.5.19",
+  "version": "2.5.20",
   "description": "T1T - 학교 일정 공유 시스템",
   "main": "dist/main/main.js",
   "scripts": {
@@ -93,7 +93,7 @@
       ],
       "language": "1042",
       "deleteAppDataOnUninstall": true,
-      "runAfterFinish": false,
+      "runAfterFinish": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "menuCategory": false,

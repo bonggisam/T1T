@@ -25,12 +25,68 @@ export function TPassView({ onBack }: TPassViewProps) {
     webview.setAttribute('src', TPASS_URL);
     webview.setAttribute('style', 'width: 100%; height: 100%;');
     webview.setAttribute('allowpopups', '');
-    // Electron 보안: partition 분리, sandbox 활성
     webview.setAttribute('partition', 'persist:tpass');
     webview.setAttribute('webpreferences', 'contextIsolation=yes, nodeIntegration=no, sandbox=yes');
     webview.addEventListener('did-start-loading', onStartLoad);
     webview.addEventListener('did-stop-loading', onStopLoad);
     webview.addEventListener('did-fail-load', onFailLoad);
+
+    // 페이지 로드 완료 후 암호 "62" 자동 입력 + 제출
+    const onDomReady = () => {
+      const TPASS_PASSWORD = '62';
+      const script = `
+        (function() {
+          let attempts = 0;
+          const tryFill = () => {
+            attempts++;
+            // 다양한 패턴으로 비밀번호 필드 탐색
+            const pw = document.querySelector('input[type="password"]')
+              || document.querySelector('input[name*="pass" i]')
+              || document.querySelector('input[id*="pass" i]')
+              || document.querySelector('input[placeholder*="암호"]')
+              || document.querySelector('input[placeholder*="비밀번호"]')
+              || document.querySelector('input[type="text"][maxlength="2"]')
+              || document.querySelector('input[type="number"]');
+            if (pw && !pw.dataset.t1tFilled) {
+              pw.dataset.t1tFilled = '1';
+              pw.focus();
+              // React 호환 — nativeInputValueSetter로 강제 set
+              const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+              nativeSetter.call(pw, ${JSON.stringify(TPASS_PASSWORD)});
+              pw.dispatchEvent(new Event('input', { bubbles: true }));
+              pw.dispatchEvent(new Event('change', { bubbles: true }));
+              // 폼 제출 또는 버튼 클릭
+              setTimeout(() => {
+                const form = pw.closest('form');
+                const submitBtn = document.querySelector('button[type="submit"]')
+                  || document.querySelector('input[type="submit"]')
+                  || Array.from(document.querySelectorAll('button')).find(b =>
+                      /확인|로그인|들어가기|입력|시작|enter|submit/i.test(b.textContent || ''));
+                if (submitBtn) submitBtn.click();
+                else if (form) form.submit();
+              }, 100);
+              return true;
+            }
+            return false;
+          };
+          // 즉시 시도 + 페이지 동적 로딩 대비 폴링
+          if (tryFill()) return;
+          const poll = setInterval(() => {
+            if (tryFill() || attempts > 30) clearInterval(poll);
+          }, 200);
+        })();
+      `;
+      try {
+        // Electron webview는 HTMLElement 확장이지만 executeJavaScript 메서드를 가짐
+        // 타입 표준에 없어 any cast 사용
+        (webview as any).executeJavaScript(script).catch((e: any) => {
+          console.warn('[TPass] auto-fill failed:', e);
+        });
+      } catch (e) {
+        console.warn('[TPass] executeJavaScript not available:', e);
+      }
+    };
+    webview.addEventListener('dom-ready', onDomReady);
 
     container.appendChild(webview);
     webviewRef.current = webview;
@@ -40,6 +96,7 @@ export function TPassView({ onBack }: TPassViewProps) {
       webview.removeEventListener('did-start-loading', onStartLoad);
       webview.removeEventListener('did-stop-loading', onStopLoad);
       webview.removeEventListener('did-fail-load', onFailLoad);
+      webview.removeEventListener('dom-ready', onDomReady);
       if (webview.parentNode) webview.parentNode.removeChild(webview);
       webviewRef.current = null;
     };

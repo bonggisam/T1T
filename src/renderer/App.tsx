@@ -68,6 +68,22 @@ export function App() {
     return unsub;
   }, [initialize]);
 
+  // 업데이트 후 첫 실행 감지 — 사용자에게 명확한 확인 토스트
+  useEffect(() => {
+    (async () => {
+      try {
+        const current = await window.electronAPI?.getAppVersion();
+        if (!current) return;
+        const last = localStorage.getItem('t1t-last-version');
+        if (last && last !== current) {
+          const { showToast } = await import('./components/common/Toast');
+          showToast(`✨ v${last} → v${current} 업데이트 완료`, 'success');
+        }
+        localStorage.setItem('t1t-last-version', current);
+      } catch {}
+    })();
+  }, []);
+
   useEffect(() => {
     const goOffline = () => setIsOffline(true);
     // 재연결 후 구독 복구 — exponential backoff (1s, 2s, 4s, 8s, 최대 4회)

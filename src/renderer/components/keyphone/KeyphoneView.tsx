@@ -553,15 +553,15 @@ const styles: Record<string, React.CSSProperties> = {
   row: {
     display: 'flex',
     alignItems: 'center',
-    gap: 7,
-    padding: '4px 8px',
-    fontSize: 12,
-    lineHeight: 1.35,
+    gap: 8,
+    padding: '5px 8px',
+    fontSize: 13,
+    lineHeight: 1.4,
     borderBottom: '1px solid var(--border-subtle)',
   },
   nameText: {
-    fontWeight: 700, // 더 굵게
-    fontSize: 12,
+    fontWeight: 500, // 사용자 요청 — 진하게 X (700 → 500)
+    fontSize: 14,    // 사용자 요청 — 이름 크게 (12 → 14)
     color: 'var(--text-primary)',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
@@ -570,10 +570,10 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   roleInline: {
-    fontSize: 10,
-    fontWeight: 600,
+    fontSize: 11,
+    fontWeight: 500,
     color: 'var(--text-secondary)',
-    marginLeft: 3,
+    marginLeft: 4,
   },
   // 편집/추가용 grid (admin 폼 전용) — 좁은 창에서 자동 wrap
   editRow: {
@@ -588,26 +588,26 @@ const styles: Record<string, React.CSSProperties> = {
   copyBtn: {
     display: 'inline-flex',
     alignItems: 'center',
-    padding: '2px 7px',
-    fontSize: 11.5,
-    fontWeight: 900, // 키폰 번호 매우 굵게
+    padding: '3px 9px',
+    fontSize: 13, // 사용자 요청 — 키폰 번호 조금 더 크게 (11.5 → 13)
+    fontWeight: 800,
     background: 'transparent',
     border: '1px solid',
     borderRadius: 5,
     cursor: 'pointer',
     fontFamily: '"SF Mono", "Consolas", "Menlo", monospace',
     flexShrink: 0,
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
   },
   phoneBtn: {
     background: 'transparent',
     border: 'none',
     cursor: 'pointer',
-    color: 'var(--text-primary)', // 다크에서도 가장 진하게
-    padding: '2px 4px',
-    fontSize: 11.5,
+    color: 'var(--text-primary)',
+    padding: '2px 5px',
+    fontSize: 12, // 전화번호 (11.5 → 12)
     fontFamily: '"SF Mono", "Consolas", "Menlo", monospace',
-    fontWeight: 700, // 전화번호도 굵게
+    fontWeight: 600,
     textAlign: 'left',
     flexShrink: 1,
     minWidth: 0,
