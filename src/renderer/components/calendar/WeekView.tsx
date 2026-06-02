@@ -10,7 +10,7 @@ import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useComciganStore } from '../../store/comciganStore';
 import type { CalendarEvent, PersonalEvent, TeacherPeriod } from '@shared/types';
 import { showToast } from '../common/Toast';
-import { formatEventTooltip, formatPersonalTooltip, getCreatorTag, canManageEvent, PERSONAL_SUFFIX } from '../../utils/calendarHelpers';
+import { formatEventTooltip, formatPersonalTooltip, getCreatorTag, canManageEvent, PERSONAL_SUFFIX, getPersonalEventDisplayColor } from '../../utils/calendarHelpers';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { SchoolBadge } from '../common/SchoolBadge';
 
@@ -347,7 +347,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
                             onPersonalClick?.(pe);
                           }}
                           style={{
-                            ...styles.eventBlock, background: pe.color, opacity: 0.85,
+                            ...styles.eventBlock, background: getPersonalEventDisplayColor(pe, user?.profileColor), opacity: 0.85,
                             borderLeft: '2px solid rgba(255,255,255,0.5)',
                             cursor: canDrag ? 'grab' : 'pointer',
                           }}

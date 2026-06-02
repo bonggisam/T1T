@@ -11,7 +11,7 @@ import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useComciganStore } from '../../store/comciganStore';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
 import { showToast } from '../common/Toast';
-import { formatEventTooltip, formatPersonalTooltip, isEventOnDate, getCreatorTag, canManageEvent, PERSONAL_SUFFIX } from '../../utils/calendarHelpers';
+import { formatEventTooltip, formatPersonalTooltip, isEventOnDate, getCreatorTag, canManageEvent, PERSONAL_SUFFIX, getPersonalEventDisplayColor } from '../../utils/calendarHelpers';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { SchoolBadge } from '../common/SchoolBadge';
 
@@ -360,7 +360,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                       }}
                       style={{
                         borderRadius: 3, padding: '1px 4px',
-                        background: pe.color || '#2ECC71',
+                        background: getPersonalEventDisplayColor(pe, user?.profileColor),
                         opacity: dragRef.current?.eventId === pe.id ? 0.4 : 0.85,
                         borderLeft: '2px solid rgba(255,255,255,0.5)',
                         cursor: canDrag ? 'grab' : 'pointer',

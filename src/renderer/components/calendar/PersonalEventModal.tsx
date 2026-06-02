@@ -5,9 +5,16 @@ import { useCalendarStore } from '../../store/calendarStore';
 import { showToast } from '../common/Toast';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 
+// 개인 일정용 색상 — 학교 색(태성중 emerald, 태성고 violet)과 겹치지 않는 톤만 포함
 const COLOR_OPTIONS = [
-  '#2ECC71', '#3498DB', '#9B59B6', '#E67E22',
-  '#E74C3C', '#1ABC9C', '#F39C12', '#34495E',
+  '#3498DB', // 파랑
+  '#1ABC9C', // 청록
+  '#E67E22', // 주황
+  '#E74C3C', // 빨강
+  '#F39C12', // 노랑
+  '#9B59B6', // 자주
+  '#34495E', // 짙은 회색
+  '#EC4899', // 핑크
 ];
 
 interface PersonalEventModalProps {
@@ -30,7 +37,8 @@ export function PersonalEventModal({ onClose }: PersonalEventModalProps) {
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState(formatDateTimeLocal(defaultStart));
   const [endDate, setEndDate] = useState(formatDateTimeLocal(defaultEnd));
-  const [color, setColor] = useState('#2ECC71');
+  // 기본 색 = 사용자의 프로필 색 (없으면 파랑 — 학교 색과 안 겹침)
+  const [color, setColor] = useState(user?.profileColor || '#4A90E2');
   const [saving, setSaving] = useState(false);
 
   // ESC 키로 닫기
@@ -175,18 +183,22 @@ export function PersonalEventModal({ onClose }: PersonalEventModalProps) {
           <div>
             <span style={styles.sectionLabel}>색상</span>
             <div style={styles.colorRow}>
-              {COLOR_OPTIONS.map((c) => (
-                <div
-                  key={c}
-                  onClick={() => setColor(c)}
-                  style={{
-                    ...styles.colorSwatch,
-                    background: c,
-                    outline: color === c ? '2px solid var(--text-primary)' : 'none',
-                    outlineOffset: 2,
-                  }}
-                />
-              ))}
+              {/* 사용자의 프로필 색을 첫 번째 옵션으로 (이미 COLOR_OPTIONS에 있으면 중복 제외) */}
+              {[user?.profileColor, ...COLOR_OPTIONS.filter((c) => c !== user?.profileColor)]
+                .filter(Boolean)
+                .map((c) => (
+                  <div
+                    key={c as string}
+                    onClick={() => setColor(c as string)}
+                    style={{
+                      ...styles.colorSwatch,
+                      background: c as string,
+                      outline: color === c ? '2px solid var(--text-primary)' : 'none',
+                      outlineOffset: 2,
+                    }}
+                    title={c === user?.profileColor ? '내 프로필 색' : ''}
+                  />
+                ))}
             </div>
           </div>
 

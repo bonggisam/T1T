@@ -6,7 +6,7 @@ import { useAuthStore } from '../../store/authStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import type { PersonalEvent, CalendarEvent, User } from '@shared/types';
-import { getCreatorTag, PERSONAL_SUFFIX, formatEventTooltip, formatPersonalTooltip, canManageEvent } from '../../utils/calendarHelpers';
+import { getCreatorTag, PERSONAL_SUFFIX, formatEventTooltip, formatPersonalTooltip, canManageEvent, getPersonalEventDisplayColor } from '../../utils/calendarHelpers';
 import { SchoolBadge } from '../common/SchoolBadge';
 import { useComciganStore } from '../../store/comciganStore';
 
@@ -188,6 +188,7 @@ export function TodayView({ onAddPersonalEvent, onPersonalClick }: TodayViewProp
                   key={pe.id}
                   pe={pe}
                   onClick={() => onPersonalClick?.(pe)}
+                  profileColor={user?.profileColor}
                 />
               ))}
             </div>
@@ -280,7 +281,7 @@ function DayTimeline({
               <button
                 key={pe.id}
                 onClick={() => onPersonalClick(pe)}
-                style={{ ...timelineStyles.allDayChip, background: pe.color, opacity: 0.9 }}
+                style={{ ...timelineStyles.allDayChip, background: getPersonalEventDisplayColor(pe, user?.profileColor), opacity: 0.9 }}
                 title={formatPersonalTooltip(pe, pe.source === 'local')}
               >
                 {pe.title} {PERSONAL_SUFFIX}
@@ -438,7 +439,7 @@ function DayTimeline({
                   style={{
                     ...timelineStyles.eventBlock,
                     ...block,
-                    background: pe.color,
+                    background: getPersonalEventDisplayColor(pe, user?.profileColor),
                     opacity: 0.88,
                     borderLeft: '3px solid rgba(255,255,255,0.5)',
                   }}
@@ -650,7 +651,7 @@ function SharedRow({ event, user, onClick }: { event: CalendarEvent; user: User 
   );
 }
 
-function PersonalRow({ pe, onClick }: { pe: PersonalEvent; onClick: () => void }) {
+function PersonalRow({ pe, onClick, profileColor }: { pe: PersonalEvent; onClick: () => void; profileColor?: string }) {
   const start = new Date(pe.startDate);
   const end = new Date(pe.endDate);
   const timeText = pe.allDay ? '종일' : `${format(start, 'HH:mm')} – ${format(end, 'HH:mm')}`;
@@ -658,7 +659,7 @@ function PersonalRow({ pe, onClick }: { pe: PersonalEvent; onClick: () => void }
   return (
     <button
       onClick={onClick}
-      style={{ ...styles.row, borderLeft: `4px solid ${pe.color}`, opacity: 0.92 }}
+      style={{ ...styles.row, borderLeft: `4px solid ${getPersonalEventDisplayColor(pe, profileColor)}`, opacity: 0.92 }}
       title={formatPersonalTooltip(pe, canDrag)}
     >
       <span style={styles.time}>{timeText}</span>

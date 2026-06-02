@@ -6,7 +6,7 @@ import { useAuthStore } from '../../store/authStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
 import type { PersonalEvent } from '@shared/types';
 import { showToast } from '../common/Toast';
-import { formatEventTooltip, formatPersonalTooltip, getCreatorTag, canManageEvent, PERSONAL_SUFFIX } from '../../utils/calendarHelpers';
+import { formatEventTooltip, formatPersonalTooltip, getCreatorTag, canManageEvent, PERSONAL_SUFFIX, getPersonalEventDisplayColor } from '../../utils/calendarHelpers';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { SchoolBadge } from '../common/SchoolBadge';
 import { useComciganStore } from '../../store/comciganStore';
@@ -411,7 +411,7 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
                         onPersonalClick?.(pe);
                       }}
                       style={{
-                        ...styles.eventBlock, background: pe.color, opacity: 0.85,
+                        ...styles.eventBlock, background: getPersonalEventDisplayColor(pe, user?.profileColor), opacity: 0.85,
                         borderLeft: '3px solid rgba(255,255,255,0.5)',
                         cursor: canDrag ? 'grab' : 'pointer',
                         position: 'relative',

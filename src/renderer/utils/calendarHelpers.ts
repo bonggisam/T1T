@@ -127,3 +127,33 @@ export function formatPersonalTooltip(pe: PersonalEvent, canDrag: boolean): stri
   if (canDrag) lines.push('\n🖱 드래그로 이동 | 하단 드래그로 시간 조절');
   return lines.join('\n');
 }
+
+/**
+ * 학교 색과 겹쳐 가독성/구분이 떨어지는 색 목록.
+ * 개인 일정이 이 색으로 저장되어 있으면 사용자의 profileColor로 대체 표시.
+ */
+const CONFLICTING_PERSONAL_COLORS = new Set([
+  '#2ECC71', // 옛 기본값 (PersonalEventModal default) — 태성중 emerald와 겹침
+  '#2ecc71',
+  '#10B981', // 태성중 emerald 라이트
+  '#10b981',
+  '#34D399', // 태성중 emerald 다크
+  '#34d399',
+  '#8B5CF6', // 태성고 violet 라이트
+  '#8b5cf6',
+  '#C4B5FD', // 태성고 violet 다크
+  '#c4b5fd',
+]);
+
+/**
+ * 개인 일정을 표시할 때 사용할 색상.
+ * - 저장된 색이 학교 색과 겹치면 → 사용자의 profileColor로 대체
+ * - 그 외의 사용자 커스텀 색은 그대로 유지
+ * - 둘 다 없으면 기본 파랑
+ */
+export function getPersonalEventDisplayColor(pe: PersonalEvent, userProfileColor?: string): string {
+  if (!pe.color || CONFLICTING_PERSONAL_COLORS.has(pe.color)) {
+    return userProfileColor || '#4A90E2';
+  }
+  return pe.color;
+}

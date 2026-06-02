@@ -21,7 +21,13 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
   const [description, setDescription] = useState(event.description);
   const [startDate, setStartDate] = useState(formatDTL(event.startDate));
   const [endDate, setEndDate] = useState(formatDTL(event.endDate));
-  const [color, setColor] = useState(event.color);
+  // 저장된 색이 학교 색과 겹치면 사용자 profileColor로 초기화 (편집 시 표시)
+  const initialColor = (() => {
+    const conflicting = new Set(['#2ECC71', '#2ecc71', '#10B981', '#10b981', '#34D399', '#34d399', '#8B5CF6', '#8b5cf6', '#C4B5FD', '#c4b5fd']);
+    if (event.color && !conflicting.has(event.color)) return event.color;
+    return user?.profileColor || '#4A90E2';
+  })();
+  const [color, setColor] = useState(initialColor);
   const [checklist, setChecklist] = useState<ChecklistItem[]>(event.checklist || []);
   const [newCheckItem, setNewCheckItem] = useState('');
   const [saving, setSaving] = useState(false);
@@ -74,7 +80,15 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
     setChecklist(checklist.filter((item) => item.id !== id));
   }
 
-  const COLOR_OPTIONS = ['#2ECC71', '#E74C3C', '#F39C12', '#8E44AD', '#3498DB', '#1ABC9C', '#E91E63', '#795548'];
+  // 학교 색(태성중 emerald, 태성고 violet)과 안 겹치는 톤만.
+  // 사용자의 프로필 색은 첫 번째로 동적 추가.
+  const COLOR_OPTIONS = (() => {
+    const base = ['#3498DB', '#E74C3C', '#F39C12', '#1ABC9C', '#E91E63', '#9B59B6', '#34495E', '#795548'];
+    const pc = user?.profileColor;
+    if (pc && !base.includes(pc)) return [pc, ...base];
+    if (pc) return [pc, ...base.filter((c) => c !== pc)];
+    return base;
+  })();
 
   useEscapeKey(onClose);
 
