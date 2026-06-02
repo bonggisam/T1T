@@ -1,573 +1,401 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <title>T1T 교사 사용 안내서 v2.4</title>
-  <style>
-    @page { size: A4; margin: 18mm 18mm 16mm 18mm; }
-    * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
-      color: #1f2937;
-      line-height: 1.6;
-      max-width: 820px;
-      margin: 0 auto;
-      padding: 32px 28px;
-      background: #fff;
-    }
-    .page { page-break-after: always; }
-    .page:last-child { page-break-after: auto; }
-
-    /* 표지 */
-    .cover {
-      text-align: center;
-      padding: 60px 0 30px;
-      border-bottom: 3px solid #4a90e2;
-      margin-bottom: 28px;
-    }
-    .cover .logo {
-      font-size: 72px;
-      font-weight: 800;
-      color: #4a90e2;
-      letter-spacing: -2px;
-      margin-bottom: 8px;
-    }
-    .cover h1 {
-      font-size: 28px;
-      margin: 12px 0 4px;
-      color: #111827;
-    }
-    .cover .subtitle {
-      font-size: 15px;
-      color: #6b7280;
-      margin-bottom: 16px;
-    }
-    .cover .version {
-      display: inline-block;
-      padding: 4px 12px;
-      background: #ecfdf5;
-      color: #047857;
-      font-size: 12px;
-      font-weight: 600;
-      border-radius: 12px;
-    }
-
-    /* 섹션 */
-    h2 {
-      font-size: 20px;
-      color: #4a90e2;
-      margin: 28px 0 12px;
-      padding-left: 10px;
-      border-left: 4px solid #4a90e2;
-    }
-    h3 {
-      font-size: 15px;
-      margin: 16px 0 6px;
-      color: #1f2937;
-    }
-    p, li { font-size: 13.5px; color: #374151; }
-    ul, ol { padding-left: 22px; margin: 6px 0; }
-    li { margin: 3px 0; }
-    code {
-      background: #f3f4f6;
-      padding: 2px 6px;
-      border-radius: 3px;
-      font-family: 'Menlo', monospace;
-      font-size: 12px;
-      color: #be123c;
-    }
-    kbd {
-      background: #f3f4f6;
-      border: 1px solid #d1d5db;
-      border-bottom-width: 2px;
-      padding: 1px 6px;
-      border-radius: 4px;
-      font-family: 'Menlo', monospace;
-      font-size: 11px;
-      color: #1f2937;
-    }
-    .pill {
-      display: inline-block;
-      padding: 2px 8px;
-      background: #4a90e2;
-      color: #fff;
-      font-size: 11px;
-      font-weight: 700;
-      border-radius: 10px;
-      margin: 0 4px;
-    }
-    .download-btn {
-      display: inline-block;
-      padding: 10px 20px;
-      background: linear-gradient(135deg, #4a90e2, #6366f1);
-      color: #fff !important;
-      font-weight: 700;
-      border-radius: 8px;
-      text-decoration: none;
-      font-size: 14px;
-      margin: 8px 0;
-    }
-
-    /* 박스 */
-    .info-box {
-      background: linear-gradient(135deg, #eff6ff, #f0fdfa);
-      border: 1px solid #bfdbfe;
-      border-radius: 8px;
-      padding: 14px 18px;
-      margin: 12px 0;
-    }
-    .info-box.warn {
-      background: linear-gradient(135deg, #fef3c7, #fef9c3);
-      border-color: #fde68a;
-    }
-    .info-box.success {
-      background: linear-gradient(135deg, #d1fae5, #ecfdf5);
-      border-color: #6ee7b7;
-    }
-    .info-box.danger {
-      background: linear-gradient(135deg, #fee2e2, #fecaca);
-      border-color: #fca5a5;
-    }
-    .info-box .title {
-      font-weight: 700;
-      font-size: 13px;
-      margin-bottom: 4px;
-      color: #1e3a8a;
-    }
-    .info-box.warn .title { color: #92400e; }
-    .info-box.success .title { color: #065f46; }
-    .info-box.danger .title { color: #991b1b; }
-
-    /* 단계 */
-    .steps {
-      counter-reset: step;
-      list-style: none;
-      padding-left: 0;
-    }
-    .steps > li {
-      counter-increment: step;
-      padding-left: 36px;
-      position: relative;
-      margin: 10px 0;
-    }
-    .steps > li::before {
-      content: counter(step);
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 26px;
-      height: 26px;
-      background: #4a90e2;
-      color: #fff;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 12px;
-    }
-
-    /* UI 모형 */
-    .ui-mock {
-      background: #fff;
-      border: 2px solid #e5e7eb;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-      margin: 14px 0;
-      overflow: hidden;
-    }
-    .titlebar-mock {
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      align-items: center;
-      padding: 8px 14px;
-      background: #f9fafb;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    .titlebar-left { display: flex; align-items: center; gap: 8px; }
-    .titlebar-logo { font-weight: 800; color: #4a90e2; font-size: 14px; }
-    .school-pill { font-size: 10px; padding: 2px 8px; background: #d1fae5; color: #047857; border-radius: 10px; font-weight: 700; }
-    .titlebar-center { display: flex; gap: 4px; justify-self: center; }
-    .titlebar-right { display: flex; gap: 4px; justify-self: end; }
-    .icon-btn {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 26px; height: 26px;
-      border-radius: 6px;
-      font-size: 14px;
-      color: #6b7280;
-      background: transparent;
-    }
-    .icon-btn.tpass {
-      color: #ec4899;
-      font-weight: 800;
-      font-size: 13px;
-    }
-    .icon-btn.active { background: rgba(74,144,226,0.15); color: #4a90e2; }
-    .calendar-body {
-      padding: 14px;
-      min-height: 110px;
-      background: linear-gradient(180deg, #fafbfc, #fff);
-    }
-    .calendar-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 2px;
-      font-size: 11px;
-    }
-    .day-header { text-align: center; padding: 4px; font-weight: 700; color: #6b7280; font-size: 10px; }
-    .day-cell {
-      min-height: 38px;
-      padding: 3px 4px;
-      border: 1px solid #f3f4f6;
-      border-radius: 3px;
-      background: #fff;
-    }
-    .day-num { font-size: 10px; font-weight: 700; color: #374151; }
-    .day-cell.today { background: #eff6ff; }
-    .day-cell.weekend .day-num { color: #ef4444; }
-    .event-chip {
-      font-size: 8px;
-      padding: 1px 3px;
-      border-radius: 2px;
-      color: #fff;
-      margin-top: 2px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .caption {
-      text-align: center;
-      font-size: 11px;
-      color: #6b7280;
-      margin-top: 4px;
-      font-style: italic;
-    }
-
-    /* 기능 카드 그리드 */
-    .feature-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-      margin: 12px 0;
-    }
-    .feature-card {
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 10px 12px;
-    }
-    .feature-card .icon { font-size: 18px; margin-bottom: 4px; }
-    .feature-card .name { font-weight: 700; font-size: 12px; color: #1f2937; }
-    .feature-card .desc { font-size: 11px; color: #6b7280; margin-top: 2px; }
-
-    /* 푸터 */
-    .footer {
-      margin-top: 30px;
-      padding-top: 14px;
-      border-top: 1px solid #e5e7eb;
-      text-align: center;
-      font-size: 11px;
-      color: #9ca3af;
-    }
-    .footer a { color: #4a90e2; text-decoration: none; }
-
-    table.toolbar-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-      margin-top: 6px;
-    }
-    table.toolbar-table th {
-      background: #f3f4f6;
-      padding: 8px;
-      text-align: left;
-      border-bottom: 2px solid #d1d5db;
-      font-size: 12px;
-      color: #374151;
-    }
-    table.toolbar-table td {
-      padding: 8px;
-      border-bottom: 1px solid #e5e7eb;
-      vertical-align: top;
-    }
-    table.toolbar-table tr:hover { background: #fafbfc; }
-
-    @media print {
-      body { padding: 0; }
-      .no-print { display: none !important; }
-    }
-  </style>
+<meta charset="UTF-8">
+<title>T1T 교사 사용 안내서</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", sans-serif;
+    color: #1f2937; line-height: 1.55; margin: 0; padding: 0;
+    font-size: 11pt;
+  }
+  h1 {
+    font-size: 26pt; font-weight: 900; margin: 0 0 6pt 0;
+    color: #0f172a; letter-spacing: -0.5pt;
+  }
+  h2 {
+    font-size: 16pt; font-weight: 800; margin: 18pt 0 8pt 0;
+    color: #1e40af; border-bottom: 2px solid #bfdbfe; padding-bottom: 3pt;
+    page-break-after: avoid;
+  }
+  h3 {
+    font-size: 12pt; font-weight: 700; margin: 12pt 0 5pt 0;
+    color: #1e3a8a;
+    page-break-after: avoid;
+  }
+  p { margin: 4pt 0; }
+  ul, ol { margin: 4pt 0 8pt 0; padding-left: 18pt; }
+  li { margin-bottom: 2pt; }
+  .cover {
+    text-align: center; padding: 30pt 20pt;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f2942 100%);
+    color: #fff; border-radius: 12pt; margin-bottom: 18pt;
+  }
+  .cover h1 { color: #fff; font-size: 32pt; margin-bottom: 6pt; }
+  .cover .tag {
+    display: inline-block; background: rgba(255,255,255,0.18); color: #fde68a;
+    padding: 4pt 12pt; border-radius: 14pt; font-size: 9pt; font-weight: 700;
+    margin: 6pt 0;
+  }
+  .cover .ver { font-size: 11pt; color: #cbd5e1; margin-top: 8pt; }
+  .info, .warn, .tip {
+    border-radius: 8pt; padding: 9pt 12pt; margin: 8pt 0;
+    page-break-inside: avoid;
+  }
+  .info { background: #eff6ff; border-left: 4pt solid #3b82f6; }
+  .warn { background: #fef3c7; border-left: 4pt solid #f59e0b; }
+  .tip { background: #ecfdf5; border-left: 4pt solid #10b981; }
+  .step {
+    background: #f8fafc; border: 1pt solid #e2e8f0;
+    border-radius: 8pt; padding: 9pt 12pt; margin: 8pt 0;
+    page-break-inside: avoid;
+  }
+  .step ol { padding-left: 20pt; }
+  .step li { margin-bottom: 6pt; }
+  table {
+    width: 100%; border-collapse: collapse; margin: 6pt 0 10pt 0;
+    font-size: 10pt;
+  }
+  th, td {
+    padding: 5pt 8pt; border: 1pt solid #cbd5e1; text-align: left;
+    vertical-align: top;
+  }
+  th { background: #1e40af; color: #fff; font-weight: 700; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  code, .code {
+    font-family: "SF Mono", Consolas, Menlo, monospace; font-size: 9.5pt;
+    background: #f1f5f9; padding: 1pt 5pt; border-radius: 3pt;
+    color: #0f172a;
+  }
+  .feature-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 8pt;
+    margin: 8pt 0;
+  }
+  .feature {
+    background: #fafbfc; border: 1pt solid #e2e8f0; border-radius: 8pt;
+    padding: 8pt 10pt;
+  }
+  .feature .ic { font-size: 14pt; margin-right: 4pt; }
+  .feature b { color: #1e40af; }
+  .feature .desc { font-size: 9.5pt; color: #475569; margin-top: 3pt; }
+  .toc {
+    background: #f1f5f9; border-radius: 8pt; padding: 10pt 14pt;
+    margin-bottom: 18pt;
+  }
+  .toc h3 { margin-top: 0; color: #0f172a; }
+  .toc ol { margin: 4pt 0 0 0; }
+  .pb { page-break-before: always; }
+  .small { font-size: 9pt; color: #64748b; }
+  .err-row {
+    background: #fef9f6; border: 1pt solid #fed7aa; border-radius: 6pt;
+    padding: 7pt 10pt; margin: 6pt 0;
+    page-break-inside: avoid;
+  }
+  .err-row b { color: #c2410c; }
+  .footer {
+    margin-top: 24pt; padding-top: 10pt; border-top: 1pt solid #cbd5e1;
+    text-align: center; color: #64748b; font-size: 9pt;
+  }
+  .toolbar {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6pt; margin: 6pt 0;
+  }
+  .ic-card {
+    background: #fff; border: 1pt solid #e2e8f0;
+    border-radius: 6pt; padding: 6pt 8pt;
+  }
+  .ic-card .ic { font-size: 13pt; }
+  .ic-card .nm { font-weight: 700; font-size: 9.5pt; }
+  .ic-card .ds { font-size: 8.5pt; color: #64748b; }
+</style>
 </head>
 <body>
 
-<!-- 인쇄 / 다운로드 안내 (화면 전용) -->
-<div class="no-print" style="background:#fef3c7;border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:13px;text-align:center;">
-  💡 인쇄(<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>P</kbd>) → "PDF로 저장" 하면 깔끔하게 다운받을 수 있습니다.
+<div class="cover">
+  <h1>T1T 교사 사용 안내서</h1>
+  <div class="tag">📅 학교 일정 공유 시스템 · 태성중·고</div>
+  <div class="ver">v2.5.26 기준 · 2026.6.2</div>
 </div>
 
-<!-- ===== 1페이지: 표지 + 기획의도 + 설치 ===== -->
-<section class="page">
-  <div class="cover">
-    <div class="logo">T1T</div>
-    <h1>교사 사용 안내서</h1>
-    <div class="subtitle">태성중·고 학교 일정 공유 시스템</div>
-    <div class="version">v2.4.3</div>
-  </div>
-
-  <h2>📌 기획 의도</h2>
-  <p>
-    T1T는 <strong>태성중·태성고 교사</strong>를 위한 <strong>투명 데스크톱 캘린더 위젯</strong>입니다.
-    학교 일정·할 일·학사일정·급식·시간표·외출 신청 현황을 한 곳에서 확인하고 동료 교사와 공유할 수 있습니다.
-  </p>
-  <div class="feature-grid">
-    <div class="feature-card">
-      <div class="icon">🤝</div>
-      <div class="name">통합 일정 공유</div>
-      <div class="desc">중·고 일정 한 화면에서 자동 동기화</div>
-    </div>
-    <div class="feature-card">
-      <div class="icon">🪟</div>
-      <div class="name">투명 위젯</div>
-      <div class="desc">바탕화면에 고정, 작업 흐름 방해 없음</div>
-    </div>
-    <div class="feature-card">
-      <div class="icon">🔄</div>
-      <div class="name">Google Calendar 연동</div>
-      <div class="desc">개인 일정 양방향 동기화</div>
-    </div>
-    <div class="feature-card">
-      <div class="icon">📚</div>
-      <div class="name">시간표·학사 자동 가져오기</div>
-      <div class="desc">컴시간·학교 홈페이지 자동 연결</div>
-    </div>
-  </div>
-
-  <h2>💾 설치 (Windows)</h2>
-
-  <p style="text-align:center;margin:14px 0 8px;">
-    <a class="download-btn" href="https://drive.google.com/file/d/1Xu1VcI4gf4GF5QhKq4YFROfhm4A0fh-K/view?usp=sharing" target="_blank">
-      ⬇ T1T 다운로드 (Google Drive)
-    </a>
-  </p>
-  <p style="text-align:center;font-size:11.5px;color:#6b7280;margin:0;">
-    https://drive.google.com/file/d/1Xu1VcI4gf4GF5QhKq4YFROfhm4A0fh-K/view
-  </p>
-
-  <h3>① 설치 과정</h3>
-  <ol class="steps">
-    <li>위 다운로드 링크 클릭 → <strong>Google Drive에서 다운로드</strong></li>
-    <li>다운로드된 파일 <code>T1T Setup x.y.z.exe</code> 더블클릭 실행</li>
-    <li><strong>Windows Defender SmartScreen 보안 경고</strong>가 표시됩니다 — 아래 ②번 안내에 따라 진행</li>
-    <li>설치 마법사 → 다음 → 설치 위치 확인 → <strong>"설치"</strong> 클릭</li>
-    <li>설치 완료 후 바탕화면 또는 시작 메뉴에서 <strong>T1T</strong> 실행</li>
+<div class="toc">
+  <h3>📑 차례</h3>
+  <ol>
+    <li>기획 의도</li>
+    <li>주요 기능 한눈에 보기</li>
+    <li>설치 방법 (Windows)</li>
+    <li>설치 시 자주 발생하는 에러와 해결법</li>
+    <li>기존 ToneT/T1T 완전 제거 (Geek Uninstaller)</li>
+    <li>처음 시작 — 회원가입과 로그인</li>
+    <li>화면 사용법 — 일반/위젯 모드</li>
+    <li>일정 등록 · 보기</li>
+    <li>외부 도구 (TPass · 학사일정 · 급식 · 키폰 · 도서관)</li>
+    <li>업데이트와 종료</li>
+    <li>문의</li>
   </ol>
+</div>
 
-  <h3>② 보안 경고 대응 (자세히)</h3>
-  <div class="info-box warn">
-    <div class="title">⚠️ "Windows의 PC 보호" 파란 화면이 나타나면</div>
-    <ol style="margin:6px 0 0; padding-left:20px;">
-      <li>파란색 경고 창에서 화면 좌측의 <strong>"추가 정보"</strong> 글자 클릭</li>
-      <li>화면이 확장되며 <strong>"실행"</strong> 버튼이 나타남 → 클릭</li>
-      <li>설치 마법사가 정상 실행됨</li>
-    </ol>
-  </div>
+<h2>1. 기획 의도</h2>
+<div class="info">
+  <b>왜 T1T인가?</b><br>
+  태성중·고 교사들이 <b>학교 일정 · 회의 · 시험 · 행사</b>를 한눈에 보고, <b>개인 일정 · 시간표 · 급식 · 학사일정 · 도서관</b>까지 PC 한 화면에서 관리할 수 있도록 설계한 통합 데스크톱 도구입니다. 양교(중·고)를 동시에 보거나 본인 학교만 골라 보기, 라이트/다크 모드, 투명 위젯 모드까지 지원해 <b>책상 옆 작은 비서</b>처럼 작동합니다.
+</div>
 
-  <div class="info-box danger">
-    <div class="title">🛡️ 백신 프로그램(V3, 알약 등) 경고가 뜨면</div>
-    <ol style="margin:6px 0 0; padding-left:20px;">
-      <li>경고 창에서 <strong>"신뢰하기"</strong> 또는 <strong>"예외 처리"</strong> 선택</li>
-      <li>차단된 경우: 백신 설정 → 격리 보관함 → T1T 복원 → 예외 추가</li>
-      <li>※ self-signed 인증서를 사용하는 학내 배포 앱이므로 안전합니다</li>
-    </ol>
-  </div>
+<ul>
+  <li>🔁 <b>실시간 공유</b> — 한 명이 등록하면 모든 교사 화면에 즉시 반영 (Firestore)</li>
+  <li>🏫 <b>양교 통합</b> — 태성중·고 일정을 학교별 색으로 구분</li>
+  <li>🔐 <b>승인제 가입</b> — 관리자(부장) 승인 후에만 활성화</li>
+  <li>🖥 <b>위젯 모드</b> — 투명 배경 + 클릭 통과 = 책상 위 한 켠 항상 표시</li>
+  <li>🔄 <b>자동 업데이트</b> — 새 버전 자동 다운로드 + 한 번 클릭 재시작</li>
+  <li>🛡 <b>오프라인 안정성</b> — 캐시 + 재연결 시 자동 동기화</li>
+</ul>
 
-  <div class="info-box">
-    <div class="title">💡 그래도 실행이 안 되는 경우</div>
-    <ul style="margin:6px 0 0; padding-left:20px;">
-      <li>다운로드 파일에서 <strong>마우스 우클릭 → 속성</strong> 클릭</li>
-      <li>창 하단 <strong>"보안"</strong> 영역의 <strong>"차단 해제"</strong> 체크박스 활성화</li>
-      <li><strong>확인</strong> 버튼 클릭 후 다시 실행</li>
-    </ul>
-  </div>
+<h2>2. 주요 기능 한눈에 보기</h2>
+<div class="feature-grid">
+  <div class="feature"><span class="ic">📅</span><b>월/주/일/오늘</b><div class="desc">4가지 캘린더 뷰. 오늘은 24시 타임라인</div></div>
+  <div class="feature"><span class="ic">✅</span><b>할 일 (Todos)</b><div class="desc">우선순위 + 마감일 + 멘션 알림</div></div>
+  <div class="feature"><span class="ic">🍱</span><b>급식 메뉴</b><div class="desc">학교 홈페이지 자동 스크래핑, 양교 토글</div></div>
+  <div class="feature"><span class="ic">📚</span><b>학사일정</b><div class="desc">학교 홈페이지 자동 동기화 + 월별 정리</div></div>
+  <div class="feature"><span class="ic">📞</span><b>키폰 번호부</b><div class="desc">양교 부서·교사 직통 번호 검색</div></div>
+  <div class="feature"><span class="ic">📖</span><b>도서관 도서검색</b><div class="desc">독서로(read365) 양교 시스템 앱 내장</div></div>
+  <div class="feature"><span class="ic">🎫</span><b>TPass 외출·조퇴</b><div class="desc">암호 자동 입력, 입장 폼 바로 표시</div></div>
+  <div class="feature"><span class="ic">🚪</span><b>외출 신청 조회</b><div class="desc">현재 외출 중인 학생 실시간 확인</div></div>
+  <div class="feature"><span class="ic">🏢</span><b>회의실 예약</b><div class="desc">날짜/시간 표 형식, 이중 예약 방지</div></div>
+  <div class="feature"><span class="ic">📆</span><b>컴시간 시간표</b><div class="desc">교사별 시간표 + 주간 자동 갱신</div></div>
+  <div class="feature"><span class="ic">🔔</span><b>일정 알림</b><div class="desc">10분/30분/1시간/1일 전 다중 알림</div></div>
+  <div class="feature"><span class="ic">🗓</span><b>Google Calendar 연동</b><div class="desc">선택 시 양방향 동기화</div></div>
+</div>
 
-  <h3>③ 회원가입</h3>
-  <ol class="steps">
-    <li>T1T 첫 실행 시 로그인 화면 표시 → <strong>"회원가입"</strong> 클릭</li>
-    <li>이메일 / 비밀번호 입력 (비밀번호: 8자 이상, 영문·숫자·특수문자 포함)</li>
-    <li>이름 입력 (컴시간 시간표에서 사용 중인 이름과 동일하게)</li>
-    <li>학교 선택 → <strong>태성중학교</strong> 또는 <strong>태성고등학교</strong></li>
-    <li>가입 버튼 클릭 → <strong>관리자 승인 대기</strong> 화면 표시</li>
-    <li>관리자(이봉기)의 승인 후 자동으로 메인 화면 진입</li>
+<div class="pb"></div>
+<h2>3. 설치 방법 (Windows)</h2>
+
+<div class="warn">
+  <b>📎 설치 파일은 교사별로 개별 첨부됩니다.</b><br>
+  이메일 또는 메신저로 받은 <b>T1T-Setup-2.5.X.exe</b> 파일을 다운로드 받아 설치합니다. 외부 공유 링크가 아닌, 학교 내부에서 안전하게 전달된 파일을 사용해 주세요.
+</div>
+
+<h3>설치 단계</h3>
+<div class="step">
+  <ol>
+    <li>받은 <code>T1T-Setup-2.5.X.exe</code>를 더블 클릭</li>
+    <li><b>Windows Defender SmartScreen</b> 경고가 뜨면 → <b>자세히</b> 클릭 → <b>실행</b> 클릭<br>
+      <span class="small">(자체 서명이라 처음에는 경고가 뜨지만 안전합니다)</span></li>
+    <li>설치 마법사: <b>다음 → 설치 위치 선택 → 설치</b></li>
+    <li>설치 완료 후 자동 실행 (앱 아이콘이 바탕화면에 생성됨)</li>
+    <li>처음 실행 시 <b>회원가입</b> → 관리자 승인 대기 → 승인 완료 후 로그인 가능</li>
   </ol>
-</section>
+</div>
 
-<!-- ===== 2페이지: 메인 화면 + 도구막대 ===== -->
-<section class="page">
-  <h2>🏠 메인 화면 구성</h2>
+<h2>4. 설치 시 자주 발생하는 에러와 해결법</h2>
 
-  <div class="ui-mock">
-    <div class="titlebar-mock">
-      <div class="titlebar-left">
-        <span class="titlebar-logo">📅 T1T</span>
-        <span class="school-pill">🏫 태성중</span>
-      </div>
-      <div class="titlebar-center">
-        <span class="icon-btn">✅</span>
-        <span class="icon-btn">🏢</span>
-        <span class="icon-btn">🍱</span>
-        <span class="icon-btn">📚</span>
-        <span class="icon-btn tpass">T</span>
-        <span class="icon-btn">↗</span>
-        <span class="icon-btn">📖</span>
-        <span class="icon-btn">🔔</span>
-        <span class="icon-btn">⚙</span>
-      </div>
-      <div class="titlebar-right">
-        <span class="icon-btn">📌</span>
-        <span class="icon-btn">—</span>
-        <span class="icon-btn">✕</span>
-      </div>
-    </div>
-    <div class="calendar-body">
-      <div style="font-size:11px;font-weight:600;margin-bottom:6px;color:#4a5568;">2026년 5월</div>
-      <div class="calendar-grid">
-        <div class="day-header">일</div><div class="day-header">월</div><div class="day-header">화</div><div class="day-header">수</div><div class="day-header">목</div><div class="day-header">금</div><div class="day-header">토</div>
-        <div class="day-cell weekend"><div class="day-num">24</div></div>
-        <div class="day-cell"><div class="day-num">25</div><div class="event-chip" style="background:#10b981">중 부장회의</div></div>
-        <div class="day-cell today"><div class="day-num" style="color:#4a90e2">26</div><div class="event-chip" style="background:#8b5cf6">고 졸업식</div></div>
-        <div class="day-cell"><div class="day-num">27</div></div>
-        <div class="day-cell"><div class="day-num">28</div><div class="event-chip" style="background:#3b82f6">공 통합회의</div></div>
-        <div class="day-cell"><div class="day-num">29</div></div>
-        <div class="day-cell weekend"><div class="day-num">30</div></div>
-      </div>
-    </div>
-  </div>
-  <div class="caption">▲ 상단: 로고(좌) · 기능 아이콘(중앙) · 창 제어(우) / 하단: 캘린더 본문</div>
-
-  <h3>도구막대 아이콘</h3>
-  <table class="toolbar-table">
-    <tr>
-      <th style="width:130px;">아이콘 / 명칭</th>
-      <th>기능 설명</th>
-    </tr>
-    <tr>
-      <td>✅ <strong>할 일</strong></td>
-      <td>개인 할 일(To-Do) 관리 — 우선순위·마감일 지정, 인라인 수정 가능</td>
-    </tr>
-    <tr>
-      <td>🏢 <strong>회의실 예약</strong></td>
-      <td>
-        교내 회의실 예약 시스템 (ourssm.com) 임베드<br>
-        <span style="color:#dc2626;font-size:11px;">※ TPass와는 다른 별개 시스템입니다</span>
-      </td>
-    </tr>
-  </table>
-
-  <h2>🛂 외부 시스템 연동 아이콘</h2>
-
-  <div class="info-box">
-    <div class="title">🩷 TPass (T 핑크 아이콘) — 외출·조퇴 신청 시스템</div>
-    <p style="margin:6px 0 0;">
-      학생의 <strong>외출 및 조퇴를 신청·등록</strong>하는 시스템입니다.
-      Google Apps Script 기반 입력 폼이 임베드되어 표시됩니다.
-    </p>
-  </div>
-
-  <div class="info-box">
-    <div class="title">↗ 외출신청 조회 — 등록된 외출 현황 보기</div>
-    <p style="margin:6px 0 0;">
-      <strong>TPass로 입력된 외출 신청 내용을 조회</strong>하는 화면입니다.
-      Google Sheets에 누적된 신청 현황을 실시간으로 볼 수 있습니다.<br>
-      <span style="color:#6b7280;font-size:11.5px;">※ 신청 기능이 아니라 <strong>조회 기능</strong>입니다 — 신청은 위의 TPass에서</span>
-    </p>
-  </div>
-
-  <h2>🗓️ 기본 사용법</h2>
-  <h3>일정 등록</h3>
-  <ol class="steps">
-    <li>빈 날짜 칸을 <strong>클릭</strong> 또는 <kbd>N</kbd> 키</li>
-    <li>제목 입력 (자연어 인식: "내일 3시 회의" 입력 가능)</li>
-    <li>공유 대상 선택:
-      <span class="pill" style="background:#10b981">태성중</span>
-      <span class="pill" style="background:#8b5cf6">태성고</span>
-      <span class="pill" style="background:#3b82f6">공통</span>
-    </li>
-    <li>저장 → 같은 학교 교사 모두에게 실시간 공유</li>
-  </ol>
-
-  <h3>뷰 전환 (키보드 단축키)</h3>
-  <p>
-    <kbd>M</kbd>월 / <kbd>W</kbd>주 / <kbd>D</kbd>일 / <kbd>Y</kbd>년 / <kbd>A</kbd>아젠다 / <kbd>S</kbd>통계 / <kbd>T</kbd>오늘로 이동 / <kbd>←</kbd><kbd>→</kbd>달 이동
-  </p>
-</section>
-
-<!-- ===== 3페이지: Google Calendar + 시간표 연동 ===== -->
-<section class="page">
-  <h2>🔄 Google Calendar 연동</h2>
-  <p>본인의 Google 캘린더와 <strong>양방향 동기화</strong>가 가능합니다. T1T에서 만든 개인 일정이 Google에 반영되고, Google 일정도 T1T에서 표시됩니다.</p>
-
-  <ol class="steps">
-    <li>도구막대의 <strong>⚙ 설정</strong> 아이콘 클릭</li>
-    <li>"📅 캘린더 연동" 섹션 → <strong>"연동" 버튼</strong> 클릭</li>
-    <li>시스템 기본 브라우저(Chrome/Edge)에서 Google 로그인 창이 열림</li>
-    <li>"이 앱은 Google에서 확인되지 않았습니다" 경고 시:
-      <ul>
-        <li><strong>"고급"</strong> 클릭 → <strong>"T1T(으)로 이동(안전하지 않음)"</strong> 클릭</li>
-      </ul>
-    </li>
-    <li>캘린더 권한 요청 → <strong>"계속"</strong> 또는 <strong>"허용"</strong></li>
-    <li>"✅ Google Calendar 연동 완료" 페이지 표시 후 자동으로 앱 복귀</li>
-    <li>설정 화면에 <strong>"연동됨"</strong> 배지가 표시되면 완료</li>
-  </ol>
-
-  <div class="info-box success">
-    <div class="title">✅ 연동 완료 후</div>
-    <p>개인 일정 추가/수정/삭제가 Google 캘린더에 자동 반영됩니다 (15분 주기 동기화). 공유 일정은 동기화되지 않습니다.</p>
-  </div>
-
-  <h2>📚 시간표 (컴시간) 연동</h2>
-  <p>본인의 수업 시간표를 캘린더 셀에 자동 표시합니다.</p>
-
-  <ol class="steps">
-    <li><strong>⚙ 설정 → 시간표 설정</strong> 진입</li>
-    <li>학교 검색창에 <code>태성</code> 입력 → 본인 학교 선택</li>
-    <li>본인 이름 입력 (컴시간 등록명 그대로)</li>
-    <li>"저장" 클릭 → 자동으로 시간표 가져옴</li>
-    <li>도구막대의 <strong>📖 시간표</strong> 아이콘으로 표시/숨김 토글</li>
-  </ol>
-
-  <h3>📅 학사일정·급식 자동 연동</h3>
-  <p>별도 설정 없이 매일 오전 7시에 학교 홈페이지에서 자동 가져옵니다:</p>
+<div class="err-row">
+  <b>❶ "Windows의 PC 보호" 경고가 뜨며 설치가 중단됨</b>
+  <p>SmartScreen이 알려지지 않은 게시자라고 경고합니다. 안전한 파일입니다.</p>
   <ul>
-    <li><strong>학사일정</strong>: 태성중·고 일정이 캘린더에 학교별 색상으로 표시</li>
-    <li><strong>급식</strong>: 🍱 아이콘 클릭 시 주간 식단표 표시 (양교 토글)</li>
-    <li><strong>외출 신청 조회</strong>: ↗ 아이콘 → Google Sheets 연결</li>
+    <li>경고 창에서 <b>자세히 (More info)</b> 클릭</li>
+    <li>아래에 표시되는 <b>실행 (Run anyway)</b> 클릭</li>
   </ul>
+</div>
 
-  <h2>💬 주요 단축키 요약</h2>
-  <table class="toolbar-table">
-    <tr>
-      <th style="width:200px;">단축키</th>
-      <th>동작</th>
-    </tr>
-    <tr><td><kbd>N</kbd></td><td>새 공유 일정</td></tr>
-    <tr><td><kbd>P</kbd></td><td>새 개인 일정</td></tr>
-    <tr><td><kbd>T</kbd></td><td>오늘로 이동</td></tr>
-    <tr><td><kbd>/</kbd></td><td>검색</td></tr>
-    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd></td><td>위젯 모드 ↔ 편집 모드</td></tr>
-  </table>
+<div class="err-row">
+  <b>❷ "관리자 권한이 필요합니다" 또는 UAC 차단</b>
+  <ul>
+    <li>설치 파일을 <b>우클릭 → 관리자 권한으로 실행</b></li>
+    <li>UAC 창에서 <b>예</b> 클릭</li>
+  </ul>
+</div>
 
-  <div class="info-box">
-    <div class="title">💬 문의 · 버그 신고</div>
-    <p style="margin:6px 0 0;font-size:14px;"><strong>이봉기 선생님께 문의해 주세요.</strong></p>
-  </div>
+<div class="err-row">
+  <b>❸ "이전 버전이 실행 중입니다" / 설치가 멈춤</b>
+  <p>이전 T1T가 작업 표시줄/시스템 트레이에 살아있어 파일이 잠겨 있습니다.</p>
+  <ul>
+    <li>작업 표시줄 우측 트레이 → T1T 아이콘 우클릭 → <b>종료</b></li>
+    <li>또는 <b>Ctrl+Shift+Esc</b> → 작업 관리자 → <b>T1T.exe</b> 모두 종료</li>
+    <li>잠시 후 설치 파일 다시 실행</li>
+  </ul>
+</div>
 
-  <div class="footer">
-    T1T v2.4.3 · 태성중·고 통합 캘린더 시스템 · ⓒ 2026<br>
-    <a href="https://github.com/bonggisam/T1T">github.com/bonggisam/T1T</a>
-  </div>
-</section>
+<div class="err-row">
+  <b>❹ 백신/보안 프로그램이 차단함</b>
+  <ul>
+    <li>일부 백신(V3, 알약 등)이 알려지지 않은 .exe를 차단할 수 있습니다.</li>
+    <li>백신 격리 폴더에서 <b>예외 등록 (허용)</b> 후 다시 설치</li>
+    <li>또는 설치 동안만 백신 일시 정지</li>
+  </ul>
+</div>
+
+<div class="err-row">
+  <b>❺ "설치 후 앱이 흰 화면" 또는 "실행 안 됨"</b>
+  <ul>
+    <li>아래 <b>섹션 5</b>의 절차로 <b>완전 제거</b> 후 재설치</li>
+    <li>그래도 안 되면 PC 재부팅 후 재시도</li>
+  </ul>
+</div>
+
+<div class="err-row">
+  <b>❻ "구글 캘린더 연동 안 됨" 빨간 메시지</b>
+  <ul>
+    <li>오래된 버전(v2.5.3 미만)에서 발생 — 최신 버전(v2.5.26+)으로 재설치</li>
+    <li>방화벽이 <code>http://127.0.0.1:8123</code> 차단 시 → 방화벽 예외 등록</li>
+  </ul>
+</div>
+
+<div class="pb"></div>
+<h2>5. 기존 ToneT/T1T 완전 제거 (Geek Uninstaller)</h2>
+
+<div class="warn">
+  <b>왜 완전 제거가 필요한가?</b><br>
+  T1T는 자동 업데이트로 대부분 매끄럽게 갱신되지만, 옛 버전(ToneT 또는 T1T v2.4 이하)이 남아 있거나 충돌이 의심되면 <b>완전 제거 후 재설치</b>가 가장 확실합니다. 첨부된 <b>Geek Uninstaller</b>는 일반 제어판 제거와 달리 레지스트리 + 잔재 파일까지 깔끔하게 정리합니다.
+</div>
+
+<h3>Geek Uninstaller 사용법</h3>
+<div class="step">
+  <ol>
+    <li>이메일/메신저로 받은 <code>geek.exe</code> 또는 <code>geek.zip</code>을 바탕화면에 저장
+      <br><span class="small">설치 없이 더블 클릭만으로 실행되는 휴대용 프로그램입니다.</span></li>
+    <li><code>geek.exe</code> 더블 클릭 (SmartScreen 경고 → <b>자세히 → 실행</b>)</li>
+    <li>설치된 프로그램 목록에서 <b>T1T</b> 또는 <b>ToneT</b> 찾기 (검색창에 입력하면 빠름)</li>
+    <li>해당 항목을 <b>우클릭 → 강제 제거 (Force Removal)</b> 선택
+      <br><span class="small">"제거 (Uninstall)" 대신 "강제 제거"를 권장 — 잔재까지 정리됨</span></li>
+    <li>경고 창에서 <b>예</b> 클릭, 잠시 대기</li>
+    <li>완료되면 <code>%LOCALAPPDATA%\T1T</code> 폴더가 남아있는지 확인:
+      <br>키보드 <b>Win+R</b> → <code>%LOCALAPPDATA%</code> 입력 → Enter → T1T 폴더 있으면 휴지통으로 이동
+    </li>
+    <li>PC 재부팅 (권장)</li>
+    <li>새 <code>T1T-Setup-2.5.X.exe</code>를 받아 깨끗하게 설치</li>
+  </ol>
+</div>
+
+<div class="tip">
+  <b>💡 팁:</b> Geek Uninstaller는 한 번 받아두면 다른 프로그램 제거에도 유용합니다. 휴대용이라 USB에 담아 다녀도 됩니다.
+</div>
+
+<h2>6. 처음 시작 — 회원가입과 로그인</h2>
+<div class="step">
+  <ol>
+    <li>앱 실행 → 첫 화면에서 <b>회원가입</b> 클릭</li>
+    <li>이메일 · 비밀번호 · 이름 · 학교(태성중/태성고) · 역할(부장/교사) 입력</li>
+    <li>가입 완료 → <b>관리자 승인 대기 화면</b> 표시</li>
+    <li>관리자(부장)가 승인하면 로그인 가능</li>
+    <li>설정 → 프로필 색 변경 가능 (개인 일정 기본 색이 됨)</li>
+  </ol>
+</div>
+
+<div class="pb"></div>
+<h2>7. 화면 사용법</h2>
+<h3>두 가지 모드</h3>
+<table>
+  <tr><th>모드</th><th>설명</th><th>전환</th></tr>
+  <tr><td><b>일반 모드</b></td><td>전체 UI 표시 — 캘린더, 도구 모음, 학교 배지</td><td>📌 핀 아이콘 클릭</td></tr>
+  <tr><td><b>위젯 모드</b></td><td>투명 배경 + 미니 도구 모음 — 바탕화면에 항상 표시</td><td>편집 버튼 클릭</td></tr>
+</table>
+
+<h3>상단 도구 모음 아이콘</h3>
+<div class="toolbar">
+  <div class="ic-card"><div class="ic">✅</div><div class="nm">할 일</div><div class="ds">개인 작업 관리</div></div>
+  <div class="ic-card"><div class="ic">🏢</div><div class="nm">회의실 예약</div><div class="ds">날짜/시간 예약</div></div>
+  <div class="ic-card"><div class="ic">🍱</div><div class="nm">급식</div><div class="ds">주간 식단</div></div>
+  <div class="ic-card"><div class="ic">📚</div><div class="nm">학사일정</div><div class="ds">홈페이지 일정</div></div>
+  <div class="ic-card"><div class="ic">📞</div><div class="nm">키폰</div><div class="ds">양교 번호부</div></div>
+  <div class="ic-card"><div class="ic">📖</div><div class="nm">도서관</div><div class="ds">read365 검색</div></div>
+  <div class="ic-card"><div class="ic">🎫</div><div class="nm">TPass</div><div class="ds">외출/조퇴</div></div>
+  <div class="ic-card"><div class="ic">🚪</div><div class="nm">외출 조회</div><div class="ds">현재 외출 학생</div></div>
+</div>
+
+<h2>8. 일정 등록과 보기</h2>
+<h3>공유 일정 (모든 교사에게 보임)</h3>
+<div class="step">
+  <ol>
+    <li>월/주/일 뷰에서 <b>날짜 셀 클릭</b> 또는 우측 <b>+ 공유 일정</b> 버튼</li>
+    <li>제목, 시간, 카테고리(행사/회의/마감/공지), 공유 범위(태성중/태성고/전체) 입력</li>
+    <li>저장 → 모든 교사 화면에 실시간 표시</li>
+  </ol>
+</div>
+
+<h3>개인 일정 (본인만 보임)</h3>
+<div class="step">
+  <ol>
+    <li><b>오늘 타임라인 뷰</b>에서 시간대 클릭 → 그 시간으로 입력 폼 자동 오픈</li>
+    <li>또는 <b>+ 개인 일정</b> 버튼</li>
+    <li>색상은 <b>본인 프로필 색</b>으로 자동 설정 (학교 색과 구분)</li>
+  </ol>
+</div>
+
+<div class="tip">
+  <b>💡 시간 클릭 입력:</b> 오늘 24시간 타임라인 어디를 클릭해도 그 시간으로 일정 입력 폼이 열립니다. 15분 단위 스냅.
+</div>
+
+<h2>9. 외부 도구</h2>
+
+<h3>TPass — 외출/조퇴 시스템</h3>
+<ul>
+  <li>🎫 TPass 아이콘 클릭</li>
+  <li>비밀번호 자동 입력 → 곧바로 입력 화면 표시 (사용자 입력 단계 생략)</li>
+</ul>
+
+<h3>도서관 도서검색 (read365)</h3>
+<ul>
+  <li>📖 도서관 아이콘 클릭 → 앱 내부에 도서검색 페이지 표시</li>
+  <li>상단에서 <b>태성중 / 태성고</b> 토글</li>
+  <li>새로고침 + 외부 브라우저 열기 옵션 제공</li>
+</ul>
+
+<h3>학사일정 / 급식</h3>
+<ul>
+  <li>학교 홈페이지에서 자동 스크래핑</li>
+  <li>학사일정은 매일 오전 7시 자동 동기화 (Firestore에 저장)</li>
+  <li>급식은 주간 단위 즉시 조회</li>
+</ul>
+
+<h3>키폰 번호부</h3>
+<ul>
+  <li>양교 직통 번호 검색 (부서/이름/직책/번호)</li>
+  <li>2-컬럼 컴팩트 레이아웃</li>
+  <li>키폰/전화 클릭 시 <b>자동 복사</b></li>
+  <li>관리자(부장 이상)만 추가/수정/삭제 가능</li>
+</ul>
+
+<div class="pb"></div>
+<h2>10. 업데이트와 종료</h2>
+
+<h3>자동 업데이트 흐름</h3>
+<div class="step">
+  <ol>
+    <li>새 버전 출시 → 앱이 자동으로 다운로드 (백그라운드)</li>
+    <li>완료되면 상단에 <b>✨ 업데이트 다운로드 완료</b> 배너 표시</li>
+    <li><b>지금 재시작 + 설치</b> 클릭 → 확인 다이얼로그 → 진행
+      <ol>
+        <li>앱 자동 종료</li>
+        <li>새 버전 설치 (몇 초, 화면 깜빡임 없음)</li>
+        <li>앱 자동 재실행</li>
+      </ol>
+    </li>
+    <li>새 버전 실행 시 <b>✨ vX → vY 업데이트 완료</b> 토스트 표시</li>
+  </ol>
+</div>
+
+<div class="tip">
+  <b>💡 수동 확인:</b> 설정 → 정보 → <b>업데이트 확인</b> 버튼으로 즉시 확인 가능. 새 버전 없으면 "✅ 최신 버전을 사용 중입니다" 녹색 배너 표시.
+</div>
+
+<h3>종료 / 시작</h3>
+<ul>
+  <li>창 X 클릭 → 트레이로 최소화 (앱 종료 X)</li>
+  <li>트레이 우클릭 → 종료</li>
+  <li>설정 → <b>시작 시 자동 실행</b> 토글로 부팅 시 자동 시작</li>
+</ul>
+
+<h2>11. 문의</h2>
+<div class="info">
+  <b>버그 신고, 기능 제안, 사용 문의:</b><br>
+  <b>이봉기 선생님 (학생성장플랫폼부)</b>에게 직접 문의해 주세요.<br>
+  <span class="small">교내 키폰 8270 · 070-7540-8270</span>
+</div>
+
+<div class="footer">
+  T1T v2.5.26 · 2026.6 · 태성중·고 학교 일정 공유 시스템<br>
+  본 안내서는 v2.5.26 기준이며, 자동 업데이트로 일부 화면이 다를 수 있습니다.
+</div>
 
 </body>
 </html>
