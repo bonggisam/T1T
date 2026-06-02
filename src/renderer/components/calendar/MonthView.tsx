@@ -17,7 +17,9 @@ import { SchoolBadge } from '../common/SchoolBadge';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 const DRAG_THRESHOLD = 5;
-const MAX_VISIBLE = 20;
+// 셀이 콘텐츠에 맞게 자동 확장되므로 사실상 무제한 표시.
+// 100은 극단적 폭주(예: 잘못된 데이터로 수백 개) 방어용 상한선.
+const MAX_VISIBLE = 100;
 
 interface DragInfo {
   eventId: string;
@@ -247,18 +249,21 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
         ))}
       </div>
 
-      {/* 캘린더 그리드 */}
+      {/* 캘린더 그리드 — 콘텐츠가 많은 주는 자동으로 행 높이 확장 */}
       <div
         ref={gridRef}
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(7, 1fr)',
-          gridTemplateRows: `repeat(${numWeeks}, minmax(50px, 1fr))`,
+          // minmax(60px, auto): 최소 60px, 콘텐츠가 많으면 셀이 자동 확장됨
+          gridTemplateRows: `repeat(${numWeeks}, minmax(60px, auto))`,
           flex: 1,
           border: '1px solid var(--grid-line)',
           borderRadius: 6,
           overflowY: 'auto',
           overflowX: 'hidden',
+          // 콘텐츠 자동 확장 시 그리드 자체가 늘어나도록
+          alignContent: 'start',
         }}
       >
         {days.map((day, dayIdx) => {
@@ -291,9 +296,9 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                 opacity: inMonth ? 1 : 0.35,
                 outline: selected ? '2px solid var(--accent)' : isDropTarget ? '2px dashed var(--accent)' : 'none',
                 outlineOffset: -2,
-                // 일정 제목이 길어도 그리드 셀이 늘어나지 않도록 강제
+                // 콘텐츠가 많으면 셀(그리고 행 전체)이 자동 확장되도록 overflow 허용
                 minWidth: 0,
-                overflow: 'hidden',
+                overflow: 'visible',
                 ...(isDropTarget ? { background: 'rgba(74,144,226,0.2)' } : {}),
               }}
             >
