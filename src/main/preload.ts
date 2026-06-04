@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toggleAlwaysOnTop: (value: boolean) => ipcRenderer.invoke('window:toggle-always-on-top', value),
   setOpacity: (opacity: number) => ipcRenderer.invoke('window:set-opacity', opacity),
   toggleClickThrough: (enabled: boolean) => ipcRenderer.invoke('window:toggle-click-through', enabled),
+  getClickThrough: (): Promise<boolean> => ipcRenderer.invoke('window:get-click-through'),
   minimize: () => ipcRenderer.invoke('window:minimize'),
   close: () => ipcRenderer.invoke('window:close'),
   setSize: (width: number, height: number) => ipcRenderer.invoke('window:set-size', width, height),

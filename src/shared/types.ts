@@ -193,6 +193,7 @@ export interface ElectronAPI {
   toggleAlwaysOnTop: (value: boolean) => Promise<void>;
   setOpacity: (opacity: number) => Promise<void>;
   toggleClickThrough: (enabled: boolean) => Promise<void>;
+  getClickThrough: () => Promise<boolean>;
   minimize: () => Promise<void>;
   close: () => Promise<void>;
   setSize: (width: number, height: number) => Promise<void>;

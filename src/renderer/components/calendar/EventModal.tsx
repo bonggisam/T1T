@@ -5,6 +5,7 @@ import { useUIStore } from '../../store/uiStore';
 import type { EventCategory, ChecklistItem, School } from '@shared/types';
 import { showToast } from '../common/Toast';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { useDisableClickThrough } from '../../hooks/useDisableClickThrough';
 import { parseNaturalDate, stripDateText } from '../../utils/naturalDateParse';
 
 const CATEGORIES: { key: EventCategory; label: string }[] = [
@@ -53,6 +54,7 @@ export function EventModal() {
 
   // ESC 키로 닫기 (캡처 우선)
   useEscapeKey(() => setShowEventModal(false));
+  useDisableClickThrough();
 
   // user 로드 또는 viewingSchool 변경 시 scope 기본값 재계산 (사용자가 직접 바꾼 값이 아닌 경우)
   useEffect(() => {

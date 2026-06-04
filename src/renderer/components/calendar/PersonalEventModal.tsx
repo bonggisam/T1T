@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useCalendarStore } from '../../store/calendarStore';
 import { showToast } from '../common/Toast';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { useDisableClickThrough } from '../../hooks/useDisableClickThrough';
 
 // 개인 일정용 색상 — 학교 색(태성중 emerald, 태성고 violet)과 겹치지 않는 톤만 포함
 const COLOR_OPTIONS = [
@@ -43,6 +44,8 @@ export function PersonalEventModal({ onClose }: PersonalEventModalProps) {
 
   // ESC 키로 닫기
   useEscapeKey(onClose);
+  // 위젯 모드에서 입력 막힘 방지 — 모달 열린 동안 clickThrough 강제 해제
+  useDisableClickThrough();
 
   function formatDateTimeLocal(d: Date): string {
     const pad = (n: number) => n.toString().padStart(2, '0');

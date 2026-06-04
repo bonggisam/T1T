@@ -5,6 +5,7 @@ import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useAuthStore } from '../../store/authStore';
 import { showToast } from '../common/Toast';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { useDisableClickThrough } from '../../hooks/useDisableClickThrough';
 import { PERSONAL_SUFFIX, CONFLICTING_PERSONAL_COLORS } from '../../utils/calendarHelpers';
 import type { PersonalEvent, ChecklistItem } from '@shared/types';
 
@@ -91,6 +92,7 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
   })();
 
   useEscapeKey(onClose);
+  useDisableClickThrough();
 
   function formatDTL(d: Date): string {
     const pad = (n: number) => n.toString().padStart(2, '0');

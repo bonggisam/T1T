@@ -279,6 +279,10 @@ function setupIPC(): void {
     setClickThrough(enabled);
   });
 
+  ipcMain.handle('window:get-click-through', () => {
+    return isClickThrough;
+  });
+
   ipcMain.handle('window:minimize', () => {
     mainWindow?.minimize();
   });
