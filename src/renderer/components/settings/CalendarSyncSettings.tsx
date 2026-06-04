@@ -88,6 +88,27 @@ export function CalendarSyncSettings({ syncInterval, onSyncIntervalChange }: Cal
           ))}
         </select>
       </div>
+
+      {googleConnected && (
+        <div style={styles.syncRow}>
+          <span style={styles.label}>⚡ 즉시 동기화</span>
+          <button
+            onClick={async () => {
+              const { showToast } = await import('../common/Toast');
+              showToast('Google Calendar 동기화 중…', 'info');
+              try {
+                await syncExternalCalendars();
+                showToast('✅ Google Calendar 동기화 완료', 'success');
+              } catch (e: any) {
+                showToast(`❌ 동기화 실패: ${e?.message || '오류'}`, 'error');
+              }
+            }}
+            style={styles.connectBtn}
+          >
+            지금 동기화
+          </button>
+        </div>
+      )}
     </div>
   );
 }

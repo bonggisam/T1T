@@ -62,7 +62,7 @@ export function PersonalEventModal({ onClose }: PersonalEventModalProps) {
 
     setSaving(true);
     try {
-      await addPersonalEvent(user.id, {
+      const result = await addPersonalEvent(user.id, {
         title: trimTitle,
         description: trimDesc,
         startDate: start,
@@ -73,10 +73,18 @@ export function PersonalEventModal({ onClose }: PersonalEventModalProps) {
         checklist: [],
         color,
       });
-      showToast('개인 일정이 추가되었습니다');
+      // Google Calendar 동기화 상태에 따라 명확한 피드백
+      if (result.googleSync === 'success') {
+        showToast('✅ 개인 일정 저장 + Google Calendar 동기화 완료', 'success');
+      } else if (result.googleSync === 'failed') {
+        showToast(`⚠️ 저장됨 — Google 동기화 실패: ${result.error || '재인증 필요'}`, 'error');
+      } else {
+        showToast('개인 일정이 추가되었습니다');
+      }
       onClose();
     } catch (err) {
       console.error('Failed to add personal event:', err);
+      showToast('개인 일정 저장 실패', 'error');
     }
     setSaving(false);
   }

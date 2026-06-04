@@ -33,7 +33,7 @@ const defaultSettings: UserSettings = {
   clickThrough: false,
   defaultView: 'month',
   theme: 'light',
-  syncInterval: 5,
+  syncInterval: 1, // 1분 — Google Calendar 즉시 동기화 체감
   connectedCalendars: [],
   reminderDefault: '30min',
 };

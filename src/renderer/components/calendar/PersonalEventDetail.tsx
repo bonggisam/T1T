@@ -110,7 +110,7 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
 
     setSaving(true);
     try {
-      await updatePersonalEvent(user.id, event.id, {
+      const r = await updatePersonalEvent(user.id, event.id, {
         title: trimTitle,
         description: description.trim().slice(0, 1000),
         startDate: start,
@@ -118,7 +118,9 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
         color,
         checklist,
       });
-      showToast('수정되었습니다');
+      if (r.googleSync === 'success') showToast('✅ 수정 + Google 동기화 완료', 'success');
+      else if (r.googleSync === 'failed') showToast(`⚠️ 수정됨 — Google 동기화 실패: ${r.error || ''}`, 'error');
+      else showToast('수정되었습니다');
       setEditing(false);
     } catch (err) {
       console.error('[PersonalEventDetail] update failed:', err);
@@ -132,8 +134,10 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
     if (!window.confirm(`개인 일정 "${event.title}"을(를) 삭제하시겠습니까?`)) return;
     setDeleting(true);
     try {
-      await deletePersonalEvent(user.id, event.id);
-      showToast('삭제되었습니다');
+      const r = await deletePersonalEvent(user.id, event.id);
+      if (r.googleSync === 'success') showToast('✅ 삭제 + Google에서도 제거됨', 'success');
+      else if (r.googleSync === 'failed') showToast(`⚠️ 삭제됨 — Google에선 남음: ${r.error || ''}`, 'error');
+      else showToast('삭제되었습니다');
       onClose();
     } catch (err) {
       console.error('[PersonalEventDetail] delete failed:', err);

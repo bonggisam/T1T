@@ -35,9 +35,9 @@ interface PersonalEventState {
   syncExternalCalendars: () => Promise<void>;
   startAutoSync: (intervalMinutes: number) => void;
   stopAutoSync: () => void;
-  addPersonalEvent: (userId: string, event: Omit<PersonalEvent, 'id'>) => Promise<string>;
-  updatePersonalEvent: (userId: string, eventId: string, updates: Partial<PersonalEvent>) => Promise<void>;
-  deletePersonalEvent: (userId: string, eventId: string) => Promise<void>;
+  addPersonalEvent: (userId: string, event: Omit<PersonalEvent, 'id'>) => Promise<{ id: string; googleSync: 'none' | 'success' | 'failed'; error?: string }>;
+  updatePersonalEvent: (userId: string, eventId: string, updates: Partial<PersonalEvent>) => Promise<{ googleSync: 'none' | 'success' | 'failed'; error?: string }>;
+  deletePersonalEvent: (userId: string, eventId: string) => Promise<{ googleSync: 'none' | 'success' | 'failed'; error?: string }>;
   cleanup: () => void;
   allPersonalEvents: () => PersonalEvent[];
 }
@@ -132,16 +132,26 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
   },
 
   addPersonalEvent: async (userId, event) => {
-    // 로컬 일정인 경우 + 구글 연결된 경우 → 구글 캘린더에도 생성
+    // 로컬 일정인 경우 + 구글 연결된 경우 → 구글 캘린더에도 생성 (await으로 즉시 동기화)
     let externalId = event.externalId;
+    let googleSync: 'none' | 'success' | 'failed' = 'none';
+    let syncError: string | undefined;
     if (event.source === 'local' && isGoogleConnected()) {
-      externalId = await createGoogleEvent({
-        title: event.title,
-        description: event.description,
-        startDate: event.startDate,
-        endDate: event.endDate,
-        allDay: event.allDay,
-      });
+      try {
+        externalId = await createGoogleEvent({
+          title: event.title,
+          description: event.description,
+          startDate: event.startDate,
+          endDate: event.endDate,
+          allDay: event.allDay,
+        });
+        googleSync = externalId ? 'success' : 'failed';
+        if (!externalId) syncError = 'Google API 응답에 ID 없음 (토큰 만료 또는 권한 거부)';
+      } catch (err: any) {
+        googleSync = 'failed';
+        syncError = err?.message || 'Google API 호출 실패';
+        console.error('[PersonalEventStore] Google create failed:', err);
+      }
     }
     const docRef = await addDoc(collection(db, 'personal_events', userId, 'events'), {
       ...event,
@@ -149,7 +159,7 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
       startDate: Timestamp.fromDate(event.startDate),
       endDate: Timestamp.fromDate(event.endDate),
     });
-    return docRef.id;
+    return { id: docRef.id, googleSync, error: syncError };
   },
 
   updatePersonalEvent: async (userId, eventId, updates) => {
@@ -164,28 +174,48 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
       if (isNaN(d.getTime())) throw new Error('Invalid endDate');
       updateData.endDate = Timestamp.fromDate(d);
     }
-    // 구글 연결 + externalId 있으면 구글에도 반영
+    // 구글 연결 + externalId 있으면 구글에도 await으로 즉시 반영
     const pe = get().personalEvents.find((p) => p.id === eventId);
+    let googleSync: 'none' | 'success' | 'failed' = 'none';
+    let syncError: string | undefined;
     if (pe?.externalId && isGoogleConnected()) {
-      updateGoogleEvent(pe.externalId, {
-        title: updates.title ?? pe.title,
-        description: updates.description ?? pe.description,
-        startDate: (updates.startDate instanceof Date ? updates.startDate : pe.startDate),
-        endDate: (updates.endDate instanceof Date ? updates.endDate : pe.endDate),
-        allDay: updates.allDay ?? pe.allDay,
-      }).catch((err) => console.warn('[PersonalEventStore] Google sync (update) failed:', err));
+      try {
+        const ok = await updateGoogleEvent(pe.externalId, {
+          title: updates.title ?? pe.title,
+          description: updates.description ?? pe.description,
+          startDate: (updates.startDate instanceof Date ? updates.startDate : pe.startDate),
+          endDate: (updates.endDate instanceof Date ? updates.endDate : pe.endDate),
+          allDay: updates.allDay ?? pe.allDay,
+        });
+        googleSync = ok ? 'success' : 'failed';
+        if (!ok) syncError = 'Google API 호출 실패 (토큰/권한)';
+      } catch (err: any) {
+        googleSync = 'failed';
+        syncError = err?.message || 'Google API 예외';
+        console.error('[PersonalEventStore] Google update failed:', err);
+      }
     }
     await updateDoc(doc(db, 'personal_events', userId, 'events', eventId), updateData);
+    return { googleSync, error: syncError };
   },
 
   deletePersonalEvent: async (userId, eventId) => {
     const pe = get().personalEvents.find((p) => p.id === eventId);
+    let googleSync: 'none' | 'success' | 'failed' = 'none';
+    let syncError: string | undefined;
     if (pe?.externalId && isGoogleConnected()) {
-      deleteGoogleEvent(pe.externalId).catch((err) =>
-        console.warn('[PersonalEventStore] Google sync (delete) failed:', err)
-      );
+      try {
+        const ok = await deleteGoogleEvent(pe.externalId);
+        googleSync = ok ? 'success' : 'failed';
+        if (!ok) syncError = 'Google API 삭제 실패';
+      } catch (err: any) {
+        googleSync = 'failed';
+        syncError = err?.message || 'Google API 예외';
+        console.error('[PersonalEventStore] Google delete failed:', err);
+      }
     }
     await deleteDoc(doc(db, 'personal_events', userId, 'events', eventId));
+    return { googleSync, error: syncError };
   },
 
   cleanup: () => {
