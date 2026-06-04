@@ -227,6 +227,17 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
 
   allPersonalEvents: () => {
     const { personalEvents, externalEvents } = get();
-    return [...personalEvents, ...externalEvents];
+    // 중복 제거 — 앱에서 push한 일정이 Google pull로 다시 들어와도 1번만 표시.
+    // personalEvent.externalId(= Google event ID)와 externalEvent.externalId가 일치하면 외부 쪽 제외.
+    // (Firestore 본인 일정이 우선 — 색상/체크리스트 등 로컬 메타 보존)
+    const localGoogleIds = new Set(
+      personalEvents
+        .map((p) => p.externalId)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0)
+    );
+    const dedupedExternal = externalEvents.filter(
+      (e) => !e.externalId || !localGoogleIds.has(e.externalId)
+    );
+    return [...personalEvents, ...dedupedExternal];
   },
 }));
