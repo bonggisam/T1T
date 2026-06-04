@@ -13,6 +13,7 @@ interface UpdateInfo {
 export function UpdateBanner() {
   const [status, setStatus] = useState<UpdateStatus>('idle');
   const [info, setInfo] = useState<UpdateInfo>({});
+  const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
     const cleanup = window.electronAPI?.onUpdaterEvent((channel, data) => {
@@ -83,20 +84,28 @@ export function UpdateBanner() {
       )}
       {status === 'downloaded' && (
         <>
-          <span style={styles.text}>
-            ✨ 업데이트 다운로드 완료 — 지금 재시작하면 자동 설치됩니다
-          </span>
-          <button
-            onClick={() => {
-              if (confirm('지금 T1T를 재시작하고 업데이트를 적용할까요?\n\n진행 순서:\n1. 앱이 자동 종료됩니다\n2. 새 버전이 설치됩니다 (몇 초)\n3. 앱이 자동으로 다시 열립니다')) {
-                window.electronAPI?.updaterInstall();
-              }
-            }}
-            style={styles.btn}
-          >
-            지금 재시작 + 설치
-          </button>
-          <button onClick={() => setStatus('idle')} style={styles.dismissBtn}>나중에 (앱 종료 시 자동 적용)</button>
+          {installing ? (
+            <span style={styles.text}>🔄 재시작 중… 잠시만 기다려주세요</span>
+          ) : (
+            <>
+              <span style={styles.text}>
+                ✨ 업데이트 다운로드 완료 — 지금 재시작하면 자동 설치됩니다
+              </span>
+              <button
+                disabled={installing}
+                onClick={() => {
+                  if (confirm('지금 T1T를 재시작하고 업데이트를 적용할까요?\n\n진행:\n1. 앱이 자동 종료\n2. 새 버전 자동 설치 (몇 초, UI 없음)\n3. 새 버전 자동 실행')) {
+                    setInstalling(true);
+                    window.electronAPI?.updaterInstall();
+                  }
+                }}
+                style={styles.btn}
+              >
+                지금 재시작 + 설치
+              </button>
+              <button onClick={() => setStatus('idle')} style={styles.dismissBtn}>나중에 (앱 종료 시 자동 적용)</button>
+            </>
+          )}
         </>
       )}
       {status === 'error' && (

@@ -26,15 +26,15 @@
 !macroend
 
 ; 설치 시작 전 — 안전한 다단계 종료
+; oneClick: true 모드 — 사용자 UI 없이 silent 진행
 !macro customInit
-  DetailPrint "기존 T1T 인스턴스 확인 중..."
   ; 1차: 정상 종료 시도 (저장 작업 완료할 시간 제공)
   nsExec::Exec 'taskkill /IM "T1T.exe" /T'
-  Sleep 1000
+  Sleep 1500
   ; 2차: 강제 종료
   nsExec::Exec 'taskkill /F /IM "T1T.exe" /T'
   ; 파일 잠금 해제 대기 — 자동 업데이트로 잠긴 파일이 해제될 시간
-  Sleep 2500
+  Sleep 3000
   ; 자동 업데이트 잔재 잠금 파일 삭제
   Delete "$LOCALAPPDATA\T1T\pending-update.lock"
   ; electron-updater가 남기는 pending update 파일 정리
