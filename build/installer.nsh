@@ -27,16 +27,18 @@
 
 ; 설치 시작 전 — 안전한 다단계 종료
 ; oneClick: true 모드 — 사용자 UI 없이 silent 진행
+; ⚠️ 주의: $LOCALAPPDATA\t1t-updater 경로는 electron-updater 자체 캐시이며,
+;        업데이트 시 우리가 실행 중인 인스톨러가 그 경로에서 spawn됨.
+;        여기서 RMDir 하면 인스톨러 자기 자신을 삭제하려 시도 → --force-run 실패 위험.
+;        electron-updater가 자체적으로 cleanup 하므로 우리는 건드리지 않음.
 !macro customInit
   ; 1차: 정상 종료 시도 (저장 작업 완료할 시간 제공)
   nsExec::Exec 'taskkill /IM "T1T.exe" /T'
-  Sleep 1500
+  Sleep 800
   ; 2차: 강제 종료
   nsExec::Exec 'taskkill /F /IM "T1T.exe" /T'
-  ; 파일 잠금 해제 대기 — 자동 업데이트로 잠긴 파일이 해제될 시간
-  Sleep 3000
-  ; 자동 업데이트 잔재 잠금 파일 삭제
+  ; 파일 잠금 해제 대기
+  Sleep 1500
+  ; 자동 업데이트 잔재 잠금 파일만 (인스톨러 캐시는 건드리지 않음)
   Delete "$LOCALAPPDATA\T1T\pending-update.lock"
-  ; electron-updater가 남기는 pending update 파일 정리
-  RMDir /r "$LOCALAPPDATA\t1t-updater"
 !macroend
