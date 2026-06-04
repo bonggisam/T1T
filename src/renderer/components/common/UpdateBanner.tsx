@@ -41,10 +41,15 @@ export function UpdateBanner() {
         case 'updater:downloaded':
           setStatus('downloaded');
           break;
+        case 'updater:installing':
+          // 사용자가 '지금 재시작' 클릭 후 main에서 발송
+          setInstalling(true);
+          break;
         case 'updater:error':
           setStatus('error');
+          setInstalling(false); // 실패 시 installing 해제 → 사용자가 다시 시도 가능
           setInfo({ error: typeof data === 'string' ? data : 'Unknown error' });
-          setTimeout(() => setStatus('idle'), 8000);
+          setTimeout(() => setStatus('idle'), 12000);
           break;
       }
     });

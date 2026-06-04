@@ -489,9 +489,28 @@ function setupIPC(): void {
   });
 
   ipcMain.handle('updater:install', () => {
-    // isSilent=true: 가능한 경우 NSIS 인스톨러를 silent 모드로 실행 → 매끄러운 업데이트
-    // isForceRunAfter=true: 설치 후 앱 자동 실행
-    autoUpdater.quitAndInstall(true, true);
+    // 안정성 강화 흐름:
+    //   1) UI에 "설치 중" 알림 → 사용자 인지
+    //   2) 500ms 대기 (배너가 렌더 완료할 시간)
+    //   3) isSilent=false: oneClick 인스톨러는 어차피 silent이지만,
+    //      false로 명시하면 electron-updater가 /S 플래그 추가하지 않음.
+    //      runAfterFinish:true가 NSIS 표준 템플릿에서 앱 자동 실행 처리.
+    //      isForceRunAfter=true와 중복 트리거 방지 효과.
+    //   4) 실패 시 사용자에게 에러 + 수동 설치 경로 안내
+    try {
+      sendToRenderer('updater:installing');
+      setTimeout(() => {
+        try {
+          autoUpdater.quitAndInstall(false, true);
+        } catch (err: any) {
+          console.error('[Updater] quitAndInstall failed:', err);
+          sendToRenderer('updater:error', `설치 시작 실패: ${err?.message || '알 수 없음'} — 앱 종료 후 다시 실행하면 자동 적용됩니다.`);
+        }
+      }, 500);
+    } catch (err: any) {
+      console.error('[Updater] install handler failed:', err);
+      sendToRenderer('updater:error', `업데이트 시작 실패: ${err?.message || '알 수 없음'}`);
+    }
   });
 
   // 메뉴에서 수동 호출 — 사용자에게 명확한 피드백
