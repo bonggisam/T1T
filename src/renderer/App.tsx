@@ -120,22 +120,25 @@ export function App() {
         showToast('Google Calendar 인증이 만료되었습니다. 설정에서 다시 연동해주세요.', 'error');
       });
     };
-    // 창 focus 복귀 시 Google Calendar 즉시 동기화 (양방향 즉시성 강화)
-    const onFocus = () => {
+    // 창 focus / visibility 복귀 시 Google Calendar 즉시 동기화 (양방향 즉시성 강화)
+    const triggerSync = () => {
       const u = useAuthStore.getState().user;
       if (u?.status === 'active') {
         usePersonalEventStore.getState().syncExternalCalendars().catch(() => {});
       }
     };
+    const onVisibility = () => { if (!document.hidden) triggerSync(); };
     window.addEventListener('offline', goOffline);
     window.addEventListener('online', goOnline);
     window.addEventListener('google:auth-expired', googleAuthExpired);
-    window.addEventListener('focus', onFocus);
+    window.addEventListener('focus', triggerSync);
+    document.addEventListener('visibilitychange', onVisibility);
     return () => {
       window.removeEventListener('offline', goOffline);
       window.removeEventListener('online', goOnline);
       window.removeEventListener('google:auth-expired', googleAuthExpired);
-      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('focus', triggerSync);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, []);
 
@@ -148,7 +151,7 @@ export function App() {
       subscribeToPersonalEvents(user.id);
       subscribeToTodos(user.id);
       subscribeToUsers();
-      startAutoSync(user.settings?.syncInterval ?? 1);
+      startAutoSync(user.settings?.syncInterval ?? 0.25);
       loadComcigan();
       // 학교 홈페이지 학사일정 자동 동기화 (매일 오전 7시)
       const stopSchoolSync = startSchoolScheduleAutoSync(user.id, user.name || '학사일정 자동동기화');

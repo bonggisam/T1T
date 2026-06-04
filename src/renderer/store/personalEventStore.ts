@@ -114,12 +114,16 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
     const { syncTimer } = get();
     if (syncTimer) clearInterval(syncTimer);
 
-    // Initial sync
+    // 초기 동기화 (즉시)
     get().syncExternalCalendars().catch((err) => console.warn('[PersonalEventStore] Initial sync failed:', err));
 
-    const timer = setInterval(() => {
+    // visibility 기반 폴링: 창이 숨겨지면 일시정지, 보이면 즉시 sync + 재개
+    // → 사용자가 앱을 보고 있을 때만 빈번하게 폴링, 백그라운드에서는 멈춤 (배터리/할당량 절약)
+    const tick = () => {
+      if (typeof document !== 'undefined' && document.hidden) return; // 숨겨져 있으면 skip
       get().syncExternalCalendars().catch((err) => console.warn('[PersonalEventStore] Auto sync failed:', err));
-    }, intervalMinutes * 60 * 1000);
+    };
+    const timer = setInterval(tick, Math.max(intervalMinutes * 60 * 1000, 5000)); // 최소 5초 가드
     set({ syncTimer: timer });
   },
 

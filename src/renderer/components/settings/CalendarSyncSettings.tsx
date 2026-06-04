@@ -12,6 +12,9 @@ interface CalendarSyncSettingsProps {
 }
 
 const SYNC_INTERVALS = [
+  { value: 0.17, label: '10초 (실시간 체감)' },
+  { value: 0.25, label: '15초 (권장)' },
+  { value: 0.5, label: '30초' },
   { value: 1, label: '1분' },
   { value: 5, label: '5분' },
   { value: 15, label: '15분' },
