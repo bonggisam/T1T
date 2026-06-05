@@ -45,6 +45,15 @@ function loadMap(userId: string): PushedMap {
   }
 }
 
+/**
+ * 우리가 push한 Google event id 집합 — 개인 뷰에서 중복 표시 방지용.
+ * personalEventStore.syncExternalCalendars가 호출해 Google pull 결과에서 필터링.
+ */
+export function loadSharedPushedGoogleIds(userId: string): Set<string> {
+  const map = loadMap(userId);
+  return new Set(Object.values(map).map((e) => e.googleId));
+}
+
 function saveMap(userId: string, map: PushedMap): void {
   try {
     localStorage.setItem(mapKey(userId), JSON.stringify(map));

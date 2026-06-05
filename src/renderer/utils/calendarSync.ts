@@ -123,7 +123,7 @@ export async function fetchGoogleCalendarEvents(
     const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
       `timeMin=${timeMin.toISOString()}&` +
       `timeMax=${timeMax.toISOString()}&` +
-      `singleEvents=true&orderBy=startTime&maxResults=100`;
+      `singleEvents=true&orderBy=startTime&maxResults=500`;
 
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${googleTokens!.access_token}` },

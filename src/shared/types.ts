@@ -212,6 +212,7 @@ export interface ElectronAPI {
   updaterDownload: () => Promise<void>;
   updaterInstall: () => Promise<void>;
   updaterCheck: () => Promise<{ ok: true; version?: string } | { ok: false; error: string }>;
+  updaterOpenDownloadPage: () => Promise<{ ok: boolean; reason?: string }>;
   getAppVersion: () => Promise<string>;
   getAutoLaunch: () => Promise<boolean>;
   setAutoLaunch: (enabled: boolean) => Promise<boolean>;

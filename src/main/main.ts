@@ -389,6 +389,17 @@ function setupIPC(): void {
   });
 
   // ============================================================
+  // 업데이트 수동 다운로드 페이지 열기 (자동 업데이트 실패 시 fallback)
+  ipcMain.handle('updater:open-download-page', async () => {
+    try {
+      // 최신 릴리스 직접 링크 — 항상 최신 .exe로 리다이렉트
+      await shell.openExternal('https://github.com/bonggisam/T1T/releases/latest');
+      return { ok: true };
+    } catch (e: any) {
+      return { ok: false, reason: e?.message || 'unknown' };
+    }
+  });
+
   // 외부 링크 열기 (도서관 시스템 등) — URL 화이트리스트로 안전 보장
   ipcMain.handle('shell:open-external', async (_event, url: string) => {
     if (typeof url !== 'string') return { ok: false, reason: 'invalid' };

@@ -21,6 +21,8 @@ import {
   deleteGoogleEvent,
 } from '../utils/calendarSync';
 import { cachePersonalEvents, getCachedPersonalEvents } from '../utils/offlineCache';
+import { loadSharedPushedGoogleIds } from '../utils/sharedEventsGoogleSync';
+import { useAuthStore } from './authStore';
 import type { PersonalEvent } from '@shared/types';
 import { startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 
@@ -101,7 +103,11 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
 
       if (isGoogleConnected()) {
         const googleEvents = await fetchGoogleCalendarEvents(timeMin, timeMax);
-        allExternal = [...allExternal, ...googleEvents];
+        // 우리가 push한 [공유]/[학사] 이벤트는 personal 뷰에서 제외 (이미 shared 뷰에 표시됨)
+        // → Google에서 외부로 추가한 새 이벤트가 push 이벤트에 묻혀 안 보이는 문제 해결
+        const userId = useAuthStore.getState().user?.id;
+        const pushedIds = userId ? loadSharedPushedGoogleIds(userId) : new Set<string>();
+        allExternal = googleEvents.filter((e) => !e.externalId || !pushedIds.has(e.externalId));
       }
 
       set({ externalEvents: allExternal });

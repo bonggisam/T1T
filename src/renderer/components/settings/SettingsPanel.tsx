@@ -282,21 +282,21 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
                 try {
                   const result = await window.electronAPI?.updaterCheck();
                   if (!result) {
-                    showToast('업데이트 응답 없음', 'error');
+                    showToast('업데이트 응답 없음 — 수동 다운로드를 시도하세요', 'error');
                     return;
                   }
                   if (!result.ok) {
-                    showToast(`⚠️ ${result.error}`, 'error');
+                    showToast(`⚠️ ${result.error} — 수동 다운로드 권장`, 'error');
+                    // 5초 후 자동으로 수동 다운로드 페이지 열기
+                    setTimeout(() => window.electronAPI?.updaterOpenDownloadPage(), 3000);
                     return;
                   }
-                  // ok=true: UpdateBanner가 'updater:available' / 'updater:not-available' 이벤트로 명확히 표시.
-                  // 여기서는 짧은 토스트만 — 중복 안내 방지.
                   if (result.version) {
                     showToast(`📥 새 버전 v${result.version} — 상단 배너에서 진행 상황 확인`, 'success');
                   }
-                  // 최신 버전인 경우 → UpdateBanner의 up-to-date 상태가 5초간 표시됨 (토스트 중복 안 함)
                 } catch (e: any) {
-                  showToast(`업데이트 확인 실패: ${e?.message || '알 수 없는 오류'}`, 'error');
+                  showToast(`업데이트 확인 실패: ${e?.message || '알 수 없는 오류'} — 수동 다운로드 페이지를 엽니다`, 'error');
+                  setTimeout(() => window.electronAPI?.updaterOpenDownloadPage(), 3000);
                 }
               }}
               style={{
@@ -310,6 +310,25 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
               }}
             >
               확인
+            </button>
+          </div>
+          <div style={styles.settingRow}>
+            <span style={styles.label}>수동 다운로드 (자동 안 될 때)</span>
+            <button
+              onClick={() => window.electronAPI?.updaterOpenDownloadPage()}
+              style={{
+                padding: '3px 10px',
+                fontSize: 11,
+                border: '1px solid var(--border-color)',
+                borderRadius: 6,
+                background: 'transparent',
+                color: 'var(--accent)',
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
+              title="GitHub 릴리스 페이지를 열어 최신 .exe 파일을 직접 다운로드"
+            >
+              📥 페이지 열기
             </button>
           </div>
         </Section>

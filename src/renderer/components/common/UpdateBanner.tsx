@@ -90,16 +90,24 @@ export function UpdateBanner() {
       {status === 'downloaded' && (
         <>
           {installing ? (
-            <span style={styles.text}>🔄 재시작 중… 잠시만 기다려주세요</span>
+            <>
+              <span style={styles.text}>🔄 재시작 중… 잠시만 기다려주세요 (10초 안에 새 버전이 안 뜨면 수동 다운로드 권장)</span>
+              <button
+                onClick={() => window.electronAPI?.updaterOpenDownloadPage()}
+                style={styles.btn}
+              >
+                수동 다운로드
+              </button>
+            </>
           ) : (
             <>
               <span style={styles.text}>
-                ✨ 업데이트 다운로드 완료 — 지금 재시작하면 자동 설치됩니다
+                ✨ 업데이트 다운로드 완료
               </span>
               <button
                 disabled={installing}
                 onClick={() => {
-                  if (confirm('지금 T1T를 재시작하고 업데이트를 적용할까요?\n\n진행:\n1. 앱이 자동 종료\n2. 새 버전 자동 설치 (몇 초, UI 없음)\n3. 새 버전 자동 실행')) {
+                  if (confirm('지금 T1T를 재시작하고 업데이트를 적용할까요?\n\n진행:\n1. 앱이 자동 종료\n2. 새 버전 자동 설치 (몇 초)\n3. 새 버전 자동 실행\n\n만약 자동 설치가 안 되면 "수동 다운로드" 버튼으로 직접 받으세요.')) {
                     setInstalling(true);
                     window.electronAPI?.updaterInstall();
                   }
@@ -108,14 +116,26 @@ export function UpdateBanner() {
               >
                 지금 재시작 + 설치
               </button>
-              <button onClick={() => setStatus('idle')} style={styles.dismissBtn}>나중에 (앱 종료 시 자동 적용)</button>
+              <button
+                onClick={() => window.electronAPI?.updaterOpenDownloadPage()}
+                style={styles.btn}
+              >
+                수동 다운로드
+              </button>
+              <button onClick={() => setStatus('idle')} style={styles.dismissBtn}>나중에</button>
             </>
           )}
         </>
       )}
       {status === 'error' && (
         <>
-          <span style={styles.text}>⚠️ 업데이트 오류: {info.error}</span>
+          <span style={styles.text}>⚠️ 자동 업데이트 오류: {info.error}</span>
+          <button
+            onClick={() => window.electronAPI?.updaterOpenDownloadPage()}
+            style={styles.btn}
+          >
+            수동 다운로드
+          </button>
           <button onClick={() => setStatus('idle')} style={styles.dismissBtn}>✕</button>
         </>
       )}

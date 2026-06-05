@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updaterDownload: () => ipcRenderer.invoke('updater:download'),
   updaterInstall: () => ipcRenderer.invoke('updater:install'),
   updaterCheck: () => ipcRenderer.invoke('updater:check'),
+  updaterOpenDownloadPage: () => ipcRenderer.invoke('updater:open-download-page'),
   getAppVersion: () => ipcRenderer.invoke('app:get-version'),
   getAutoLaunch: (): Promise<boolean> => ipcRenderer.invoke('app:get-auto-launch'),
   setAutoLaunch: (enabled: boolean): Promise<boolean> => ipcRenderer.invoke('app:set-auto-launch', enabled),
