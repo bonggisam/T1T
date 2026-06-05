@@ -1,0 +1,203 @@
+/**
+ * 공유 학교 일정 + 학사일정 → 사용자 개인 Google Calendar로 푸시 동기화.
+ *
+ * 동작:
+ *   - 각 사용자의 앱이 자신의 Google Calendar에 push
+ *   - 본인 학교 또는 'all' 일정만 푸시 (다른 학교는 제외)
+ *   - 푸시한 매핑은 localStorage에 사용자별 저장 (eventId → googleId + updatedAt)
+ *   - 이벤트 변경 시 update, 삭제 시 delete까지 자동 처리
+ *
+ * 절대 영향 없음:
+ *   - personal_events (개인 일정)는 이 모듈이 건드리지 않음
+ *   - 개인 일정의 Firestore 권한은 그대로 (userId만 read/write)
+ *   - 즉, 개인 일정은 절대 다른 사용자에게 공유되지 않음
+ */
+
+import type { CalendarEvent, School } from '@shared/types';
+import {
+  createGoogleEvent,
+  updateGoogleEvent,
+  deleteGoogleEvent,
+  isGoogleConnected,
+} from './calendarSync';
+
+interface PushedEntry {
+  googleId: string;
+  /** 마지막으로 push한 Firestore event의 updatedAt (milliseconds) */
+  syncedAt: number;
+}
+
+type PushedMap = Record<string, PushedEntry>;
+
+function mapKey(userId: string): string {
+  return `t1t-shared-pushed-${userId}`;
+}
+
+function loadMap(userId: string): PushedMap {
+  try {
+    const raw = localStorage.getItem(mapKey(userId));
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') return parsed as PushedMap;
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+function saveMap(userId: string, map: PushedMap): void {
+  try {
+    localStorage.setItem(mapKey(userId), JSON.stringify(map));
+  } catch (e) {
+    console.warn('[SharedGoogleSync] save mapping failed:', e);
+  }
+}
+
+/** 사용자에게 관련 있는 이벤트인지 — 본인 학교 + 'all' 만 */
+function isRelevantToUser(event: CalendarEvent, userSchool: School): boolean {
+  return event.school === userSchool || event.school === 'all';
+}
+
+/** Google Calendar 이벤트 제목 만들기 — 사용자가 출처 알기 쉽게 */
+function buildGoogleTitle(event: CalendarEvent): string {
+  // 학사일정은 [학사], 공유 행사는 [공유] 프리픽스
+  const isSchoolSchedule = (event as any).schoolScheduleImport === true;
+  const prefix = isSchoolSchedule ? '[학사]' : '[공유]';
+  return `${prefix} ${event.title}`;
+}
+
+function buildGoogleDescription(event: CalendarEvent): string {
+  const lines: string[] = [];
+  if (event.description) lines.push(event.description);
+  lines.push('---');
+  lines.push(`T1T ${(event as any).schoolScheduleImport ? '학사일정' : '공유 일정'}`);
+  if (event.adminName) lines.push(`등록: ${event.adminName}`);
+  if (event.category && event.category !== 'event') {
+    const catLabel: Record<string, string> = {
+      meeting: '회의', deadline: '마감', notice: '공지', other: '기타',
+    };
+    lines.push(`종류: ${catLabel[event.category] || event.category}`);
+  }
+  if (event.school && event.school !== 'all') {
+    lines.push(`학교: ${event.school === 'taeseong_middle' ? '태성중' : '태성고'}`);
+  } else if (event.school === 'all') {
+    lines.push('학교: 전체');
+  }
+  return lines.join('\n');
+}
+
+/** 진행 중 sync 락 — 동시 호출 방지 (race로 중복 push 방지) */
+let syncing = false;
+
+/**
+ * 공유 이벤트 배열을 사용자의 Google Calendar에 반영.
+ * @param userId 현재 로그인한 사용자 ID
+ * @param userSchool 사용자 학교 (관련 이벤트 필터링용)
+ * @param events 현재 Firestore에서 받은 모든 공유 이벤트 (학사일정 포함)
+ */
+export async function syncSharedEventsToGoogle(
+  userId: string,
+  userSchool: School,
+  events: CalendarEvent[],
+): Promise<{ created: number; updated: number; deleted: number; skipped: number; errors: number }> {
+  const result = { created: 0, updated: 0, deleted: 0, skipped: 0, errors: 0 };
+  if (!isGoogleConnected()) { return result; }
+  if (syncing) { return result; }
+  syncing = true;
+
+  try {
+    const map = loadMap(userId);
+    const relevant = events.filter((e) => isRelevantToUser(e, userSchool));
+    const relevantIds = new Set(relevant.map((e) => e.id));
+
+    // 1. 삭제 — 매핑에는 있지만 현재 events 배열에 없음 → Google에서도 삭제
+    for (const [eventId, entry] of Object.entries(map)) {
+      if (!relevantIds.has(eventId)) {
+        try {
+          await deleteGoogleEvent(entry.googleId);
+          delete map[eventId];
+          result.deleted++;
+        } catch (err) {
+          console.warn(`[SharedGoogleSync] delete failed for ${eventId}:`, err);
+          // 매핑에서 제거하지 않음 — 다음 시도에 재시도
+          result.errors++;
+        }
+      }
+    }
+
+    // 2. 생성/업데이트
+    for (const ev of relevant) {
+      const existing = map[ev.id];
+      const eventUpdatedAt = (ev as any).updatedAt?.getTime?.() || ev.startDate.getTime();
+
+      if (!existing) {
+        // 신규 push
+        try {
+          const googleId = await createGoogleEvent({
+            title: buildGoogleTitle(ev),
+            description: buildGoogleDescription(ev),
+            startDate: ev.startDate,
+            endDate: ev.endDate,
+            allDay: ev.allDay,
+          });
+          if (googleId) {
+            map[ev.id] = { googleId, syncedAt: eventUpdatedAt };
+            result.created++;
+          } else {
+            result.errors++;
+          }
+        } catch (err) {
+          console.warn(`[SharedGoogleSync] create failed for ${ev.id}:`, err);
+          result.errors++;
+        }
+      } else if (existing.syncedAt < eventUpdatedAt) {
+        // 업데이트 (Firestore가 더 최신)
+        try {
+          const ok = await updateGoogleEvent(existing.googleId, {
+            title: buildGoogleTitle(ev),
+            description: buildGoogleDescription(ev),
+            startDate: ev.startDate,
+            endDate: ev.endDate,
+            allDay: ev.allDay,
+          });
+          if (ok) {
+            map[ev.id] = { googleId: existing.googleId, syncedAt: eventUpdatedAt };
+            result.updated++;
+          } else {
+            result.errors++;
+          }
+        } catch (err) {
+          console.warn(`[SharedGoogleSync] update failed for ${ev.id}:`, err);
+          result.errors++;
+        }
+      } else {
+        result.skipped++;
+      }
+    }
+
+    saveMap(userId, map);
+    return result;
+  } finally {
+    syncing = false;
+  }
+}
+
+/**
+ * Google Calendar 연동 해제 시 모든 push 매핑 + Google 측 이벤트 정리.
+ * (옵션 — 사용자가 명시적으로 호출하지 않으면 기존 이벤트는 Google에 남음)
+ */
+export async function clearSharedGooglePushes(userId: string): Promise<number> {
+  if (!isGoogleConnected()) return 0;
+  const map = loadMap(userId);
+  let deleted = 0;
+  for (const entry of Object.values(map)) {
+    try {
+      await deleteGoogleEvent(entry.googleId);
+      deleted++;
+    } catch {}
+  }
+  try {
+    localStorage.removeItem(mapKey(userId));
+  } catch {}
+  return deleted;
+}

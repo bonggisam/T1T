@@ -32,12 +32,13 @@ import { LibraryView } from './components/library/LibraryView';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ResizeHandles } from './components/common/ResizeHandles';
 import { startSchoolScheduleAutoSync } from './utils/schoolScheduleSync';
+import { syncSharedEventsToGoogle } from './utils/sharedEventsGoogleSync';
 
 type AuthScreen = 'login' | 'signup';
 
 export function App() {
   const { user, loading, initialize } = useAuthStore();
-  const { subscribeToEvents, cleanup: cleanupEvents, showEventModal, showEventDetail } = useCalendarStore();
+  const { subscribeToEvents, cleanup: cleanupEvents, showEventModal, showEventDetail, events: sharedEvents } = useCalendarStore();
   const { subscribeToNotifications, cleanup: cleanupNotifications, showPanel: showNotifications } = useNotificationStore();
   const { subscribeToPersonalEvents, startAutoSync, stopAutoSync, cleanup: cleanupPersonal } = usePersonalEventStore();
   const { loadConfig: loadComcigan, cleanup: cleanupComcigan } = useComciganStore();
@@ -124,7 +125,13 @@ export function App() {
     const triggerSync = () => {
       const u = useAuthStore.getState().user;
       if (u?.status === 'active') {
+        // Pull (Google → 앱) — 외부 등록 일정 가져오기
         usePersonalEventStore.getState().syncExternalCalendars().catch(() => {});
+        // Push (공유/학사 → 사용자 Google) — 본인 학교 + 'all' 일정만
+        if (u.school === 'taeseong_middle' || u.school === 'taeseong_high') {
+          const events = useCalendarStore.getState().events;
+          syncSharedEventsToGoogle(u.id, u.school, events).catch(() => {});
+        }
       }
     };
     const onVisibility = () => { if (!document.hidden) triggerSync(); };
@@ -171,6 +178,27 @@ export function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  // 공유 이벤트(학교 일정 + 학사일정) 변경 시 → 사용자 개인 Google Calendar로 자동 push.
+  // 디바운스 2초 — 여러 변경이 빠르게 들어와도 한 번만 sync.
+  // 개인 일정(personal_events)은 이 useEffect와 무관 (절대 다른 사람에게 공유되지 않음)
+  useEffect(() => {
+    if (!user?.id) return;
+    if (user.school !== 'taeseong_middle' && user.school !== 'taeseong_high') return;
+    if (!sharedEvents || sharedEvents.length === 0) return;
+    const t = setTimeout(() => {
+      syncSharedEventsToGoogle(user.id, user.school, sharedEvents)
+        .then((r) => {
+          if (r.created + r.updated + r.deleted > 0) {
+            console.log(
+              `[SharedGoogleSync] ${r.created} 생성, ${r.updated} 수정, ${r.deleted} 삭제, ${r.skipped} skip, ${r.errors} 에러`,
+            );
+          }
+        })
+        .catch((e) => console.warn('[SharedGoogleSync] failed:', e));
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [user?.id, user?.school, sharedEvents]);
 
   // Apply saved schedule font size on startup
   useEffect(() => {

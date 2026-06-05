@@ -93,24 +93,40 @@ export function CalendarSyncSettings({ syncInterval, onSyncIntervalChange }: Cal
       </div>
 
       {googleConnected && (
-        <div style={styles.syncRow}>
-          <span style={styles.label}>⚡ 즉시 동기화</span>
-          <button
-            onClick={async () => {
-              const { showToast } = await import('../common/Toast');
-              showToast('Google Calendar 동기화 중…', 'info');
-              try {
-                await syncExternalCalendars();
-                showToast('✅ Google Calendar 동기화 완료', 'success');
-              } catch (e: any) {
-                showToast(`❌ 동기화 실패: ${e?.message || '오류'}`, 'error');
-              }
-            }}
-            style={styles.connectBtn}
-          >
-            지금 동기화
-          </button>
-        </div>
+        <>
+          <div style={styles.syncRow}>
+            <span style={styles.label}>⚡ 즉시 동기화</span>
+            <button
+              onClick={async () => {
+                const { showToast } = await import('../common/Toast');
+                showToast('Google Calendar 동기화 중…', 'info');
+                try {
+                  await syncExternalCalendars();
+                  showToast('✅ Google Calendar 동기화 완료', 'success');
+                } catch (e: any) {
+                  showToast(`❌ 동기화 실패: ${e?.message || '오류'}`, 'error');
+                }
+              }}
+              style={styles.connectBtn}
+            >
+              지금 동기화
+            </button>
+          </div>
+
+          {/* 공유/학사 일정도 본인 Google Calendar에 자동 push 안내 */}
+          <div style={{
+            fontSize: 11,
+            color: 'var(--text-muted)',
+            background: 'var(--bg-secondary)',
+            padding: '6px 10px',
+            borderRadius: 6,
+            lineHeight: 1.5,
+            marginTop: 4,
+          }}>
+            ℹ️ 본인 학교 공유 일정 + 학사일정도 본인 Google Calendar로 자동 push됨 (제목 [공유]/[학사] 접두어).<br/>
+            <b>개인 일정</b>은 본인 캘린더에만 저장되며 다른 사람과 공유되지 않습니다.
+          </div>
+        </>
       )}
     </div>
   );
