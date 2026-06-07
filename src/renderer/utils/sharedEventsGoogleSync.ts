@@ -67,12 +67,35 @@ function isRelevantToUser(event: CalendarEvent, userSchool: School): boolean {
   return event.school === userSchool || event.school === 'all';
 }
 
-/** Google Calendar 이벤트 제목 만들기 — 사용자가 출처 알기 쉽게 */
+/** Google Calendar 이벤트 제목 만들기 — 학교(중/고/전체) + 종류(공유/학사) 표시 */
 function buildGoogleTitle(event: CalendarEvent): string {
-  // 학사일정은 [학사], 공유 행사는 [공유] 프리픽스
   const isSchoolSchedule = (event as any).schoolScheduleImport === true;
-  const prefix = isSchoolSchedule ? '[학사]' : '[공유]';
-  return `${prefix} ${event.title}`;
+  const kind = isSchoolSchedule ? '학사' : '공유';
+  const schoolLabel =
+    event.school === 'taeseong_middle' ? '중' :
+    event.school === 'taeseong_high' ? '고' : '전체';
+  return `[${schoolLabel}·${kind}] ${event.title}`;
+}
+
+/**
+ * Firestore eventId → 결정론적 Google Calendar event ID 도출.
+ * 같은 Firestore eventId는 항상 같은 Google ID 생성 → 다중 디바이스/재설치에도 중복 방지.
+ * Google 규칙: 소문자 a-v + 0-9, 길이 5-1024 (w,x,y,z는 허용 안 됨 → 매핑)
+ */
+function deriveGoogleEventId(firestoreId: string): string {
+  const lowered = firestoreId.toLowerCase();
+  let result = '';
+  for (const ch of lowered) {
+    if ((ch >= 'a' && ch <= 'v') || (ch >= '0' && ch <= '9')) {
+      result += ch;
+    } else if (ch === 'w') result += '0';
+    else if (ch === 'x') result += '1';
+    else if (ch === 'y') result += '2';
+    else if (ch === 'z') result += '3';
+    // 그 외 문자는 제거 (대시, 언더스코어 등)
+  }
+  // 'tev' 접두어 — 사용자 다른 이벤트 ID와 충돌 안 함 + 최소 길이 5 보장
+  return ('tev' + result).slice(0, 256);
 }
 
 function buildGoogleDescription(event: CalendarEvent): string {
@@ -98,6 +121,43 @@ function buildGoogleDescription(event: CalendarEvent): string {
 /** 진행 중 sync 락 — 동시 호출 방지 (race로 중복 push 방지) */
 let syncing = false;
 
+const MIGRATION_KEY = 't1t-shared-pushed-migration';
+const MIGRATION_VERSION = 'v2-deterministic-id-school-label';
+
+/**
+ * 마이그레이션:
+ * - v2.5.34~v2.5.36 사용자: random ID로 push된 Google 이벤트 존재 → 삭제
+ * - v2.5.37+: 결정론적 ID로 재push → 중복 없음 + 중/고 표시 적용
+ */
+async function migrateIfNeeded(userId: string): Promise<void> {
+  const done = localStorage.getItem(MIGRATION_KEY);
+  if (done === MIGRATION_VERSION) return;
+  const map = loadMap(userId);
+  if (Object.keys(map).length === 0) {
+    // 새 사용자 — 마이그레이션 불필요, 마크만
+    localStorage.setItem(MIGRATION_KEY, MIGRATION_VERSION);
+    return;
+  }
+  console.log('[SharedGoogleSync] Running migration: deleting old random-ID Google events…');
+  let deleted = 0;
+  for (const [eventId, entry] of Object.entries(map)) {
+    // 결정론적 ID와 다르면 = random ID로 push된 옛 데이터 → Google에서 삭제
+    const expected = deriveGoogleEventId(eventId);
+    if (entry.googleId !== expected) {
+      try {
+        await deleteGoogleEvent(entry.googleId);
+        deleted++;
+      } catch (err) {
+        console.warn(`[SharedGoogleSync] migration delete failed for ${eventId}:`, err);
+      }
+    }
+  }
+  // 매핑 모두 초기화 → 다음 sync에서 결정론적 ID로 재push (중/고 표시 포함)
+  saveMap(userId, {});
+  localStorage.setItem(MIGRATION_KEY, MIGRATION_VERSION);
+  console.log(`[SharedGoogleSync] Migration done: ${deleted} old events deleted from Google. Will re-push with deterministic IDs.`);
+}
+
 /**
  * 공유 이벤트 배열을 사용자의 Google Calendar에 반영.
  * @param userId 현재 로그인한 사용자 ID
@@ -115,6 +175,9 @@ export async function syncSharedEventsToGoogle(
   syncing = true;
 
   try {
+    // v2.5.36 이전 random ID 옛 데이터 정리 (1회만 실행됨)
+    await migrateIfNeeded(userId);
+
     const map = loadMap(userId);
     const relevant = events.filter((e) => isRelevantToUser(e, userSchool));
     const relevantIds = new Set(relevant.map((e) => e.id));
@@ -140,7 +203,8 @@ export async function syncSharedEventsToGoogle(
       const eventUpdatedAt = (ev as any).updatedAt?.getTime?.() || ev.startDate.getTime();
 
       if (!existing) {
-        // 신규 push
+        // 신규 push — 결정론적 ID로 다중 디바이스/재설치에도 중복 방지
+        const customEventId = deriveGoogleEventId(ev.id);
         try {
           const googleId = await createGoogleEvent({
             title: buildGoogleTitle(ev),
@@ -148,6 +212,7 @@ export async function syncSharedEventsToGoogle(
             startDate: ev.startDate,
             endDate: ev.endDate,
             allDay: ev.allDay,
+            customEventId,
           });
           if (googleId) {
             map[ev.id] = { googleId, syncedAt: eventUpdatedAt };

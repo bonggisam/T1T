@@ -169,6 +169,8 @@ export async function createGoogleEvent(input: {
   startDate: Date;
   endDate: Date;
   allDay?: boolean;
+  /** 결정론적 ID — 재설치/다중 디바이스에서 중복 push 방지. Google 규칙: 소문자 a-v + 0-9, 길이 5-1024 */
+  customEventId?: string;
 }): Promise<string | null> {
   if (!(await ensureValidToken())) return null;
   try {
@@ -176,6 +178,9 @@ export async function createGoogleEvent(input: {
       summary: input.title,
       description: input.description || '',
     };
+    if (input.customEventId) {
+      body.id = input.customEventId;
+    }
     if (input.allDay) {
       body.start = { date: input.startDate.toISOString().slice(0, 10) };
       body.end = { date: input.endDate.toISOString().slice(0, 10) };
@@ -192,6 +197,11 @@ export async function createGoogleEvent(input: {
       body: JSON.stringify(body),
     });
     if (!res.ok) {
+      // 409: 같은 customEventId의 이벤트가 이미 존재 — 다른 디바이스에서 push했거나 재설치 후
+      //      그 ID 그대로 사용하면 됨 (이후 update/delete가 같은 ID로 동작)
+      if (res.status === 409 && input.customEventId) {
+        return input.customEventId;
+      }
       if (res.status === 401) {
         disconnectGoogle();
         window.dispatchEvent(new CustomEvent('google:auth-expired'));
