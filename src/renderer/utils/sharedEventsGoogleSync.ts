@@ -13,7 +13,7 @@
  *   - 즉, 개인 일정은 절대 다른 사용자에게 공유되지 않음
  */
 
-import type { CalendarEvent, School } from '@shared/types';
+import type { CalendarEvent, School, PersonalEvent } from '@shared/types';
 import {
   createGoogleEvent,
   updateGoogleEvent,
@@ -52,6 +52,45 @@ function loadMap(userId: string): PushedMap {
 export function loadSharedPushedGoogleIds(userId: string): Set<string> {
   const map = loadMap(userId);
   return new Set(Object.values(map).map((e) => e.googleId));
+}
+
+/** T1T 우리 push 이벤트 prefix 패턴 — 옛/새 형식 모두 매칭 */
+export const T1T_PUSHED_TITLE_RE = /^\[(공유|학사|(중|고|전체)·(공유|학사))\]\s/;
+
+/**
+ * Google Calendar에서 고아 T1T 이벤트 정리.
+ * 우리 prefix는 있지만 현재 사용자 매핑에는 없는 이벤트 = 옛 random-ID push 잔재 or
+ * localStorage wipe 후 매핑 잃은 이벤트.
+ * → 모바일/웹 Google 캘린더에서 중복 표시되는 원인.
+ *
+ * googleEvents는 이미 pull한 결과 (추가 API 호출 없음). DELETE만 호출.
+ */
+export async function cleanupOrphanedT1TGoogleEvents(
+  userId: string,
+  googleEvents: PersonalEvent[],
+): Promise<number> {
+  const pushedIds = loadSharedPushedGoogleIds(userId);
+  const orphans = googleEvents.filter((e) => {
+    // T1T prefix가 있는가
+    if (!T1T_PUSHED_TITLE_RE.test(e.title)) return false;
+    // 현재 매핑에 있으면 정상 (내가 의도적으로 push한 것)
+    if (e.externalId && pushedIds.has(e.externalId)) return false;
+    return true;
+  });
+  let deleted = 0;
+  for (const orphan of orphans) {
+    if (!orphan.externalId) continue;
+    try {
+      await deleteGoogleEvent(orphan.externalId);
+      deleted++;
+    } catch (err) {
+      console.warn(`[SharedGoogleSync] orphan delete failed for ${orphan.externalId}:`, err);
+    }
+  }
+  if (deleted > 0) {
+    console.log(`[SharedGoogleSync] Cleaned ${deleted} orphaned T1T events from Google Calendar.`);
+  }
+  return deleted;
 }
 
 function saveMap(userId: string, map: PushedMap): void {
