@@ -5,6 +5,36 @@
 import type { PersonalEvent } from '@shared/types';
 
 // ============================================================
+// allDay 날짜 유틸 — 타임존 안전
+// ============================================================
+
+/**
+ * Date → 로컬 타임존 기준 YYYY-MM-DD (Google allDay 이벤트용).
+ *
+ * 주의: 절대 toISOString().slice(0,10) 쓰지 말 것!
+ *   - toISOString()은 UTC 기준 — KST(UTC+9) 자정은 전날 15:00 UTC
+ *   - → slice(0,10)이 전날 날짜를 반환 (금→목 시프트)
+ */
+function toLocalYMD(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * "YYYY-MM-DD" → 로컬 타임존 자정 Date.
+ *
+ * 주의: 절대 new Date("YYYY-MM-DD") 직접 쓰지 말 것!
+ *   - ISO 날짜-only 문자열은 UTC 자정으로 파싱됨
+ *   - KST에서는 그날 09:00이 됨 (자정 아님)
+ *   - "T00:00:00" 붙이면 로컬 자정으로 파싱됨
+ */
+function parseLocalYMD(ymd: string): Date {
+  return new Date(`${ymd}T00:00:00`);
+}
+
+// ============================================================
 // Google Calendar
 // ============================================================
 
@@ -141,18 +171,34 @@ export async function fetchGoogleCalendarEvents(
     }
 
     const data = await res.json();
-    return (data.items || []).map((item: any) => ({
-      id: `google_${item.id}`,
-      title: item.summary || '(제목 없음)',
-      description: item.description || '',
-      startDate: new Date(item.start?.dateTime || item.start?.date),
-      endDate: new Date(item.end?.dateTime || item.end?.date),
-      allDay: !item.start?.dateTime && !!item.start?.date, // date만 있으면 종일
-      source: 'google' as const,
-      externalId: item.id,
-      checklist: [],
-      color: '#34A853',
-    }));
+    return (data.items || []).map((item: any) => {
+      const isAllDay = !item.start?.dateTime && !!item.start?.date;
+      let startDate: Date;
+      let endDate: Date;
+      if (isAllDay) {
+        // Google allDay: start.date = inclusive, end.date = EXCLUSIVE (종료일+1)
+        // → 로컬 자정으로 파싱 + endDate에서 1일 빼서 inclusive로 변환
+        startDate = parseLocalYMD(item.start.date);
+        endDate = parseLocalYMD(item.end.date);
+        endDate.setDate(endDate.getDate() - 1);
+        endDate.setHours(23, 59, 59, 999);
+      } else {
+        startDate = new Date(item.start?.dateTime || item.start?.date);
+        endDate = new Date(item.end?.dateTime || item.end?.date);
+      }
+      return {
+        id: `google_${item.id}`,
+        title: item.summary || '(제목 없음)',
+        description: item.description || '',
+        startDate,
+        endDate,
+        allDay: isAllDay,
+        source: 'google' as const,
+        externalId: item.id,
+        checklist: [],
+        color: '#34A853',
+      };
+    });
   } catch (err) {
     console.error('Google Calendar fetch error:', err);
     return [];
@@ -182,8 +228,13 @@ export async function createGoogleEvent(input: {
       body.id = input.customEventId;
     }
     if (input.allDay) {
-      body.start = { date: input.startDate.toISOString().slice(0, 10) };
-      body.end = { date: input.endDate.toISOString().slice(0, 10) };
+      // Google allDay: start.date = inclusive, end.date = EXCLUSIVE (종료일+1)
+      // toISOString().slice(0,10)은 UTC라 KST에서 -1일 시프트 → toLocalYMD 사용
+      const startYMD = toLocalYMD(input.startDate);
+      const endInclusive = new Date(input.endDate);
+      const endExclusive = new Date(endInclusive.getFullYear(), endInclusive.getMonth(), endInclusive.getDate() + 1);
+      body.start = { date: startYMD };
+      body.end = { date: toLocalYMD(endExclusive) };
     } else {
       body.start = { dateTime: input.startDate.toISOString() };
       body.end = { dateTime: input.endDate.toISOString() };
@@ -235,8 +286,12 @@ export async function updateGoogleEvent(externalId: string, input: {
     if (input.description !== undefined) body.description = input.description;
     if (input.startDate && input.endDate) {
       if (input.allDay) {
-        body.start = { date: input.startDate.toISOString().slice(0, 10) };
-        body.end = { date: input.endDate.toISOString().slice(0, 10) };
+        // PUSH와 동일하게 로컬 YMD + exclusive end (종료일+1)
+        const startYMD = toLocalYMD(input.startDate);
+        const endInclusive = input.endDate;
+        const endExclusive = new Date(endInclusive.getFullYear(), endInclusive.getMonth(), endInclusive.getDate() + 1);
+        body.start = { date: startYMD };
+        body.end = { date: toLocalYMD(endExclusive) };
       } else {
         body.start = { dateTime: input.startDate.toISOString() };
         body.end = { dateTime: input.endDate.toISOString() };

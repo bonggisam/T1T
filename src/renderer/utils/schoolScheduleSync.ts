@@ -48,10 +48,10 @@ async function syncOneSchool(
     const externalId = `school_${schoolKey}_${item.seq}`;
     if (existingIds.has(externalId)) continue;
 
-    const startDate = new Date(item.startDate);
-    const endDate = new Date(item.endDate);
-    startDate.setHours(0, 0, 0, 0);
-    endDate.setHours(23, 59, 59, 999);
+    // 타임존 안전 파싱: "YYYY-MM-DD" + "T00:00:00" → 로컬 자정 (UTC 파싱 회피)
+    // new Date("2026-06-12")는 UTC 자정 = KST/EST에서 다른 날짜로 시프트되므로 위험
+    const startDate = new Date(`${item.startDate}T00:00:00`);
+    const endDate = new Date(`${item.endDate}T23:59:59`);
 
     await addDoc(collection(db, 'events'), {
       title: item.title,
