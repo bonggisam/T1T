@@ -75,6 +75,12 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
       // Update tray badge
       window.electronAPI?.setTrayBadge(unreadCount > 0);
+    }, (error) => {
+      // 권한 변경 / 네트워크 오류 시 구독 중단 — 무응답 UI 방지
+      console.error('[NotificationStore] subscription error:', error);
+      const current = get().unsubscribe;
+      current?.();
+      set({ unsubscribe: null });
     });
     set({ unsubscribe: unsub });
   },

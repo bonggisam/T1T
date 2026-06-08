@@ -566,6 +566,18 @@ let manualCheckInProgress = false;
 function setupAutoUpdater(): void {
   if (isDev) return; // Skip in development
 
+  // 옛 버전(v2.5.20~v2.5.39)에서 캐시된 feedURL을 우회하기 위해 명시적으로 설정.
+  // package.json의 build.publish가 있어도 매번 GitHub 원본을 명시해 캐시 mismatch 회피.
+  try {
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: 'bonggisam',
+      repo: 'T1T',
+    });
+  } catch (err) {
+    console.warn('[Updater] setFeedURL failed (will fallback to package.json):', err);
+  }
+
   // 사용자 개입 없이 백그라운드 자동 다운로드 → 매끄러운 경험
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
@@ -925,7 +937,7 @@ function setupComciganIPC(): void {
     const trimmed = name.trim();
     if (!trimmed || trimmed.length > 50) throw new Error('Invalid school name');
     // 한글·영문·숫자·공백·괄호·하이픈만 허용 (입력 sanitize)
-    if (!/^[가-힣a-zA-Z0-9\s\-()()]+$/.test(trimmed)) {
+    if (!/^[가-힣a-zA-Z0-9\s\-()]+$/.test(trimmed)) {
       throw new Error('학교 이름은 한글/영문/숫자만 입력 가능합니다');
     }
     return comciganService.searchSchool(trimmed);

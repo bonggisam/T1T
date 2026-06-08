@@ -87,6 +87,12 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
       });
       set({ personalEvents: events });
       cachePersonalEvents(events).catch((err) => console.warn('[PersonalEventStore] Cache failed:', err));
+    }, (error) => {
+      // Firestore 권한 변경 / 네트워크 / auth 만료 시 구독 정리 — 캐시는 이미 로드됨
+      console.error('[PersonalEventStore] subscription error:', error);
+      const current = get().unsubscribe;
+      current?.();
+      set({ unsubscribe: null });
     });
     set({ unsubscribe: unsub });
   },
@@ -255,8 +261,8 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
     // 2차 dedupe (fallback) — 옛 버전에서 externalId 누락된 Firestore 레코드 대응:
     // title(trim/소문자) + 시작시간(±2분) 일치하면 같은 이벤트로 판단해 외부 쪽 제외.
     function fuzzyKey(title: string, ts: number): string {
-      // 2분 단위로 묶기 → ±2분 fuzzy match
-      return `${title.trim().toLowerCase()}|${Math.floor(ts / 120000)}`;
+      // 5분 단위로 묶기 → ±5분 fuzzy match (사용자가 일정 시간 미세 조정해도 dedup 유지)
+      return `${title.trim().toLowerCase()}|${Math.floor(ts / 300000)}`;
     }
     const localFuzzyKeys = new Set(
       personalEvents.map((p) => fuzzyKey(p.title, p.startDate.getTime()))

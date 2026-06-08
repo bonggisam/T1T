@@ -64,6 +64,14 @@ export const T1T_PUSHED_TITLE_RE = /^\[(공유|학사|(중|고|전체)·(공유|
  * → 모바일/웹 Google 캘린더에서 중복 표시되는 원인.
  *
  * googleEvents는 이미 pull한 결과 (추가 API 호출 없음). DELETE만 호출.
+ *
+ * 안전 가드 (사용자가 만든 [공유] 같은 이벤트를 잘못 지우지 않도록):
+ *   1) T1T prefix `[중·공유]` 등 매칭
+ *   2) 매핑에 없음
+ *   3) 둘 중 하나 확인:
+ *      a) externalId가 'tev'로 시작 (deriveGoogleEventId가 만든 deterministic ID)
+ *      b) description에 'T1T 학사일정' 또는 'T1T 공유 일정' 마커 포함
+ *      → 우리가 push한 것임을 강하게 보장
  */
 export async function cleanupOrphanedT1TGoogleEvents(
   userId: string,
@@ -71,10 +79,14 @@ export async function cleanupOrphanedT1TGoogleEvents(
 ): Promise<number> {
   const pushedIds = loadSharedPushedGoogleIds(userId);
   const orphans = googleEvents.filter((e) => {
-    // T1T prefix가 있는가
+    // 1) T1T prefix 매칭
     if (!T1T_PUSHED_TITLE_RE.test(e.title)) return false;
-    // 현재 매핑에 있으면 정상 (내가 의도적으로 push한 것)
+    // 2) 매핑에 있으면 정상 push 결과
     if (e.externalId && pushedIds.has(e.externalId)) return false;
+    // 3) 우리가 만든 것임을 추가 확인 (사용자 자작 [공유] 이벤트 보호)
+    const isOurDeterministicId = typeof e.externalId === 'string' && e.externalId.startsWith('tev');
+    const hasOurMarker = /T1T (학사일정|공유 일정)/.test(e.description || '');
+    if (!isOurDeterministicId && !hasOurMarker) return false;
     return true;
   });
   let deleted = 0;

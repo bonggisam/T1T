@@ -47,9 +47,20 @@ interface GoogleTokens {
 let googleTokens: GoogleTokens | null = null;
 // M1: refresh 중복 호출 방지용 in-flight promise
 let refreshPromise: Promise<boolean> | null = null;
+// 429 Rate Limit backoff — 이 시간까지는 fetch 건너뜀
+let rateLimitedUntil = 0;
 
 const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // 5분 여유
 const TOKEN_SAFETY_MARGIN_SEC = 30; // M7: expires_in에서 빼서 안전 마진 확보
+
+/** 현재 사용자 IANA 타임존 (예: 'Asia/Seoul'). Google dateTime 이벤트에 명시 → 타임존 이동해도 시간 유지 */
+function getUserTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul';
+  } catch {
+    return 'Asia/Seoul';
+  }
+}
 
 export function isGoogleConnected(): boolean {
   // refresh_token이 있으면 만료되어도 연결된 것으로 간주 (자동 갱신 가능)
@@ -148,6 +159,12 @@ export async function fetchGoogleCalendarEvents(
   timeMax: Date,
 ): Promise<PersonalEvent[]> {
   if (!(await ensureValidToken())) return [];
+  // Rate limit backoff 중이면 skip
+  if (Date.now() < rateLimitedUntil) return [];
+
+  // 토큰 race: fetch 직전 disconnect되면 access_token null
+  const accessToken = googleTokens?.access_token;
+  if (!accessToken) return [];
 
   try {
     const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
@@ -156,7 +173,7 @@ export async function fetchGoogleCalendarEvents(
       `singleEvents=true&orderBy=startTime&maxResults=500`;
 
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${googleTokens!.access_token}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     if (!res.ok) {
@@ -164,13 +181,27 @@ export async function fetchGoogleCalendarEvents(
         disconnectGoogle();
         // 토큰 만료 안내 이벤트 발송 (UI에서 listen 가능)
         window.dispatchEvent(new CustomEvent('google:auth-expired'));
+      } else if (res.status === 429) {
+        // Rate limit — Retry-After 만큼 대기 (없으면 60초)
+        const retryAfter = parseInt(res.headers.get('Retry-After') || '60', 10);
+        rateLimitedUntil = Date.now() + Math.max(retryAfter, 60) * 1000;
+        console.warn(`[Google Sync] rate limited — pausing for ${retryAfter}s`);
+      } else if (res.status >= 500) {
+        // 5xx transient — disconnect 하지 않음. 다음 폴링에서 자동 재시도.
+        console.warn(`[Google Sync] transient ${res.status} — will retry next poll`);
       } else {
         console.warn(`[Google Sync] fetch failed ${res.status}`);
       }
       return [];
     }
 
-    const data = await res.json();
+    let data: any;
+    try {
+      data = await res.json();
+    } catch (err) {
+      console.warn('[Google Sync] response JSON parse failed:', err);
+      return [];
+    }
     return (data.items || []).map((item: any) => {
       const isAllDay = !item.start?.dateTime && !!item.start?.date;
       let startDate: Date;
@@ -236,8 +267,10 @@ export async function createGoogleEvent(input: {
       body.start = { date: startYMD };
       body.end = { date: toLocalYMD(endExclusive) };
     } else {
-      body.start = { dateTime: input.startDate.toISOString() };
-      body.end = { dateTime: input.endDate.toISOString() };
+      // timeZone 명시 — 사용자가 해외 출장 등으로 시스템 TZ 바뀌어도 이벤트 시각은 등록 당시 TZ 유지
+      const tz = getUserTimeZone();
+      body.start = { dateTime: input.startDate.toISOString(), timeZone: tz };
+      body.end = { dateTime: input.endDate.toISOString(), timeZone: tz };
     }
     const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
       method: 'POST',
@@ -293,8 +326,9 @@ export async function updateGoogleEvent(externalId: string, input: {
         body.start = { date: startYMD };
         body.end = { date: toLocalYMD(endExclusive) };
       } else {
-        body.start = { dateTime: input.startDate.toISOString() };
-        body.end = { dateTime: input.endDate.toISOString() };
+        const tz = getUserTimeZone();
+        body.start = { dateTime: input.startDate.toISOString(), timeZone: tz };
+        body.end = { dateTime: input.endDate.toISOString(), timeZone: tz };
       }
     }
     const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${externalId}`, {

@@ -8,6 +8,7 @@ interface UpdateInfo {
   transferred?: number;
   total?: number;
   error?: string;
+  releaseNotes?: string;
 }
 
 export function UpdateBanner() {
@@ -23,7 +24,16 @@ export function UpdateBanner() {
           break;
         case 'updater:available':
           setStatus('available');
-          setInfo({ version: data?.version });
+          // releaseNotes는 string 또는 [{note}] 배열 — 문자열로 정규화
+          {
+            const rn = data?.releaseNotes;
+            const notes = typeof rn === 'string'
+              ? rn
+              : Array.isArray(rn)
+                ? rn.map((x: any) => x?.note || '').join('\n')
+                : '';
+            setInfo({ version: data?.version, releaseNotes: notes });
+          }
           break;
         case 'updater:not-available':
           // 수동 확인 시 사용자에게 "최신 상태" 명시적 표시 (5초 후 자동 사라짐)
@@ -91,7 +101,7 @@ export function UpdateBanner() {
         <>
           {installing ? (
             <>
-              <span style={styles.text}>🔄 재시작 중… 잠시만 기다려주세요 (10초 안에 새 버전이 안 뜨면 수동 다운로드 권장)</span>
+              <span style={styles.text}>🔄 재시작 중… 잠시만 기다려주세요 (최대 60초 — 백신/저속 디스크에서는 더 오래 걸릴 수 있음. 안 뜨면 수동 다운로드)</span>
               <button
                 onClick={() => window.electronAPI?.updaterOpenDownloadPage()}
                 style={styles.btn}
