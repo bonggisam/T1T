@@ -250,6 +250,13 @@ export async function syncSharedEventsToGoogle(
     }
 
     saveMap(userId, map);
+    // push 완료 후 pull 강제 트리거 → 우리가 방금 push한 이벤트가 personal 뷰에 노출되지 않도록 sync state 즉시 갱신.
+    // 직접 import 시 순환 의존이 생기므로 동적 import 사용.
+    if (result.created + result.updated + result.deleted > 0) {
+      import('../store/personalEventStore').then(({ usePersonalEventStore }) => {
+        usePersonalEventStore.getState().syncExternalCalendars().catch(() => {});
+      }).catch(() => {});
+    }
     return result;
   } finally {
     syncing = false;

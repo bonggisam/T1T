@@ -103,11 +103,20 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
 
       if (isGoogleConnected()) {
         const googleEvents = await fetchGoogleCalendarEvents(timeMin, timeMax);
-        // 우리가 push한 [공유]/[학사] 이벤트는 personal 뷰에서 제외 (이미 shared 뷰에 표시됨)
-        // → Google에서 외부로 추가한 새 이벤트가 push 이벤트에 묻혀 안 보이는 문제 해결
+        // 우리가 push한 [중·공유]/[고·공유]/[전체·학사] 등 이벤트는 personal 뷰에서 제외.
+        // 두 가지 방법으로 안전하게 필터링:
+        //   1) 결정론적 Google ID 매핑 (현재 정상 경로)
+        //   2) 제목 prefix 패턴 (마이그레이션 중 / 디바이스 간 매핑 차이로 ID가 매핑에 없을 때 fallback)
         const userId = useAuthStore.getState().user?.id;
         const pushedIds = userId ? loadSharedPushedGoogleIds(userId) : new Set<string>();
-        allExternal = googleEvents.filter((e) => !e.externalId || !pushedIds.has(e.externalId));
+        // 옛 prefix(v2.5.34~v2.5.36): [공유] X / [학사] X
+        // 새 prefix(v2.5.37+):       [중·공유] / [고·공유] / [전체·공유] / [중·학사] / [고·학사] / [전체·학사]
+        const t1tPushedPrefix = /^\[(공유|학사|(중|고|전체)·(공유|학사))\]\s/;
+        allExternal = googleEvents.filter((e) => {
+          if (e.externalId && pushedIds.has(e.externalId)) return false;
+          if (t1tPushedPrefix.test(e.title)) return false;
+          return true;
+        });
       }
 
       set({ externalEvents: allExternal });
