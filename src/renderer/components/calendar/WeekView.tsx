@@ -177,7 +177,8 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
       const drag = dragRef.current;
       if (!drag) return;
       if (!drag.activated) {
-        if (Math.abs(e.clientX - drag.startX) < 5 && Math.abs(e.clientY - drag.startY) < 5) return;
+        // 실수 클릭으로 옮겨가는 사고 방지 — 12px 이상 움직여야 드래그 활성화
+        if (Math.abs(e.clientX - drag.startX) < 12 && Math.abs(e.clientY - drag.startY) < 12) return;
         drag.activated = true;
       }
       const pos = getGridPos(e.clientX, e.clientY);

@@ -16,7 +16,8 @@ import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { SchoolBadge } from '../common/SchoolBadge';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
-const DRAG_THRESHOLD = 5;
+// 실수 클릭으로 일정이 다른 날로 옮겨가는 사고 방지 — 의도적인 드래그만 활성화
+const DRAG_THRESHOLD = 12;
 // 셀이 콘텐츠에 맞게 자동 확장되므로 사실상 무제한 표시.
 // 100은 극단적 폭주(예: 잘못된 데이터로 수백 개) 방어용 상한선.
 const MAX_VISIBLE = 100;
@@ -197,6 +198,16 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
       const daysDiff = differenceInCalendarDays(targetDay, originDay);
 
       if (daysDiff === 0) return;
+      // 2일 이상 이동은 확인 다이얼로그 — 실수로 다른 주로 끌려가는 사고 방지
+      if (Math.abs(daysDiff) >= 2) {
+        const fmt = (s: string) => {
+          const [y, m, d] = s.split('-').map(Number);
+          return `${m}월 ${d}일 (${['일','월','화','수','목','금','토'][new Date(y, m-1, d).getDay()]})`;
+        };
+        if (!confirm(`일정을 ${fmt(drag.originDayStr)} → ${fmt(targetDayStr)}로 이동할까요?`)) {
+          return;
+        }
+      }
 
       if (drag.type === 'shared') {
         const event = eventsRef.current.find((ev) => ev.id === drag.eventId);

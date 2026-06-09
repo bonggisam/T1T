@@ -77,16 +77,39 @@ export async function cleanupOrphanedT1TGoogleEvents(
   userId: string,
   googleEvents: PersonalEvent[],
 ): Promise<number> {
-  const pushedIds = loadSharedPushedGoogleIds(userId);
+  const map = loadMap(userId);
+  const pushedIds = new Set(Object.values(map).map((e) => e.googleId));
+
+  // 안전장치 1: 매핑이 비어있고 Google에 tev 이벤트가 많으면 = localStorage가 wipe된 것.
+  // 그 경우 절대 삭제하지 말고 mapping을 Google 쪽에서 재구성 (사용자 일정 보호 최우선).
+  const tevEvents = googleEvents.filter((e) =>
+    typeof e.externalId === 'string' && e.externalId.startsWith('tev')
+  );
+  if (pushedIds.size === 0 && tevEvents.length > 0) {
+    console.warn(
+      `[SharedGoogleSync] Mapping empty but ${tevEvents.length} tev events found in Google. ` +
+      `Likely localStorage wipe. Rebuilding mapping instead of deleting.`
+    );
+    const rebuilt: PushedMap = {};
+    for (const ev of tevEvents) {
+      if (!ev.externalId) continue;
+      // tev ID는 Firestore eventId를 결정론적으로 변환 — 역추적 불가하므로
+      // googleId 자체를 key로 사용 (next syncSharedEventsToGoogle에서 정상화)
+      rebuilt[ev.externalId] = { googleId: ev.externalId, syncedAt: 0 };
+    }
+    saveMap(userId, rebuilt);
+    return 0;
+  }
+
+  // 안전장치 2: 옛 random ID 잔재만 삭제 — `tev` 접두가 **없는** 것만 고아로 인식
+  // (tev로 시작하는 매핑 없는 이벤트는 다른 디바이스/세션의 정상 push일 수 있음)
   const orphans = googleEvents.filter((e) => {
-    // 1) T1T prefix 매칭
     if (!T1T_PUSHED_TITLE_RE.test(e.title)) return false;
-    // 2) 매핑에 있으면 정상 push 결과
     if (e.externalId && pushedIds.has(e.externalId)) return false;
-    // 3) 우리가 만든 것임을 추가 확인 (사용자 자작 [공유] 이벤트 보호)
-    const isOurDeterministicId = typeof e.externalId === 'string' && e.externalId.startsWith('tev');
-    const hasOurMarker = /T1T (학사일정|공유 일정)/.test(e.description || '');
-    if (!isOurDeterministicId && !hasOurMarker) return false;
+    // T1T 마커가 없으면 사용자 자작 가능성 — 보호
+    if (!/T1T (학사일정|공유 일정)/.test(e.description || '')) return false;
+    // tev로 시작하면 다른 디바이스의 정상 deterministic push일 수 있음 — 보호
+    if (typeof e.externalId === 'string' && e.externalId.startsWith('tev')) return false;
     return true;
   });
   let deleted = 0;
@@ -100,7 +123,7 @@ export async function cleanupOrphanedT1TGoogleEvents(
     }
   }
   if (deleted > 0) {
-    console.log(`[SharedGoogleSync] Cleaned ${deleted} orphaned T1T events from Google Calendar.`);
+    console.log(`[SharedGoogleSync] Cleaned ${deleted} legacy (non-tev) orphan T1T events from Google.`);
   }
   return deleted;
 }
