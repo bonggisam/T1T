@@ -281,9 +281,28 @@ export async function createGoogleEvent(input: {
       body: JSON.stringify(body),
     });
     if (!res.ok) {
-      // 409: 같은 customEventId의 이벤트가 이미 존재 — 다른 디바이스에서 push했거나 재설치 후
-      //      그 ID 그대로 사용하면 됨 (이후 update/delete가 같은 ID로 동작)
+      // 409: 같은 customEventId의 이벤트가 이미 존재.
+      // - 다른 디바이스에서 push한 경우: 그 ID 재사용
+      // - 이전에 우리가 delete한 경우 (예: v2.5.42 버그): cancelled 상태일 수 있어 PATCH로 강제 복원
       if (res.status === 409 && input.customEventId) {
+        try {
+          const patchRes = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/primary/events/${input.customEventId}`,
+            {
+              method: 'PATCH',
+              headers: {
+                Authorization: `Bearer ${googleTokens!.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ ...body, status: 'confirmed' }),
+            },
+          );
+          if (patchRes.ok) {
+            console.log(`[CalendarSync] 409 → restored ${input.customEventId} via PATCH`);
+          }
+        } catch (e) {
+          console.warn('[CalendarSync] 409 PATCH restore failed:', e);
+        }
         return input.customEventId;
       }
       if (res.status === 401) {

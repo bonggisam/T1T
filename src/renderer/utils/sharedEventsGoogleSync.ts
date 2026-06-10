@@ -38,8 +38,20 @@ function loadMap(userId: string): PushedMap {
     const raw = localStorage.getItem(mapKey(userId));
     if (!raw) return {};
     const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object') return parsed as PushedMap;
-    return {};
+    if (!parsed || typeof parsed !== 'object') return {};
+    // v2.5.42 cleanup rebuild이 tev ID를 key로 잘못 저장한 손상 매핑 감지 + 자동 정리.
+    // 정상 매핑의 key는 Firestore eventId (보통 20자 영숫자) — 'tev' 접두로 시작하지 않음.
+    // 손상되었으면 비워서 syncSharedEventsToGoogle의 409 자연 복구 경로에 맡김.
+    const keys = Object.keys(parsed);
+    const tevKeyCount = keys.filter((k) => k.startsWith('tev')).length;
+    if (tevKeyCount > 0 && tevKeyCount >= keys.length / 2) {
+      console.warn(
+        `[SharedGoogleSync] Corrupted map detected (v2.5.42 bug): ${tevKeyCount}/${keys.length} keys are tev IDs. Resetting.`,
+      );
+      try { localStorage.removeItem(mapKey(userId)); } catch {}
+      return {};
+    }
+    return parsed as PushedMap;
   } catch {
     return {};
   }
@@ -80,35 +92,16 @@ export async function cleanupOrphanedT1TGoogleEvents(
   const map = loadMap(userId);
   const pushedIds = new Set(Object.values(map).map((e) => e.googleId));
 
-  // 안전장치 1: 매핑이 비어있고 Google에 tev 이벤트가 많으면 = localStorage가 wipe된 것.
-  // 그 경우 절대 삭제하지 말고 mapping을 Google 쪽에서 재구성 (사용자 일정 보호 최우선).
-  const tevEvents = googleEvents.filter((e) =>
-    typeof e.externalId === 'string' && e.externalId.startsWith('tev')
-  );
-  if (pushedIds.size === 0 && tevEvents.length > 0) {
-    console.warn(
-      `[SharedGoogleSync] Mapping empty but ${tevEvents.length} tev events found in Google. ` +
-      `Likely localStorage wipe. Rebuilding mapping instead of deleting.`
-    );
-    const rebuilt: PushedMap = {};
-    for (const ev of tevEvents) {
-      if (!ev.externalId) continue;
-      // tev ID는 Firestore eventId를 결정론적으로 변환 — 역추적 불가하므로
-      // googleId 자체를 key로 사용 (next syncSharedEventsToGoogle에서 정상화)
-      rebuilt[ev.externalId] = { googleId: ev.externalId, syncedAt: 0 };
-    }
-    saveMap(userId, rebuilt);
-    return 0;
-  }
-
-  // 안전장치 2: 옛 random ID 잔재만 삭제 — `tev` 접두가 **없는** 것만 고아로 인식
-  // (tev로 시작하는 매핑 없는 이벤트는 다른 디바이스/세션의 정상 push일 수 있음)
+  // 옛 random ID 잔재만 정리 — 다음 조건 모두 충족해야 삭제:
+  //   1) 제목이 T1T prefix (공유/학사/중·공유 등)
+  //   2) description에 "T1T 공유 일정" 또는 "T1T 학사일정" 마커 (사용자 자작 보호)
+  //   3) externalId가 'tev' 접두가 아님 — random-ID 시대의 잔재
+  // 'tev' 접두는 결정론적 ID이므로 다른 디바이스/세션의 정상 push일 수 있어 절대 삭제 X.
+  // syncSharedEventsToGoogle이 409 응답 → customEventId 반환 경로로 자연 복구.
   const orphans = googleEvents.filter((e) => {
     if (!T1T_PUSHED_TITLE_RE.test(e.title)) return false;
     if (e.externalId && pushedIds.has(e.externalId)) return false;
-    // T1T 마커가 없으면 사용자 자작 가능성 — 보호
     if (!/T1T (학사일정|공유 일정)/.test(e.description || '')) return false;
-    // tev로 시작하면 다른 디바이스의 정상 deterministic push일 수 있음 — 보호
     if (typeof e.externalId === 'string' && e.externalId.startsWith('tev')) return false;
     return true;
   });
