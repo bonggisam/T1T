@@ -5,6 +5,9 @@ import {
   disconnectGoogle,
 } from '../../utils/calendarSync';
 import { usePersonalEventStore } from '../../store/personalEventStore';
+import { forceResyncSharedToGoogle, getSyncDiagnostics, syncSharedEventsToGoogle } from '../../utils/sharedEventsGoogleSync';
+import { useAuthStore } from '../../store/authStore';
+import { useCalendarStore } from '../../store/calendarStore';
 
 interface CalendarSyncSettingsProps {
   syncInterval: number;
@@ -113,6 +116,46 @@ export function CalendarSyncSettings({ syncInterval, onSyncIntervalChange }: Cal
             </button>
           </div>
 
+          {/* 강제 재동기화 — 옛 버전 잔재로 인한 중복/누락 해결용 */}
+          <div style={styles.syncRow}>
+            <span style={styles.label}>🛠️ 강제 재동기화</span>
+            <button
+              onClick={async () => {
+                const { showToast } = await import('../common/Toast');
+                const u = useAuthStore.getState().user;
+                if (!u) return;
+                if (!confirm('현재 Google 캘린더의 T1T 푸시 일정을 모두 다시 동기화합니다.\n\n중복이나 누락된 일정이 정상화됩니다. 진행할까요?')) return;
+                try {
+                  forceResyncSharedToGoogle(u.id);
+                  showToast('동기화 매핑 초기화 — 재푸시 중…', 'info');
+                  if (u.school === 'taeseong_middle' || u.school === 'taeseong_high') {
+                    const events = useCalendarStore.getState().events;
+                    const r = await syncSharedEventsToGoogle(u.id, u.school, events);
+                    showToast(`✅ 재동기화 완료 — 생성 ${r.created}, 수정 ${r.updated}, 정리 ${r.deleted}`, 'success');
+                  }
+                  await syncExternalCalendars();
+                } catch (e: any) {
+                  showToast(`❌ 재동기화 실패: ${e?.message || '오류'}`, 'error');
+                }
+              }}
+              style={{ ...styles.connectBtn, background: '#F59E0B' }}
+            >
+              재동기화
+            </button>
+          </div>
+
+          {/* 동기화 상태 진단 */}
+          {(() => {
+            const u = useAuthStore.getState().user;
+            if (!u) return null;
+            const d = getSyncDiagnostics(u.id);
+            return (
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
+                매핑 {d.mappedCount}개 · {d.mapKeyHealthy ? '정상' : '⚠️ 손상'} · 마이그레이션 {d.hasMigrationMark ? '✓' : '미적용'}
+              </div>
+            );
+          })()}
+
           {/* 공유/학사 일정도 본인 Google Calendar에 자동 push 안내 */}
           <div style={{
             fontSize: 11,
@@ -123,7 +166,7 @@ export function CalendarSyncSettings({ syncInterval, onSyncIntervalChange }: Cal
             lineHeight: 1.5,
             marginTop: 4,
           }}>
-            ℹ️ 본인 학교 공유 일정 + 학사일정도 본인 Google Calendar로 자동 push됨 (제목 [공유]/[학사] 접두어).<br/>
+            ℹ️ 본인 학교 공유 일정 + 학사일정도 본인 Google Calendar로 자동 push됨 ([중·공유]/[고·공유]/[전체·공유] 등 학교 표시).<br/>
             <b>개인 일정</b>은 본인 캘린더에만 저장되며 다른 사람과 공유되지 않습니다.
           </div>
         </>

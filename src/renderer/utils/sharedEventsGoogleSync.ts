@@ -33,6 +33,9 @@ function mapKey(userId: string): string {
   return `t1t-shared-pushed-${userId}`;
 }
 
+const MIGRATION_KEY = 't1t-shared-pushed-migration';
+const MIGRATION_VERSION = 'v2-deterministic-id-school-label';
+
 function loadMap(userId: string): PushedMap {
   try {
     const raw = localStorage.getItem(mapKey(userId));
@@ -69,6 +72,9 @@ export function loadSharedPushedGoogleIds(userId: string): Set<string> {
 /** T1T 우리 push 이벤트 prefix 패턴 — 옛/새 형식 모두 매칭 */
 export const T1T_PUSHED_TITLE_RE = /^\[(공유|학사|(중|고|전체)·(공유|학사))\]\s/;
 
+/** 옛 v2.5.34~v2.5.36 형식 prefix — 점 없는 형식. marker 없이도 안전하게 삭제 가능 */
+const T1T_LEGACY_TITLE_RE = /^\[(공유|학사)\]\s/;
+
 /**
  * Google Calendar에서 고아 T1T 이벤트 정리.
  * 우리 prefix는 있지만 현재 사용자 매핑에는 없는 이벤트 = 옛 random-ID push 잔재 or
@@ -92,18 +98,21 @@ export async function cleanupOrphanedT1TGoogleEvents(
   const map = loadMap(userId);
   const pushedIds = new Set(Object.values(map).map((e) => e.googleId));
 
-  // 옛 random ID 잔재만 정리 — 다음 조건 모두 충족해야 삭제:
-  //   1) 제목이 T1T prefix (공유/학사/중·공유 등)
-  //   2) description에 "T1T 공유 일정" 또는 "T1T 학사일정" 마커 (사용자 자작 보호)
-  //   3) externalId가 'tev' 접두가 아님 — random-ID 시대의 잔재
+  // 고아 정리 — 두 가지 안전 경로:
+  //   경로 A) 옛 v2.5.34~v2.5.36 형식: [공유]/[학사] (점 없음). marker 없어도 우리 잔재로 확정.
+  //          → 사용자가 직접 만들 가능성이 낮은 형식이므로 marker 없이 삭제 OK.
+  //   경로 B) 신 [중·공유]/[고·학사]/[전체·공유] 등 형식: marker 필수 + tev 접두 보호.
+  //          → 신 형식 prefix는 사용자도 만들 수 있어 marker로 우리 것임을 강하게 확인.
   // 'tev' 접두는 결정론적 ID이므로 다른 디바이스/세션의 정상 push일 수 있어 절대 삭제 X.
-  // syncSharedEventsToGoogle이 409 응답 → customEventId 반환 경로로 자연 복구.
   const orphans = googleEvents.filter((e) => {
     if (!T1T_PUSHED_TITLE_RE.test(e.title)) return false;
     if (e.externalId && pushedIds.has(e.externalId)) return false;
-    if (!/T1T (학사일정|공유 일정)/.test(e.description || '')) return false;
+    // tev 접두는 절대 보호 (다른 디바이스의 정상 push 가능성)
     if (typeof e.externalId === 'string' && e.externalId.startsWith('tev')) return false;
-    return true;
+    // 경로 A: 옛 형식 [공유]/[학사] 단독 → marker 불필요, 즉시 정리
+    if (T1T_LEGACY_TITLE_RE.test(e.title)) return true;
+    // 경로 B: 신 형식 → marker 필수 (사용자 자작 보호)
+    return /T1T (학사일정|공유 일정)/.test(e.description || '');
   });
   let deleted = 0;
   for (const orphan of orphans) {
@@ -127,6 +136,38 @@ function saveMap(userId: string, map: PushedMap): void {
   } catch (e) {
     console.warn('[SharedGoogleSync] save mapping failed:', e);
   }
+}
+
+/**
+ * 강제 재동기화 — 사용자가 Settings에서 트리거.
+ * 1) 매핑 초기화 + 마이그레이션 마크 초기화
+ * 2) 모든 Firestore 이벤트가 다음 syncSharedEventsToGoogle에서 신규 push로 인식
+ * 3) 결정론적 ID이므로 Google에서 이미 존재하면 409 → PATCH 자동 복원 (중복 X)
+ */
+export function forceResyncSharedToGoogle(userId: string): void {
+  try {
+    localStorage.removeItem(mapKey(userId));
+    localStorage.removeItem(MIGRATION_KEY);
+    console.log('[SharedGoogleSync] Force resync triggered — mapping cleared.');
+  } catch (e) {
+    console.warn('[SharedGoogleSync] forceResync failed:', e);
+  }
+}
+
+/** 동기화 상태 진단 — Settings에 표시 */
+export function getSyncDiagnostics(userId: string): {
+  mappedCount: number;
+  hasMigrationMark: boolean;
+  mapKeyHealthy: boolean;
+} {
+  const map = loadMap(userId);
+  const keys = Object.keys(map);
+  const tevKeys = keys.filter((k) => k.startsWith('tev')).length;
+  return {
+    mappedCount: keys.length,
+    hasMigrationMark: localStorage.getItem(MIGRATION_KEY) === MIGRATION_VERSION,
+    mapKeyHealthy: tevKeys === 0,
+  };
 }
 
 /** 사용자에게 관련 있는 이벤트인지 — 본인 학교 + 'all' 만 */
@@ -187,9 +228,6 @@ function buildGoogleDescription(event: CalendarEvent): string {
 
 /** 진행 중 sync 락 — 동시 호출 방지 (race로 중복 push 방지) */
 let syncing = false;
-
-const MIGRATION_KEY = 't1t-shared-pushed-migration';
-const MIGRATION_VERSION = 'v2-deterministic-id-school-label';
 
 /**
  * 마이그레이션:

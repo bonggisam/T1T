@@ -103,8 +103,10 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
     set({ loading: true });
     try {
       const now = new Date();
-      const timeMin = startOfMonth(subMonths(now, 1));
-      const timeMax = endOfMonth(addMonths(now, 2));
+      // 범위 확장 — 과거 2달 ~ 미래 9달 (2027년 3월말까지 커버)
+      // 이유: 학사일정/공유 일정이 27년 2월까지 등록되어 있으므로 모두 가져와야 함
+      const timeMin = startOfMonth(subMonths(now, 2));
+      const timeMax = endOfMonth(addMonths(now, 9));
       let allExternal: PersonalEvent[] = [];
 
       if (isGoogleConnected()) {
