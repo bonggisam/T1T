@@ -39,6 +39,33 @@ let isClickThrough = false;
 let isWidgetMode = true; // Desktop widget mode (pinned behind windows)
 let updaterInterval: NodeJS.Timeout | null = null;
 
+// ─── 글로벌 크래시 안전망 ───
+// comcigan-parser 등 서드파티 라이브러리의 비동기 콜백 내 예외는 promise 체인을
+// 탈출해 uncaughtException이 됨 → 기본 동작은 흉측한 크래시 다이얼로그 + 앱 종료.
+// 네트워크 오류 같은 회복 가능한 예외로 앱 전체가 죽으면 안 되므로 로그만 남기고 계속.
+function logCrash(kind: string, err: unknown): void {
+  const msg = err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
+  console.error(`[${kind}]`, msg);
+  try {
+    const logPath = path.join(app.getPath('userData'), 'crash.log');
+    const line = `[${new Date().toISOString()}] ${kind}: ${msg}\n`;
+    fs.appendFileSync(logPath, line);
+    // 로그 5MB 초과 시 절반 자르기
+    const stat = fs.statSync(logPath);
+    if (stat.size > 5 * 1024 * 1024) {
+      const content = fs.readFileSync(logPath, 'utf8');
+      fs.writeFileSync(logPath, content.slice(content.length / 2));
+    }
+  } catch {}
+}
+process.on('uncaughtException', (err) => {
+  logCrash('uncaughtException', err);
+  // 앱 계속 실행 — 크래시 다이얼로그 표시 안 함
+});
+process.on('unhandledRejection', (reason) => {
+  logCrash('unhandledRejection', reason);
+});
+
 // 클릭 통과 모드 토글 (단축키/트레이/IPC 공통 호출)
 function setClickThrough(enabled: boolean): void {
   isClickThrough = enabled;
