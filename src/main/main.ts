@@ -589,6 +589,9 @@ function setupIPC(): void {
 
 // 수동 업데이트 확인 진행 여부 — 자동/수동 구분
 let manualCheckInProgress = false;
+// 다운로드 실패 자동 재시도 카운터 (update-available 시 리셋)
+let downloadRetries = 0;
+const MAX_DOWNLOAD_RETRIES = 3;
 
 function setupAutoUpdater(): void {
   if (isDev) return; // Skip in development
@@ -616,6 +619,7 @@ function setupAutoUpdater(): void {
   });
 
   autoUpdater.on('update-available', (info) => {
+    downloadRetries = 0; // 새 업데이트 발견 시 재시도 카운터 리셋
     // 자동 다운로드 시작됨을 알리지만 진행률은 background
     sendToRenderer('updater:available', {
       version: info.version,
@@ -642,13 +646,26 @@ function setupAutoUpdater(): void {
   });
 
   autoUpdater.on('error', (err) => {
-    // 네트워크/일시적 에러는 자동 확인 중엔 무시 (배너 깜빡임 방지)
-    // 수동 확인 시에만 사용자에게 표시
     const msg = err?.message || '';
-    // 잘 알려진 무해한 에러는 silently ignore
+    // 진단용 — 업데이트 실패 원인 추적 (crash.log에 기록)
+    logCrash('updater-error', err);
+    // 다운로드/체크섬 관련 에러면 자동 재시도 (지수 백오프).
+    // 학교망 불안정으로 100MB 다운로드가 중단되는 케이스를 자동 회복.
+    const isDownloadErr = /download|net::|ETIMEDOUT|ECONNRESET|ENETUNREACH|EPIPE|sha512|checksum|EAI_AGAIN/i.test(msg);
+    if (isDownloadErr && downloadRetries < MAX_DOWNLOAD_RETRIES) {
+      downloadRetries++;
+      const delaySec = downloadRetries * 20; // 20s, 40s, 60s
+      console.warn(`[Updater] Download error — retry ${downloadRetries}/${MAX_DOWNLOAD_RETRIES} in ${delaySec}s`);
+      setTimeout(() => autoUpdater.downloadUpdate().catch(() => {}), delaySec * 1000);
+      return;
+    }
+    // 잘 알려진 무해한 에러는 자동 확인 중엔 조용히 무시 (배너 깜빡임 방지)
     const benign = /ENOTFOUND|ETIMEDOUT|ECONNRESET|ENETUNREACH|net::ERR/i.test(msg);
     if (manualCheckInProgress) {
       sendToRenderer('updater:error', benign ? '네트워크에 연결되지 않았습니다' : msg);
+    } else if (downloadRetries >= MAX_DOWNLOAD_RETRIES) {
+      // 재시도 모두 소진 — 사용자에게 수동 다운로드 유도
+      sendToRenderer('updater:error', `자동 업데이트 실패 — 설정에서 수동 다운로드를 이용해주세요. (${msg.slice(0, 80)})`);
     } else {
       console.warn('[Updater] Silent auto-check error:', msg);
     }

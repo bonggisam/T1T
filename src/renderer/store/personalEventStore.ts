@@ -118,9 +118,15 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
         if (userId) {
           await cleanupOrphanedT1TGoogleEvents(userId, googleEvents).catch(() => {});
         }
-        // 2) personal 뷰 필터링 — 우리 push 이벤트는 shared 뷰에 이미 표시되므로 제외
+        // 2) personal 뷰 필터링 — 우리 push 이벤트는 shared 뷰에 이미 표시되므로 제외.
+        //    에코 루프(공유일정 → Google push → 다시 pull → 앱에 중복) 방어 3중:
+        //      a) externalId가 'tev'로 시작 = 우리 결정론적 ID → 무조건 제외 (가장 튼튼).
+        //         매핑이 손상되거나 사용자가 Google에서 제목을 바꿔도 이 방어는 유지됨.
+        //      b) 매핑(pushedIds)에 있는 ID → 제외
+        //      c) 제목 prefix ([중·공유] 등) → 제외 (옛 형식 fallback)
         const pushedIds = userId ? loadSharedPushedGoogleIds(userId) : new Set<string>();
         allExternal = googleEvents.filter((e) => {
+          if (typeof e.externalId === 'string' && e.externalId.startsWith('tev')) return false;
           if (e.externalId && pushedIds.has(e.externalId)) return false;
           if (T1T_PUSHED_TITLE_RE.test(e.title)) return false;
           return true;

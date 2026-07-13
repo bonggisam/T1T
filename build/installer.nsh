@@ -21,8 +21,18 @@
   RMDir /r "$LOCALAPPDATA\T1T\GPUCache"
   RMDir /r "$LOCALAPPDATA\T1T\Crashpad"
   RMDir /r "$LOCALAPPDATA\T1T\logs"
-  Delete "$DESKTOP\T1T.lnk"
-  Delete "$SMPROGRAMS\T1T.lnk"
+  ; ⚠️ 바탕화면/시작메뉴 바로가기는 여기서 지우지 않는다.
+  ;   electron-updater의 업데이트 재설치가 내부적으로 uninstaller를 호출하는데,
+  ;   그때 이 매크로가 아이콘을 지운 뒤 재설치가 실패하면 아이콘이 영구 소실됨.
+  ;   → 낮은 버전 사용자의 "바탕화면 아이콘 사라짐" 원인.
+  ;   정식 제거 시의 아이콘 정리는 electron-builder 표준 템플릿이 담당하므로 생략해도 무방.
+!macroend
+
+; 설치 완료 직후 — 바탕화면 바로가기 보장 (업데이트 재설치 시 아이콘 확실히 복원)
+!macro customInstall
+  ; oneClick 모드에서 $DESKTOP은 현재 사용자 바탕화면.
+  ; createDesktopShortcut:true가 이미 만들지만, 업데이트 경로에서 누락되는 케이스를 방어.
+  CreateShortcut "$DESKTOP\T1T.lnk" "$INSTDIR\T1T.exe" "" "$INSTDIR\T1T.exe" 0
 !macroend
 
 ; 설치 시작 전 — 안전한 다단계 종료
