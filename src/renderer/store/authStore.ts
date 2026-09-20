@@ -166,6 +166,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
+    // Google 토큰을 반드시 함께 끊는다 — 안 끊으면 공용 교무실 PC에서 다음에 로그인한 교사의
+    // 개인 일정이 이전 교사의 Google 캘린더로 푸시되고, 이전 교사의 Google 일정이 화면에 보임.
+    // ("개인 일정은 절대 다른 사람과 공유되면 안 됨" 원칙 위반) — 동적 import로 순환 의존 회피.
+    try {
+      const { disconnectGoogle } = await import('../utils/calendarSync');
+      disconnectGoogle();
+    } catch (err) { console.warn('[Auth] Google disconnect on logout failed:', err); }
     try { await signOut(auth); } catch (err) { console.warn('[Auth] Signout failed:', err); }
     set({ firebaseUser: null, user: null, loading: false });
   },

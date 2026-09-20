@@ -137,10 +137,15 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
     setDeleting(true);
     try {
       const r = await deletePersonalEvent(user.id, event.id);
-      if (r.googleSync === 'success') showToast('✅ 삭제 + Google에서도 제거됨', 'success');
-      else if (r.googleSync === 'failed') showToast(`⚠️ 삭제됨 — Google에선 남음: ${r.error || ''}`, 'error');
-      else showToast('삭제되었습니다');
-      onClose();
+      if (!r.deleted) {
+        // Google 삭제 실패 → 로컬도 지우지 않음 (Google에 고아가 남아 다음 pull에서 중복으로 되살아나는 것 방지).
+        // 상세창은 열어 두어 바로 재시도할 수 있게 한다.
+        showToast(`⚠️ ${r.error || 'Google 삭제 실패 — 삭제를 취소했습니다'}`, 'error');
+      } else {
+        if (r.googleSync === 'success') showToast('✅ 삭제 + Google에서도 제거됨', 'success');
+        else showToast('삭제되었습니다');
+        onClose();
+      }
     } catch (err) {
       console.error('[PersonalEventDetail] delete failed:', err);
       showToast('삭제 실패', 'error');

@@ -38,7 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAutoLaunch: (): Promise<boolean> => ipcRenderer.invoke('app:get-auto-launch'),
   setAutoLaunch: (enabled: boolean): Promise<boolean> => ipcRenderer.invoke('app:set-auto-launch', enabled),
   onUpdaterEvent: (callback: (channel: string, data: any) => void) => {
-    const channels = ['updater:checking', 'updater:available', 'updater:not-available', 'updater:progress', 'updater:downloaded', 'updater:error'];
+    const channels = ['updater:checking', 'updater:available', 'updater:not-available', 'updater:progress', 'updater:downloaded', 'updater:installing', 'updater:error'];
     const listeners = channels.map((ch) => {
       const listener = (_event: any, data: any) => callback(ch, data);
       ipcRenderer.on(ch, listener);

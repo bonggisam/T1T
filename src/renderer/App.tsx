@@ -115,10 +115,16 @@ export function App() {
       setIsOffline(false);
       reconnectWithRetry();
     };
-    const googleAuthExpired = () => {
+    const googleAuthExpired = (ev: Event) => {
+      const reason = (ev as CustomEvent).detail?.reason;
       // 동적 import로 순환 방지
       import('./components/common/Toast').then(({ showToast }) => {
-        showToast('Google Calendar 인증이 만료되었습니다. 설정에서 다시 연동해주세요.', 'error');
+        showToast(
+          reason === 'security-migration'
+            ? '보안 강화(사용자별 토큰 분리)로 Google Calendar를 한 번만 다시 연동해주세요 — 설정 > Google 연동'
+            : 'Google Calendar 인증이 만료되었습니다. 설정에서 다시 연동해주세요.',
+          'error',
+        );
       });
     };
     // 창 focus / visibility 복귀 시 Google Calendar 즉시 동기화 (양방향 즉시성 강화)

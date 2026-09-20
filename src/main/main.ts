@@ -38,6 +38,9 @@ let tray: Tray | null = null;
 let isClickThrough = false;
 let isWidgetMode = true; // Desktop widget mode (pinned behind windows)
 let updaterInterval: NodeJS.Timeout | null = null;
+// 진짜 종료 중인지 — 창 close 핸들러는 평소엔 hide(트레이 상주)로 바꾸지만, 이 플래그가 서면 그대로 닫힌다.
+// app.quit()은 창 하나라도 close를 preventDefault하면 취소되므로, 이 플래그 없이는 어떤 경로로도 종료가 완료되지 않았다.
+let isQuitting = false;
 
 // ─── 글로벌 크래시 안전망 ───
 // comcigan-parser 등 서드파티 라이브러리의 비동기 콜백 내 예외는 promise 체인을
@@ -65,6 +68,25 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason) => {
   logCrash('unhandledRejection', reason);
 });
+
+// electron-updater 진단 로그 — userData/update.log (5MB 초과 시 절반 절삭).
+// "자동 업데이트 안 됨" 재현 시 이 파일만 받으면 어느 단계(확인/다운로드/검증/설치)에서
+// 멈췄는지 바로 알 수 있음. 지금까지는 실패 원인이 아무 데도 남지 않았음.
+function logUpdate(level: string, msg: unknown): void {
+  let text: string;
+  if (msg instanceof Error) text = `${msg.message}\n${msg.stack}`;
+  else if (typeof msg === 'string') text = msg;
+  else { try { text = JSON.stringify(msg); } catch { text = String(msg); } }
+  try {
+    const logPath = path.join(app.getPath('userData'), 'update.log');
+    fs.appendFileSync(logPath, `[${new Date().toISOString()}] [${level}] ${text}\n`);
+    const stat = fs.statSync(logPath);
+    if (stat.size > 5 * 1024 * 1024) {
+      const content = fs.readFileSync(logPath, 'utf8');
+      fs.writeFileSync(logPath, content.slice(content.length / 2));
+    }
+  } catch {}
+}
 
 // 클릭 통과 모드 토글 (단축키/트레이/IPC 공통 호출)
 function setClickThrough(enabled: boolean): void {
@@ -182,6 +204,10 @@ function createWindow(): void {
   }
 
   mainWindow.on('close', (e) => {
+    // 진짜 종료(트레이 종료 / 업데이트 설치 / autoInstallOnAppQuit)면 그대로 닫히게 둔다.
+    // 이 분기가 없으면 app.quit()이 여기서 취소되어 — 업데이트 인스톨러만 뜨고 앱은 숨은 채 살아남아
+    // 인스톨러의 taskkill에 함께 죽는 — "앱만 꺼지고 새 버전은 안 깔림"의 한 축이었다.
+    if (isQuitting) return;
     e.preventDefault();
     mainWindow?.hide();
   });
@@ -522,23 +548,36 @@ function setupIPC(): void {
   });
 
   // Auto-updater IPC
-  ipcMain.handle('updater:download', () => {
+  ipcMain.handle('updater:download', async () => {
+    // 미서명 Mac은 Squirrel 다운로드가 항상 실패 → 릴리스 페이지로 안내
+    if (UPDATER_MANUAL_ONLY) {
+      await shell.openExternal(RELEASES_URL).catch(() => {});
+      return;
+    }
     autoUpdater.downloadUpdate().catch((err) => console.error('[Updater] Download failed:', err));
   });
 
   ipcMain.handle('updater:install', () => {
-    // 안정성 강화 흐름:
+    // 흐름:
     //   1) UI에 "설치 중" 알림 → 사용자 인지
     //   2) 500ms 대기 (배너가 렌더 완료할 시간)
-    //   3) isSilent=false: oneClick 인스톨러는 어차피 silent이지만,
-    //      false로 명시하면 electron-updater가 /S 플래그 추가하지 않음.
-    //      runAfterFinish:true가 NSIS 표준 템플릿에서 앱 자동 실행 처리.
-    //      isForceRunAfter=true와 중복 트리거 방지 효과.
-    //   4) 실패 시 사용자에게 에러 + 수동 설치 경로 안내
+    //   3) isQuitting = true → 창 close 핸들러가 preventDefault(hide)를 건너뛰어 app.quit()이 실제로 완료됨.
+    //      (이 플래그 없이는 quitAndInstall이 spawn한 인스톨러만 뜨고 앱은 숨겨진 채 살아 있었음)
+    //   4) quitAndInstall(isSilent=false, isForceRunAfter=true):
+    //      electron-updater 6 실제 동작은 install(isSilent, isSilent ? isForceRunAfter : autoRunAppAfterInstall)
+    //      → isSilent=false면 두 번째 인자는 무시되고 autoRunAppAfterInstall(기본 true)가 쓰여 `--updated --force-run`.
+    //      /S 없이 oneClick 인스톨러의 작은 진행 창이 보이는데, "앱이 사라졌다"는 오해를 막아 주므로 의도적으로 유지.
+    //   5) 실패 시 사용자에게 에러 + 수동 설치 경로 안내
     try {
+      if (UPDATER_MANUAL_ONLY) {
+        shell.openExternal(RELEASES_URL).catch(() => {});
+        return;
+      }
       sendToRenderer('updater:installing');
       setTimeout(() => {
         try {
+          isQuitting = true;
+          logUpdate('info', 'quitAndInstall requested by user');
           autoUpdater.quitAndInstall(false, true);
         } catch (err: any) {
           console.error('[Updater] quitAndInstall failed:', err);
@@ -592,6 +631,15 @@ let manualCheckInProgress = false;
 // 다운로드 실패 자동 재시도 카운터 (update-available 시 리셋)
 let downloadRetries = 0;
 const MAX_DOWNLOAD_RETRIES = 3;
+// macOS: 앱이 코드 서명되어 있지 않음(package.json build.mac.identity = "-").
+// Squirrel.Mac 자동 업데이트는 서명이 필수라 미서명 앱은 다운로드 단계에서 항상 실패한다.
+// → Mac은 자동 다운로드/설치를 끄고 "새 버전 있음 + 수동 다운로드" 안내만 한다.
+//   (Apple Developer 인증서로 서명하게 되면 이 플래그를 false로 바꾸면 됨)
+const UPDATER_MANUAL_ONLY = process.platform === 'darwin';
+const RELEASES_URL = 'https://github.com/bonggisam/T1T/releases/latest';
+let lastAvailableVersion: string | null = null; // 재시도 카운터는 "새" 버전을 봤을 때만 리셋
+let downloadedVersion: string | null = null;    // 다운로드 완료된 버전 — 30분 재확인이 배너를 'available'로 되돌리지 않도록
+let autoErrorNotified = false;                  // 자동 확인 중 비-네트워크 오류는 세션당 1회만 배너로 알림
 
 function setupAutoUpdater(): void {
   if (isDev) return; // Skip in development
@@ -608,9 +656,22 @@ function setupAutoUpdater(): void {
     console.warn('[Updater] setFeedURL failed (will fallback to package.json):', err);
   }
 
-  // 사용자 개입 없이 백그라운드 자동 다운로드 → 매끄러운 경험
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+  // electron-updater 내부 동작을 파일로 기록 (확인 → 다운로드 → sha512 검증 → 설치 spawn)
+  autoUpdater.logger = {
+    info: (m: unknown) => logUpdate('info', m),
+    warn: (m: unknown) => logUpdate('warn', m),
+    error: (m: unknown) => logUpdate('error', m),
+    debug: (m: unknown) => logUpdate('debug', m),
+  };
+  logUpdate('info', `setupAutoUpdater v${app.getVersion()} platform=${process.platform} manualOnly=${UPDATER_MANUAL_ONLY}`);
+  // 참고: 'before-quit-for-update'는 Electron 내장 autoUpdater의 이벤트이며 electron-updater에는 없다.
+  // 종료 플래그(isQuitting)는 app.on('before-quit')에서 세우므로 quitAndInstall / autoInstallOnAppQuit
+  // 어느 경로든 app.quit() 시점에 창 close 핸들러가 quit를 가로채지 않는다.
+
+  // Windows: 사용자 개입 없이 백그라운드 자동 다운로드 → 매끄러운 경험
+  // Mac(미서명): 자동 다운로드/설치 불가 → 확인만 하고 수동 안내 (UPDATER_MANUAL_ONLY 주석 참조)
+  autoUpdater.autoDownload = !UPDATER_MANUAL_ONLY;
+  autoUpdater.autoInstallOnAppQuit = !UPDATER_MANUAL_ONLY;
   // 다운로드 실패 시 자동 재시도 비활성 (직접 제어)
   autoUpdater.disableWebInstaller = true;
 
@@ -619,11 +680,21 @@ function setupAutoUpdater(): void {
   });
 
   autoUpdater.on('update-available', (info) => {
-    downloadRetries = 0; // 새 업데이트 발견 시 재시도 카운터 리셋
-    // 자동 다운로드 시작됨을 알리지만 진행률은 background
+    // 30분마다 재확인이 돌면 같은 버전으로 이 이벤트가 반복 발화한다.
+    // 재시도 카운터를 매번 0으로 돌리면 3회 제한이 무의미해지므로 "새 버전"일 때만 리셋.
+    if (info.version !== lastAvailableVersion) {
+      downloadRetries = 0;
+      lastAvailableVersion = info.version;
+    }
+    logUpdate('info', `update-available: v${info.version} (current v${app.getVersion()})`);
+    // 이미 다운로드까지 끝난 버전이면 배너를 'available'로 되돌리지 않음 (설치 버튼 유지)
+    if (downloadedVersion === info.version) return;
+    // Windows: 자동 다운로드 시작됨을 알리지만 진행률은 background
+    // Mac: manualOnly → 배너가 "다운로드 페이지 열기" 버튼을 보여줌
     sendToRenderer('updater:available', {
       version: info.version,
       releaseNotes: info.releaseNotes,
+      manualOnly: UPDATER_MANUAL_ONLY,
     });
   });
 
@@ -640,7 +711,9 @@ function setupAutoUpdater(): void {
     });
   });
 
-  autoUpdater.on('update-downloaded', () => {
+  autoUpdater.on('update-downloaded', (info) => {
+    downloadedVersion = info?.version ?? lastAvailableVersion;
+    logUpdate('info', `update-downloaded: v${downloadedVersion}`);
     // 다운로드 완료 → 사용자에게 재시작 안내
     sendToRenderer('updater:downloaded');
   });
@@ -652,7 +725,7 @@ function setupAutoUpdater(): void {
     // 다운로드/체크섬 관련 에러면 자동 재시도 (지수 백오프).
     // 학교망 불안정으로 100MB 다운로드가 중단되는 케이스를 자동 회복.
     const isDownloadErr = /download|net::|ETIMEDOUT|ECONNRESET|ENETUNREACH|EPIPE|sha512|checksum|EAI_AGAIN/i.test(msg);
-    if (isDownloadErr && downloadRetries < MAX_DOWNLOAD_RETRIES) {
+    if (!UPDATER_MANUAL_ONLY && isDownloadErr && downloadRetries < MAX_DOWNLOAD_RETRIES) {
       downloadRetries++;
       const delaySec = downloadRetries * 20; // 20s, 40s, 60s
       console.warn(`[Updater] Download error — retry ${downloadRetries}/${MAX_DOWNLOAD_RETRIES} in ${delaySec}s`);
@@ -666,6 +739,11 @@ function setupAutoUpdater(): void {
     } else if (downloadRetries >= MAX_DOWNLOAD_RETRIES) {
       // 재시도 모두 소진 — 사용자에게 수동 다운로드 유도
       sendToRenderer('updater:error', `자동 업데이트 실패 — 설정에서 수동 다운로드를 이용해주세요. (${msg.slice(0, 80)})`);
+    } else if (!benign && !autoErrorNotified) {
+      // latest.yml 404, provider 오류 등 "다운로드가 아닌" 실패는 지금까지 완전 무음이었음
+      // (프로덕션 콘솔은 아무도 안 봄) → 왜 안 되는지 알 길이 없었다. 세션당 1회는 배너로 알린다.
+      autoErrorNotified = true;
+      sendToRenderer('updater:error', `업데이트 확인 실패: ${msg.slice(0, 100)} — 설정 > 수동 다운로드 (update.log 참조)`);
     } else {
       console.warn('[Updater] Silent auto-check error:', msg);
     }
@@ -1073,6 +1151,8 @@ app.whenReady().then(() => {
 });
 
 app.on('before-quit', () => {
+  // 어떤 경로로 app.quit()이 불리든(트레이 종료, 업데이트, 싱글톤 락) 창 close가 quit를 가로채지 않게 한다.
+  isQuitting = true;
   // 종료 직전 창 상태 저장 (마지막 위치/크기)
   saveWindowState();
 });

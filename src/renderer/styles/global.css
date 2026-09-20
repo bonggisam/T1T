@@ -26,9 +26,15 @@
   --today-bg: rgba(74, 144, 226, 0.2);
   --weekend-text: #E74C3C;
   --blur-amount: 20px;
+  --radius-xs: 4px;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
+  /* 깊이감·모션 토큰 — 컴포넌트가 공통으로 참조 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --focus-ring: 0 0 0 3px rgba(74, 144, 226, 0.18);
 }
 
 [data-theme='dark'] {
@@ -49,6 +55,8 @@
   --comcigan-text: #ffffff;
   --comcigan-bg: rgba(59, 130, 246, 0.45);
   --comcigan-shadow: 0 1px 3px rgba(0,0,0,0.7);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 
 [data-theme='dark'] .glass {
@@ -70,29 +78,36 @@ html, body, #root {
   color: var(--text-primary);
   user-select: none;
   -webkit-app-region: no-drag;
+  /* 한글 본문 렌더링 — 안티앨리어싱 + 살짝 좁힌 자간이 Noto Sans KR을 더 단정하게 보이게 함 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
+  text-rendering: optimizeLegibility;
 }
 
-/* Scrollbar */
+/* Scrollbar — 얇고 조용하게, hover 때만 존재감 */
 ::-webkit-scrollbar {
-  width: 4px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.3);
-  border-radius: 4px;
+  background: rgba(128, 128, 128, 0.25);
+  border-radius: 999px;
+  transition: background 0.15s ease;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(128, 128, 128, 0.5);
 }
 
-/* Glassmorphism base — light grey tint for readability */
+/* Glassmorphism base — light grey tint for readability + 은은한 깊이감 */
 .glass {
   background: rgba(240, 240, 240, 0.55);
   border: 1px solid var(--grid-line);
-  border-radius: 8px;
-  box-shadow: none;
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm), var(--shadow-md);
 }
 
 .glass-solid {
@@ -133,16 +148,24 @@ html, body, #root {
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.2s ease-out;
+  animation: fadeIn 0.18s var(--ease-out);
 }
 
 .animate-slide-up {
-  animation: slideUp 0.3s ease-out;
+  animation: slideUp 0.26s var(--ease-out);
 }
 
-/* Button hover effects */
+/* Buttons — 상태 변화에 짧은 트랜지션을 줘서 딱딱 끊기지 않게 */
+button {
+  transition:
+    filter 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease,
+    transform 0.1s ease;
+}
 button:hover:not(:disabled) {
-  filter: brightness(1.1);
+  filter: brightness(1.08);
 }
 
 /* Quick-add popup button hover */
@@ -160,10 +183,14 @@ button:disabled {
   filter: none !important;
 }
 
-/* Input focus */
+/* Inputs — 부드러운 포커스 링 */
+input, textarea, select {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
 input:focus, textarea:focus, select:focus {
+  outline: none;
   border-color: var(--accent) !important;
-  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+  box-shadow: var(--focus-ring);
 }
 
 /* Loading spinner */

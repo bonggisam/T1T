@@ -47,8 +47,23 @@ interface GoogleTokens {
 let googleTokens: GoogleTokens | null = null;
 // M1: refresh 중복 호출 방지용 in-flight promise
 let refreshPromise: Promise<boolean> | null = null;
-// 429 Rate Limit backoff — 이 시간까지는 fetch 건너뜀
+// 429/403 Rate Limit backoff — 이 시간까지는 Google 호출(fetch/create/reconcile) 건너뜀
 let rateLimitedUntil = 0;
+/** reconcile 등 호출자가 제한 중인지 확인해 사이클을 통째로 건너뛰도록 */
+export function isGoogleRateLimited(): boolean {
+  return Date.now() < rateLimitedUntil;
+}
+function applyRateLimit(status: number, retryAfterHeader: string | null): void {
+  const ra = parseInt(retryAfterHeader || '0', 10);
+  const floorSec = status === 429 ? 60 : 120; // 403(quota/권한)은 조금 더 길게
+  rateLimitedUntil = Date.now() + Math.max(isNaN(ra) ? 0 : ra, floorSec) * 1000;
+  console.warn(`[Google Sync] ${status} — pausing Google calls for ${Math.round((rateLimitedUntil - Date.now()) / 1000)}s`);
+}
+
+// 현재 로그인 사용자 — Google 토큰을 사용자별 키로 분리 저장하기 위함
+let currentUserId: string | null = null;
+/** 옛 버전의 공용 토큰 키 — 누구 것인지 알 수 없어 복원하지 않고 제거만 한다 */
+const LEGACY_TOKEN_KEY = 'cal_tokens_google';
 
 const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // 5분 여유
 const TOKEN_SAFETY_MARGIN_SEC = 30; // M7: expires_in에서 빼서 안전 마진 확보
@@ -167,42 +182,53 @@ export async function fetchGoogleCalendarEvents(
   if (!accessToken) return [];
 
   try {
-    const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
+    const baseUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
       `timeMin=${timeMin.toISOString()}&` +
       `timeMax=${timeMax.toISOString()}&` +
       `singleEvents=true&orderBy=startTime&maxResults=500`;
 
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    // 페이지네이션 — 11개월 창 + singleEvents(반복 일정 개별 전개)라 500건을 쉽게 넘는다.
+    // nextPageToken을 안 따라가면 일정이 조용히 누락되고, dedup/cleanup이 부분 데이터 위에서 판단하게 됨.
+    // 중간 페이지가 실패하면 부분 결과를 쓰지 않고 이번 사이클 전체를 실패 처리([]) — 부분 데이터로
+    // 고아 판정을 내리는 것이 누락보다 위험하기 때문.
+    const MAX_PAGES = 6; // 최대 3,000건
+    const allItems: any[] = [];
+    let pageToken: string | undefined;
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const url = pageToken ? `${baseUrl}&pageToken=${encodeURIComponent(pageToken)}` : baseUrl;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
 
-    if (!res.ok) {
-      if (res.status === 401) {
-        disconnectGoogle();
-        // 토큰 만료 안내 이벤트 발송 (UI에서 listen 가능)
-        window.dispatchEvent(new CustomEvent('google:auth-expired'));
-      } else if (res.status === 429) {
-        // Rate limit — Retry-After 만큼 대기 (없으면 60초)
-        const retryAfter = parseInt(res.headers.get('Retry-After') || '60', 10);
-        rateLimitedUntil = Date.now() + Math.max(retryAfter, 60) * 1000;
-        console.warn(`[Google Sync] rate limited — pausing for ${retryAfter}s`);
-      } else if (res.status >= 500) {
-        // 5xx transient — disconnect 하지 않음. 다음 폴링에서 자동 재시도.
-        console.warn(`[Google Sync] transient ${res.status} — will retry next poll`);
-      } else {
-        console.warn(`[Google Sync] fetch failed ${res.status}`);
+      if (!res.ok) {
+        if (res.status === 401) {
+          disconnectGoogle();
+          // 토큰 만료 안내 이벤트 발송 (UI에서 listen 가능)
+          window.dispatchEvent(new CustomEvent('google:auth-expired'));
+        } else if (res.status === 429 || res.status === 403) {
+          applyRateLimit(res.status, res.headers.get('Retry-After'));
+        } else if (res.status >= 500) {
+          // 5xx transient — disconnect 하지 않음. 다음 폴링에서 자동 재시도.
+          console.warn(`[Google Sync] transient ${res.status} — will retry next poll`);
+        } else {
+          console.warn(`[Google Sync] fetch failed ${res.status}`);
+        }
+        return [];
       }
-      return [];
-    }
 
-    let data: any;
-    try {
-      data = await res.json();
-    } catch (err) {
-      console.warn('[Google Sync] response JSON parse failed:', err);
-      return [];
+      let data: any;
+      try {
+        data = await res.json();
+      } catch (err) {
+        console.warn('[Google Sync] response JSON parse failed:', err);
+        return [];
+      }
+      allItems.push(...(data.items || []));
+      pageToken = data.nextPageToken;
+      if (!pageToken) break;
+      if (page === MAX_PAGES - 1) console.warn(`[Google Sync] more than ${MAX_PAGES * 500} events in window — truncated`);
     }
-    return (data.items || []).map((item: any) => {
+    return allItems.map((item: any) => {
       const isAllDay = !item.start?.dateTime && !!item.start?.date;
       let startDate: Date;
       let endDate: Date;
@@ -297,17 +323,26 @@ export async function createGoogleEvent(input: {
               body: JSON.stringify({ ...body, status: 'confirmed' }),
             },
           );
-          if (patchRes.ok) {
-            console.log(`[CalendarSync] 409 → restored ${input.customEventId} via PATCH`);
+          if (!patchRes.ok) {
+            // PATCH가 실패했는데 ID를 성공으로 돌려주면 호출자가 "동기화 완료"로 믿고
+            // Firestore에 죽은 externalId를 기록 → Google엔 없는데 앱은 성공, 이후 update/delete 전부 404.
+            // 실패를 그대로 전파해 reconcile이 나중에 다시 시도하게 둔다.
+            console.warn(`[CalendarSync] 409 PATCH restore failed (${patchRes.status}) for ${input.customEventId}`);
+            return null;
           }
+          console.log(`[CalendarSync] 409 → restored ${input.customEventId} via PATCH`);
         } catch (e) {
           console.warn('[CalendarSync] 409 PATCH restore failed:', e);
+          return null;
         }
         return input.customEventId;
       }
       if (res.status === 401) {
         disconnectGoogle();
         window.dispatchEvent(new CustomEvent('google:auth-expired'));
+      } else if (res.status === 429 || res.status === 403) {
+        // fetch와 같은 백오프를 공유 — reconcile이 15초마다 제한 걸린 API를 계속 두드리지 않도록
+        applyRateLimit(res.status, res.headers.get('Retry-After'));
       } else {
         console.warn('[CalendarSync] createGoogleEvent failed:', res.status);
       }
@@ -384,7 +419,9 @@ export async function deleteGoogleEvent(externalId: string): Promise<boolean> {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${googleTokens!.access_token}` },
     });
-    if (res.ok || res.status === 410) return true; // 410 = 이미 삭제됨
+    // 404/410 = Google에 이미 없음(사용자가 Google 앱에서 직접 지운 경우 포함) → 성공으로 간주.
+    // false로 돌리면 deletePersonalEvent가 로컬 삭제까지 취소해 그 일정을 영영 못 지우게 됨.
+    if (res.ok || res.status === 404 || res.status === 410) return true;
     if (res.status === 401) {
       disconnectGoogle();
       window.dispatchEvent(new CustomEvent('google:auth-expired'));
@@ -402,9 +439,16 @@ export async function deleteGoogleEvent(externalId: string): Promise<boolean> {
 // Token storage (localStorage)
 // ============================================================
 
+/** 토큰 키 — 사용자별 분리. 로그인 전(currentUserId 없음)에는 저장/복원/삭제 모두 하지 않는다. */
+function tokenKey(provider: string): string | null {
+  return currentUserId ? `cal_tokens_${provider}_${currentUserId}` : null;
+}
+
 function saveTokensToStorage(provider: string, tokens: any): void {
+  const key = tokenKey(provider);
+  if (!key) return;
   try {
-    localStorage.setItem(`cal_tokens_${provider}`, JSON.stringify(tokens));
+    localStorage.setItem(key, JSON.stringify(tokens));
   } catch (err) {
     console.warn(`[CalendarSync] Failed to save ${provider} tokens:`, err);
     // 사용자에게 알림 — 새로고침 후 재인증 필요할 수 있음
@@ -415,8 +459,10 @@ function saveTokensToStorage(provider: string, tokens: any): void {
 }
 
 function loadTokensFromStorage(provider: string): any | null {
+  const key = tokenKey(provider);
+  if (!key) return null;
   try {
-    const raw = localStorage.getItem(`cal_tokens_${provider}`);
+    const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : null;
   } catch (err) {
     console.warn(`[CalendarSync] Failed to load ${provider} tokens:`, err);
@@ -425,17 +471,40 @@ function loadTokensFromStorage(provider: string): any | null {
 }
 
 function removeTokensFromStorage(provider: string): void {
+  const key = tokenKey(provider);
+  if (!key) return;
   try {
-    localStorage.removeItem(`cal_tokens_${provider}`);
+    localStorage.removeItem(key);
   } catch (err) {
     console.warn(`[CalendarSync] Failed to remove ${provider} tokens:`, err);
   }
 }
 
-/** Restore saved tokens on app load (refresh_token이 있으면 만료되어도 복원) */
-export function restoreCalendarConnections(): void {
+/**
+ * 로그인한 사용자의 저장 토큰 복원 (refresh_token이 있으면 만료되어도 복원).
+ *
+ * 토큰은 **사용자별 키**에 저장된다. 옛 버전의 공용 키(cal_tokens_google)는 누구 것인지 알 수 없으므로
+ * 절대 채택하지 않고 삭제만 한다 — 공용 교무실 PC에서 다른 교사의 토큰을 물려받아
+ * 개인 일정이 남의 Google 캘린더로 푸시되는 것을 막기 위함. (해당 사용자는 Google을 한 번 다시
+ * 연동해야 하며, 토스트로 안내한다.)
+ */
+export function restoreCalendarConnections(userId: string): void {
+  currentUserId = userId;
+  googleTokens = null; // 이전 사용자의 메모리 토큰을 절대 이어받지 않음
+  let hadLegacy = false;
+  try {
+    if (localStorage.getItem(LEGACY_TOKEN_KEY) !== null) {
+      hadLegacy = true;
+      localStorage.removeItem(LEGACY_TOKEN_KEY);
+    }
+  } catch {}
   const gTokens = loadTokensFromStorage('google');
-  if (!gTokens) return;
+  if (!gTokens) {
+    if (hadLegacy) {
+      window.dispatchEvent(new CustomEvent('google:auth-expired', { detail: { reason: 'security-migration' } }));
+    }
+    return;
+  }
   if (gTokens.refresh_token) {
     // refresh_token이 있으면 만료 여부와 무관하게 복원 (자동 갱신 가능)
     googleTokens = gTokens;

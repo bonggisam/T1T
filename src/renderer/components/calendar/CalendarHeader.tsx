@@ -188,16 +188,17 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'none',
     border: '1px solid var(--border-color)',
     cursor: 'pointer',
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: 600,
     color: 'var(--accent)',
-    padding: '2px 8px',
-    borderRadius: 6,
+    padding: '2px 9px',
+    borderRadius: 8,
     marginLeft: 4,
   },
   monthLabel: {
     fontSize: 17,
     fontWeight: 700,
+    letterSpacing: '-0.02em',
     color: 'var(--text-primary)',
     minWidth: 110,
     textAlign: 'center' as const,
@@ -211,7 +212,8 @@ const styles: Record<string, React.CSSProperties> = {
   viewToggle: {
     display: 'flex',
     background: 'var(--bg-secondary)',
-    borderRadius: 8,
+    border: '1px solid var(--border-subtle)',
+    borderRadius: 10,
     padding: 2,
   },
   viewBtn: {
@@ -222,12 +224,13 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     fontWeight: 600,
     color: 'var(--text-secondary)',
-    borderRadius: 6,
+    borderRadius: 8,
     transition: 'all 0.15s',
   },
   viewBtnActive: {
     background: 'var(--accent)',
     color: '#fff',
+    boxShadow: 'var(--shadow-sm)',
   },
   addPersonalBtn: {
     background: 'transparent',
@@ -258,6 +261,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 11,
     fontWeight: 600,
     borderRadius: 8,
+    boxShadow: 'var(--shadow-sm)',
     transition: 'background 0.15s',
   },
   schoolToggleBar: {
@@ -287,6 +291,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#fff',
     fontWeight: 700,
     border: '1px solid transparent',
+    boxShadow: 'var(--shadow-sm)',
   },
   filterBar: {
     display: 'flex',
@@ -311,5 +316,6 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'var(--accent)',
     color: '#fff',
     fontWeight: 600,
+    boxShadow: 'var(--shadow-sm)',
   },
 };

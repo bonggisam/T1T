@@ -270,7 +270,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
           gridTemplateRows: `repeat(${numWeeks}, minmax(60px, auto))`,
           flex: 1,
           border: '1px solid var(--grid-line)',
-          borderRadius: 6,
+          borderRadius: 8,
           overflowY: 'auto',
           overflowX: 'hidden',
           // 콘텐츠 자동 확장 시 그리드 자체가 늘어나도록
@@ -304,7 +304,10 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                 borderBottom: '1px solid var(--grid-line)',
                 // 셀 배경: 투명 윈도우에서 마우스 이벤트 캡처 보장
                 background: today ? 'var(--today-bg)' : 'rgba(128,128,128,0.02)',
+                // 오늘 셀: 배경색에 더해 안쪽 테두리로 한 번 더 강조 (투명 배경 위에서도 또렷하게)
+                ...(today && !selected ? { boxShadow: 'inset 0 0 0 1px rgba(74,144,226,0.45)' } : {}),
                 opacity: inMonth ? 1 : 0.35,
+                transition: 'background 0.15s ease, opacity 0.15s ease',
                 outline: selected ? '2px solid var(--accent)' : isDropTarget ? '2px dashed var(--accent)' : 'none',
                 outlineOffset: -2,
                 // 콘텐츠가 많으면 셀(그리고 행 전체)이 자동 확장.
@@ -340,9 +343,11 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                       onMouseDown={(e) => handleSharedMouseDown(e, event, dayStr)}
                       onClick={(e) => handleEventClick(e, event)}
                       style={{
-                        borderRadius: 3, padding: '1px 4px',
+                        borderRadius: 4, padding: '1px 5px',
                         background: event.adminColor || '#4A90E2',
+                        boxShadow: '0 1px 1px rgba(0,0,0,0.12)',
                         opacity: dragRef.current?.eventId === event.id ? 0.4 : 1,
+                        transition: 'opacity 0.15s ease, filter 0.15s ease',
                         cursor: isOwner ? 'grab' : 'pointer',
                         // 셀 너비 일정 유지: 긴 제목이 줄바꿈/스트레치 안 되도록
                         minWidth: 0,
@@ -377,10 +382,12 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                         onPersonalClick?.(pe);
                       }}
                       style={{
-                        borderRadius: 3, padding: '1px 4px',
+                        borderRadius: 4, padding: '1px 5px',
                         background: getPersonalEventDisplayColor(pe, user?.profileColor),
-                        opacity: dragRef.current?.eventId === pe.id ? 0.4 : 0.85,
-                        borderLeft: '2px solid rgba(255,255,255,0.5)',
+                        boxShadow: '0 1px 1px rgba(0,0,0,0.12)',
+                        opacity: dragRef.current?.eventId === pe.id ? 0.4 : 0.88,
+                        transition: 'opacity 0.15s ease, filter 0.15s ease',
+                        borderLeft: '3px solid rgba(255,255,255,0.6)',
                         cursor: canDrag ? 'grab' : 'pointer',
                         minWidth: 0,
                         maxWidth: '100%',

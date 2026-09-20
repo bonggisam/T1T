@@ -5,8 +5,8 @@
 ; 제거 시작 전 실행 중인 T1T 프로세스 강제 종료
 !macro customUnInit
   DetailPrint "T1T 종료 중..."
-  ; 실행 중인 T1T.exe 모두 종료 (트리 포함)
-  nsExec::Exec 'taskkill /F /IM "T1T.exe" /T'
+  ; 실행 중인 T1T.exe 모두 종료 (/T 금지 — customInit 주석 참조)
+  nsExec::Exec 'taskkill /F /IM "T1T.exe"'
   Sleep 2500
 !macroend
 
@@ -42,13 +42,16 @@
 ;        여기서 RMDir 하면 인스톨러 자기 자신을 삭제하려 시도 → --force-run 실패 위험.
 ;        electron-updater가 자체적으로 cleanup 하므로 우리는 건드리지 않음.
 !macro customInit
-  ; 1차: 정상 종료 시도 (저장 작업 완료할 시간 제공)
-  nsExec::Exec 'taskkill /IM "T1T.exe" /T'
-  Sleep 800
-  ; 2차: 강제 종료
-  nsExec::Exec 'taskkill /F /IM "T1T.exe" /T'
+  ; ⚠️ /T (프로세스 트리 종료) 절대 사용 금지!
+  ;   자동 업데이트 시 이 인스톨러는 electron-updater가 T1T.exe의 "자식 프로세스"로 spawn한다.
+  ;   /T를 붙이면 T1T.exe의 자식인 인스톨러 자기 자신까지 죽여서
+  ;   "앱은 꺼졌는데 새 버전은 안 깔리는" 증상이 발생 (타이밍 경쟁이라 간헐적).
+  ;   Electron의 렌더러/GPU 자식 프로세스도 이미지명이 T1T.exe라 /T 없이도 모두 종료됨.
+  ;   또 하나: 업데이트 설치 중에는 electron-builder 템플릿이 **디스크에 있는 구버전 uninstaller**를
+  ;   먼저 실행하는데, 구버전(≤2.5.46)의 customUnInit에는 아직 /T가 들어있다. 그래서 여기서
+  ;   T1T.exe를 완전히 먼저 죽여 두어야 구버전 uninstaller의 /T가 잡을 트리 자체가 없어진다.
+  ; 정상 종료 시도(taskkill /IM, WM_CLOSE)는 생략 — 이 앱은 close를 hide로 바꿔 처리해서 절대 종료되지 않음.
+  nsExec::Exec 'taskkill /F /IM "T1T.exe"'
   ; 파일 잠금 해제 대기
   Sleep 1500
-  ; 자동 업데이트 잔재 잠금 파일만 (인스톨러 캐시는 건드리지 않음)
-  Delete "$LOCALAPPDATA\T1T\pending-update.lock"
 !macroend

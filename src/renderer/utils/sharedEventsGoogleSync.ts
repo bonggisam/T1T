@@ -72,8 +72,6 @@ export function loadSharedPushedGoogleIds(userId: string): Set<string> {
 /** T1T 우리 push 이벤트 prefix 패턴 — 옛/새 형식 모두 매칭 */
 export const T1T_PUSHED_TITLE_RE = /^\[(공유|학사|(중|고|전체)·(공유|학사))\]\s/;
 
-/** 옛 v2.5.34~v2.5.36 형식 prefix — 점 없는 형식. marker 없이도 안전하게 삭제 가능 */
-const T1T_LEGACY_TITLE_RE = /^\[(공유|학사)\]\s/;
 
 /**
  * Google Calendar에서 고아 T1T 이벤트 정리.
@@ -98,20 +96,16 @@ export async function cleanupOrphanedT1TGoogleEvents(
   const map = loadMap(userId);
   const pushedIds = new Set(Object.values(map).map((e) => e.googleId));
 
-  // 고아 정리 — 두 가지 안전 경로:
-  //   경로 A) 옛 v2.5.34~v2.5.36 형식: [공유]/[학사] (점 없음). marker 없어도 우리 잔재로 확정.
-  //          → 사용자가 직접 만들 가능성이 낮은 형식이므로 marker 없이 삭제 OK.
-  //   경로 B) 신 [중·공유]/[고·학사]/[전체·공유] 등 형식: marker 필수 + tev 접두 보호.
-  //          → 신 형식 prefix는 사용자도 만들 수 있어 marker로 우리 것임을 강하게 확인.
-  // 'tev' 접두는 결정론적 ID이므로 다른 디바이스/세션의 정상 push일 수 있어 절대 삭제 X.
+  // 고아 정리 — 다음을 **모두** 만족할 때만 삭제 (사용자 원본 데이터 손실이 중복 잔재보다 훨씬 나쁨):
+  //   1) 제목이 T1T prefix ([공유]/[학사]/[중·공유] 등)
+  //   2) 현재 매핑에 없음
+  //   3) description에 "T1T 학사일정" / "T1T 공유 일정" 마커 — 사용자가 직접 만든 "[공유] 부장회의" 같은 일정 보호
+  //   4) externalId가 'tev'(공유 push) / 'tpe'(개인 일정 push) 접두가 **아님**
+  //      → 이 두 접두는 이 앱이 만든 결정론적 ID. 다른 디바이스의 정상 push거나 개인 일정이므로 절대 삭제 X.
   const orphans = googleEvents.filter((e) => {
     if (!T1T_PUSHED_TITLE_RE.test(e.title)) return false;
     if (e.externalId && pushedIds.has(e.externalId)) return false;
-    // tev 접두는 절대 보호 (다른 디바이스의 정상 push 가능성)
-    if (typeof e.externalId === 'string' && e.externalId.startsWith('tev')) return false;
-    // 경로 A: 옛 형식 [공유]/[학사] 단독 → marker 불필요, 즉시 정리
-    if (T1T_LEGACY_TITLE_RE.test(e.title)) return true;
-    // 경로 B: 신 형식 → marker 필수 (사용자 자작 보호)
+    if (typeof e.externalId === 'string' && (e.externalId.startsWith('tev') || e.externalId.startsWith('tpe'))) return false;
     return /T1T (학사일정|공유 일정)/.test(e.description || '');
   });
   let deleted = 0;
@@ -187,10 +181,14 @@ function buildGoogleTitle(event: CalendarEvent): string {
 
 /**
  * Firestore eventId → 결정론적 Google Calendar event ID 도출.
- * 같은 Firestore eventId는 항상 같은 Google ID 생성 → 다중 디바이스/재설치에도 중복 방지.
+ * 같은 Firestore eventId는 항상 같은 Google ID 생성 → 다중 디바이스/재설치/재시도에도 중복 방지.
  * Google 규칙: 소문자 a-v + 0-9, 길이 5-1024 (w,x,y,z는 허용 안 됨 → 매핑)
+ *
+ * prefix:
+ *   'tev' — 공유/학사 일정 push (pull 시 personal 뷰에서 무조건 제외됨)
+ *   'tpe' — 개인 일정 push (personal 뷰에 표시되되 externalId로 dedup)
  */
-function deriveGoogleEventId(firestoreId: string): string {
+export function deriveGoogleEventId(firestoreId: string, prefix: 'tev' | 'tpe' = 'tev'): string {
   const lowered = firestoreId.toLowerCase();
   let result = '';
   for (const ch of lowered) {
@@ -202,8 +200,8 @@ function deriveGoogleEventId(firestoreId: string): string {
     else if (ch === 'z') result += '3';
     // 그 외 문자는 제거 (대시, 언더스코어 등)
   }
-  // 'tev' 접두어 — 사용자 다른 이벤트 ID와 충돌 안 함 + 최소 길이 5 보장
-  return ('tev' + result).slice(0, 256);
+  // 접두어 — 사용자 다른 이벤트 ID와 충돌 안 함 + 최소 길이 5 보장
+  return (prefix + result).slice(0, 256);
 }
 
 function buildGoogleDescription(event: CalendarEvent): string {

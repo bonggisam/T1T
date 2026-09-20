@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error' | 'up-to-date';
 
@@ -9,12 +9,17 @@ interface UpdateInfo {
   total?: number;
   error?: string;
   releaseNotes?: string;
+  /** 자동 설치 불가 플랫폼(미서명 Mac) — 수동 다운로드만 안내 */
+  manualOnly?: boolean;
 }
 
 export function UpdateBanner() {
   const [status, setStatus] = useState<UpdateStatus>('idle');
   const [info, setInfo] = useState<UpdateInfo>({});
   const [installing, setInstalling] = useState(false);
+  // 이벤트 핸들러(useEffect [] 클로저)에서 최신 status를 읽기 위한 ref
+  const statusRef = useRef<UpdateStatus>('idle');
+  useEffect(() => { statusRef.current = status; }, [status]);
 
   useEffect(() => {
     const cleanup = window.electronAPI?.onUpdaterEvent((channel, data) => {
@@ -23,6 +28,9 @@ export function UpdateBanner() {
           setStatus('checking');
           break;
         case 'updater:available':
+          // 30분 재확인에서 같은 버전이 다시 오면 다운로드 완료/진행 상태를 뒤집지 않음
+          // (뒤집히면 "지금 재시작 + 설치" 버튼이 사라져 사용자가 설치할 방법을 잃음)
+          if (statusRef.current === 'downloaded' || statusRef.current === 'downloading') break;
           setStatus('available');
           // releaseNotes는 string 또는 [{note}] 배열 — 문자열로 정규화
           {
@@ -32,7 +40,7 @@ export function UpdateBanner() {
               : Array.isArray(rn)
                 ? rn.map((x: any) => x?.note || '').join('\n')
                 : '';
-            setInfo({ version: data?.version, releaseNotes: notes });
+            setInfo({ version: data?.version, releaseNotes: notes, manualOnly: !!data?.manualOnly });
           }
           break;
         case 'updater:not-available':
@@ -55,12 +63,20 @@ export function UpdateBanner() {
           // 사용자가 '지금 재시작' 클릭 후 main에서 발송
           setInstalling(true);
           break;
-        case 'updater:error':
-          setStatus('error');
+        case 'updater:error': {
+          const msg = typeof data === 'string' ? data : 'Unknown error';
           setInstalling(false); // 실패 시 installing 해제 → 사용자가 다시 시도 가능
-          setInfo({ error: typeof data === 'string' ? data : 'Unknown error' });
-          setTimeout(() => setStatus('idle'), 12000);
+          if (statusRef.current === 'downloaded') {
+            // 설치 시작 단계 실패 — 'downloaded'를 유지해 "지금 재시작 + 설치" 버튼을 살려둠 (재시도 가능).
+            // 'error'로 넘기면 12초 뒤 사라지고 앱을 재시작하기 전엔 설치 버튼으로 돌아올 방법이 없었음.
+            setInfo((prev) => ({ ...prev, error: msg }));
+          } else {
+            setStatus('error');
+            setInfo({ error: msg });
+            setTimeout(() => setStatus('idle'), 12000);
+          }
           break;
+        }
       }
     });
     return cleanup;
@@ -87,8 +103,18 @@ export function UpdateBanner() {
       {status === 'available' && (
         <>
           <span style={styles.text}>
-            🎉 새 버전 v{info.version} — 자동 다운로드 중
+            {info.manualOnly
+              ? `🎉 새 버전 v${info.version} — Mac은 수동 설치가 필요합니다`
+              : `🎉 새 버전 v${info.version} — 자동 다운로드 중`}
           </span>
+          {info.manualOnly && (
+            <button
+              onClick={() => window.electronAPI?.updaterOpenDownloadPage()}
+              style={styles.btn}
+            >
+              📥 다운로드 페이지 열기
+            </button>
+          )}
           <button onClick={() => setStatus('idle')} style={styles.dismissBtn}>✕</button>
         </>
       )}
@@ -112,7 +138,7 @@ export function UpdateBanner() {
           ) : (
             <>
               <span style={styles.text}>
-                ✨ 업데이트 다운로드 완료
+                ✨ 업데이트 다운로드 완료{info.error ? ` — ⚠️ 설치 시작 실패: ${info.error} (다시 시도 가능)` : ''}
               </span>
               <button
                 disabled={installing}
