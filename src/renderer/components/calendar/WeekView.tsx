@@ -311,7 +311,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
                     }}
                     style={{
                     ...styles.hourCell,
-                    background: isDropTarget ? 'rgba(74,144,226,0.2)' : 'rgba(128,128,128,0.02)',
+                    background: isDropTarget ? 'color-mix(in srgb, var(--accent) 20%, transparent)' : 'rgba(128,128,128,0.02)',
                     outline: isDropTarget ? '2px dashed var(--accent)' : 'none',
                     outlineOffset: -1,
                   }}>
@@ -407,7 +407,7 @@ const styles: Record<string, React.CSSProperties> = {
   dayHeader: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 0', borderRight: '1px solid var(--grid-line)' },
   todayHeader: {},
   dayName: { fontSize: 10, color: 'var(--text-muted)' },
-  dayNum: { fontSize: 14, fontWeight: 700, textShadow: '0 0 4px rgba(255,255,255,0.8)' },
+  dayNum: { fontSize: 14, fontWeight: 700, textShadow: 'var(--label-halo)' },
   todayNum: { background: 'var(--accent)', color: '#fff', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 },
   gridScroll: { flex: 1, overflow: 'auto' },
   grid: { display: 'flex', flexDirection: 'column' },

@@ -1,6 +1,6 @@
 import type { CalendarEvent, TeacherPeriod } from '@shared/types';
 
-const CLASS_DURATION_MIN = 45; // 한 교시 길이 (분)
+export const CLASS_DURATION_MIN = 45; // 한 교시 길이 (분)
 
 interface TimeRange {
   startMin: number; // 자정부터 분

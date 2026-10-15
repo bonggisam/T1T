@@ -188,6 +188,19 @@ export interface ComciganTimetableData {
   schoolName: string;
 }
 
+// Weather (Open-Meteo)
+export interface WeatherData {
+  temperature: number | null; // °C
+  weatherCode: number | null; // WMO weather code
+  precipitation: number | null; // mm (현재)
+  tempMax: number | null;
+  tempMin: number | null;
+  precipProbability: number | null; // % (오늘 최대)
+  pm10: number | null; // μg/m³ (모델 추정치)
+  pm25: number | null; // μg/m³ (모델 추정치)
+  fetchedAt: string; // ISO
+}
+
 // Electron API bridge
 export interface ElectronAPI {
   toggleAlwaysOnTop: (value: boolean) => Promise<void>;
@@ -229,6 +242,8 @@ export interface ElectronAPI {
     weekEnd: string;
     days: Array<{ date: string; weekday: string; menu: string[]; calorie: string }>;
   }>;
+  // Weather
+  weatherFetch: (lat: number, lon: number) => Promise<WeatherData>;
   // Comcigan
   comciganSearch: (name: string) => Promise<ComciganSchool[]>;
   comciganConfigure: (config: ComciganConfig) => Promise<void>;

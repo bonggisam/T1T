@@ -9,6 +9,7 @@ import { useNotificationStore } from '../../store/notificationStore';
 import { useComciganStore } from '../../store/comciganStore';
 import { useUIStore } from '../../store/uiStore';
 import { useDarkMode } from '../../hooks/useDarkMode';
+import { useHorizontalScroll } from '../../hooks/useHorizontalScroll';
 import { SCHOOL_LABELS } from '@shared/types';
 import type { School } from '@shared/types';
 
@@ -57,6 +58,7 @@ export function TitleBar({
   const { viewingSchool, setViewingSchool } = useUIStore();
   const [widgetMode, setWidgetMode] = useState(true);
   const isDark = useDarkMode();
+  const centerScrollRef = useHorizontalScroll<HTMLDivElement>();
   // 다크모드 가독성: 보라/그린 텍스트 색상 — 라이트는 진하게, 다크는 밝게
   const HIGH_TEXT = isDark ? '#C4B5FD' : '#7C3AED'; // violet-300 / violet-600
   const MIDDLE_TEXT = isDark ? '#34D399' : '#059669'; // emerald-400 / emerald-600
@@ -184,7 +186,7 @@ export function TitleBar({
       </div>
 
       {/* 가운데: 기능 아이콘 */}
-      <div style={styles.center}>
+      <div ref={centerScrollRef} style={styles.center}>
         {showSettingsBtn && user && (
           <>
             {onToggleTodos && (
@@ -229,7 +231,7 @@ export function TitleBar({
               title="알림"
               aria-label="알림"
             >
-              <Bell size={18} strokeWidth={2} />
+              <Bell size={17} strokeWidth={2.2} />
               {unreadCount > 0 && (
                 <span style={styles.badge}>{unreadCount > 9 ? '9+' : unreadCount}</span>
               )}
@@ -259,7 +261,7 @@ export function TitleBar({
           title="종료"
           aria-label="종료"
         >
-          <X size={18} strokeWidth={2} />
+          <X size={17} strokeWidth={2.2} />
         </button>
       </div>
     </div>
@@ -321,7 +323,7 @@ interface IconBtnProps {
 }
 
 function IconBtn({ Icon, icon, title, onClick, active, accent, compact, color }: IconBtnProps) {
-  const size = compact ? 14 : 18;
+  const size = compact ? 14 : 17;
   // 우선순위: 활성/accent > color > 기본
   const iconColor = active
     ? (color || 'var(--accent)')
@@ -351,9 +353,11 @@ function IconBtn({ Icon, icon, title, onClick, active, accent, compact, color }:
 const styles: Record<string, React.CSSProperties> = {
   container: {
     display: 'grid',
-    gridTemplateColumns: '1fr auto 1fr', // 좌(로고)/중(아이콘)/우(창제어)
+    // 좌(로고)/중(아이콘)/우(창제어) — 창이 좁으면 가운데 아이콘 줄만 가로 스크롤 (잘림 방지)
+    gridTemplateColumns: 'auto minmax(0, 1fr) auto',
+    columnGap: 6,
     alignItems: 'center',
-    padding: '10px 14px',
+    padding: '8px 10px',
     borderBottom: '1px solid var(--border-subtle)',
     flexShrink: 0,
     minHeight: 44,
@@ -361,8 +365,11 @@ const styles: Record<string, React.CSSProperties> = {
   center: {
     display: 'flex',
     alignItems: 'center',
-    gap: 2,
+    gap: 0,
     justifySelf: 'center', // 그리드 셀 내에서 중앙
+    maxWidth: '100%',
+    overflowX: 'auto',
+    scrollbarWidth: 'none',
   },
   widgetBar: {
     display: 'grid',
@@ -404,7 +411,7 @@ const styles: Record<string, React.CSSProperties> = {
   homeBtn: {
     display: 'inline-flex',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     background: 'transparent',
     border: 'none',
     cursor: 'pointer',
@@ -437,9 +444,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   title: {
     fontSize: 14,
-    fontWeight: 700,
+    fontWeight: 800,
     color: 'var(--text-primary)',
-    letterSpacing: 0.2,
+    letterSpacing: '-0.02em',
   },
   schoolPill: {
     fontSize: 10,
@@ -465,15 +472,16 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'transparent',
     border: 'none',
     cursor: 'pointer',
-    padding: '6px 9px',
+    padding: 0,
     borderRadius: 8,
     color: 'var(--text-secondary)',
     transition: 'all 0.15s',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 32,
-    height: 32,
+    flexShrink: 0,
+    width: 30,
+    height: 30,
   },
   iconBtnCompact: {
     background: 'transparent',
@@ -507,8 +515,8 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: 'Arial, sans-serif',
   },
   editBtn: {
-    background: 'rgba(74, 144, 226, 0.15)',
-    border: '1px solid rgba(74, 144, 226, 0.3)',
+    background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
+    border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
     cursor: 'pointer',
     padding: '5px 14px',
     borderRadius: 8,
@@ -524,7 +532,7 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'absolute',
     top: 2,
     right: 2,
-    background: '#E74C3C',
+    background: 'var(--danger)',
     color: '#fff',
     fontSize: 9,
     fontWeight: 700,

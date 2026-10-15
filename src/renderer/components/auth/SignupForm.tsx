@@ -239,7 +239,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   schoolOptionActive: {
     color: 'var(--accent)',
-    background: 'rgba(74, 144, 226, 0.1)',
+    background: 'color-mix(in srgb, var(--accent) 10%, transparent)',
     border: '2px solid var(--accent)',
   },
 };

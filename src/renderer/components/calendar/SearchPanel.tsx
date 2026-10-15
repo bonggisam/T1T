@@ -112,7 +112,7 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
     return (
       <>
         {text.slice(0, idx)}
-        <mark style={{ background: 'rgba(74,144,226,0.3)', color: 'inherit', padding: 0, borderRadius: 2 }}>
+        <mark style={{ background: 'color-mix(in srgb, var(--accent) 30%, transparent)', color: 'inherit', padding: 0, borderRadius: 2 }}>
           {text.slice(idx, idx + q.length)}
         </mark>
         {text.slice(idx + q.length)}
@@ -200,7 +200,7 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                 <div
                   style={{
                     ...styles.typeBadge,
-                    background: r.type === 'shared' ? 'rgba(74,144,226,0.15)' : 'rgba(46,204,113,0.15)',
+                    background: r.type === 'shared' ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'rgba(46,204,113,0.15)',
                     color: r.type === 'shared' ? 'var(--accent)' : '#2ECC71',
                   }}
                 >

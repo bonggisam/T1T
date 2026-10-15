@@ -9,8 +9,10 @@ interface UpdateInfo {
   total?: number;
   error?: string;
   releaseNotes?: string;
-  /** 자동 설치 불가 플랫폼(미서명 Mac) — 수동 다운로드만 안내 */
+  /** 자동 설치 불가(Mac 앱 위치에 쓰기 권한 없음 등) — 수동 다운로드만 안내 */
   manualOnly?: boolean;
+  /** 이 시간(분) 동안 입력이 없거나 화면이 잠기면 자동 설치 */
+  idleMinutes?: number;
 }
 
 export function UpdateBanner() {
@@ -58,6 +60,7 @@ export function UpdateBanner() {
           break;
         case 'updater:downloaded':
           setStatus('downloaded');
+          setInfo((prev) => ({ ...prev, idleMinutes: data?.idleMinutes }));
           break;
         case 'updater:installing':
           // 사용자가 '지금 재시작' 클릭 후 main에서 발송
@@ -104,7 +107,7 @@ export function UpdateBanner() {
         <>
           <span style={styles.text}>
             {info.manualOnly
-              ? `🎉 새 버전 v${info.version} — Mac은 수동 설치가 필요합니다`
+              ? `🎉 새 버전 v${info.version} — 이 Mac에서는 수동 설치가 필요합니다`
               : `🎉 새 버전 v${info.version} — 자동 다운로드 중`}
           </span>
           {info.manualOnly && (
@@ -127,7 +130,7 @@ export function UpdateBanner() {
         <>
           {installing ? (
             <>
-              <span style={styles.text}>🔄 재시작 중… 잠시만 기다려주세요 (최대 60초 — 백신/저속 디스크에서는 더 오래 걸릴 수 있음. 안 뜨면 수동 다운로드)</span>
+              <span style={styles.text}>🔄 업데이트 설치 중… 잠시 후 새 버전이 자동으로 열려요 (최대 60초 — 안 뜨면 수동 다운로드)</span>
               <button
                 onClick={() => window.electronAPI?.updaterOpenDownloadPage()}
                 style={styles.btn}
@@ -138,7 +141,8 @@ export function UpdateBanner() {
           ) : (
             <>
               <span style={styles.text}>
-                ✨ 업데이트 다운로드 완료{info.error ? ` — ⚠️ 설치 시작 실패: ${info.error} (다시 시도 가능)` : ''}
+                ✨ 업데이트 준비 완료 · {info.idleMinutes ?? 10}분간 자리를 비우거나 화면을 잠그면 자동 설치
+                {info.error ? ` — ⚠️ 설치 시작 실패: ${info.error} (다시 시도 가능)` : ''}
               </span>
               <button
                 disabled={installing}
@@ -150,7 +154,7 @@ export function UpdateBanner() {
                 }}
                 style={styles.btn}
               >
-                지금 재시작 + 설치
+                지금 설치
               </button>
               <button
                 onClick={() => window.electronAPI?.updaterOpenDownloadPage()}
@@ -158,7 +162,7 @@ export function UpdateBanner() {
               >
                 수동 다운로드
               </button>
-              <button onClick={() => setStatus('idle')} style={styles.dismissBtn}>나중에</button>
+              <button onClick={() => setStatus('idle')} style={styles.dismissBtn} title="배너만 닫아요. 자리를 비우면 자동 설치돼요">닫기</button>
             </>
           )}
         </>
@@ -184,31 +188,37 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    padding: '4px 8px',
+    flexWrap: 'wrap',
+    gap: 6,
+    padding: '6px 10px',
     flexShrink: 0,
   },
   text: {
     fontSize: 11,
     fontWeight: 600,
     color: '#fff',
+    lineHeight: 1.4,
+    flex: '1 1 180px',
+    minWidth: 0,
   },
   btn: {
-    padding: '2px 10px',
-    fontSize: 10,
+    padding: '3px 10px',
+    fontSize: 11,
     fontWeight: 700,
-    border: '1px solid rgba(255,255,255,0.6)',
-    borderRadius: 4,
-    background: 'rgba(255,255,255,0.2)',
+    border: 'none',
+    borderRadius: 999,
+    background: 'rgba(255,255,255,0.22)',
     color: '#fff',
     cursor: 'pointer',
+    whiteSpace: 'nowrap',
   },
   dismissBtn: {
-    padding: '2px 6px',
-    fontSize: 10,
+    padding: '3px 6px',
+    fontSize: 11,
     border: 'none',
     background: 'none',
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(255,255,255,0.8)',
     cursor: 'pointer',
+    whiteSpace: 'nowrap',
   },
 };

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { ComciganConfig, ComciganSchool, ComciganTimetableData } from '../shared/types';
+import type { ComciganConfig, ComciganSchool, ComciganTimetableData, WeatherData } from '../shared/types';
 
 contextBridge.exposeInMainWorld('electronAPI', {
   toggleAlwaysOnTop: (value: boolean) => ipcRenderer.invoke('window:toggle-always-on-top', value),
@@ -56,6 +56,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // School website scraper (학사일정 + 급식)
   schoolFetchSchedule: (schoolKey: string): Promise<{ events: Array<{ startDate: string; endDate: string; title: string; seq: string }> }> => ipcRenderer.invoke('school:fetchSchedule', schoolKey),
   schoolFetchMeal: (schoolKey: string, dateYMD?: string): Promise<{ weekStart: string; weekEnd: string; days: Array<{ date: string; weekday: string; menu: string[]; calorie: string }> }> => ipcRenderer.invoke('school:fetchMeal', schoolKey, dateYMD),
+
+  // Weather (날씨 + 미세먼지)
+  weatherFetch: (lat: number, lon: number): Promise<WeatherData> => ipcRenderer.invoke('weather:fetch', lat, lon),
 
   // Comcigan
   comciganSearch: (name: string): Promise<ComciganSchool[]> => ipcRenderer.invoke('comcigan:search', name),

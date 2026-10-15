@@ -253,7 +253,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
           <div key={label} style={{
             textAlign: 'center', fontSize: 11, fontWeight: 700, padding: '3px 0',
             color: i === 0 ? 'var(--weekend-text)' : i === 6 ? 'var(--accent)' : 'var(--text-secondary)',
-            textShadow: '0 1px 3px rgba(0,0,0,0.3), 0 0 8px rgba(255,255,255,0.6)',
+            textShadow: 'var(--label-halo)',
           }}>
             {label}
           </div>
@@ -305,7 +305,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                 // 셀 배경: 투명 윈도우에서 마우스 이벤트 캡처 보장
                 background: today ? 'var(--today-bg)' : 'rgba(128,128,128,0.02)',
                 // 오늘 셀: 배경색에 더해 안쪽 테두리로 한 번 더 강조 (투명 배경 위에서도 또렷하게)
-                ...(today && !selected ? { boxShadow: 'inset 0 0 0 1px rgba(74,144,226,0.45)' } : {}),
+                ...(today && !selected ? { boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent)' } : {}),
                 opacity: inMonth ? 1 : 0.35,
                 transition: 'background 0.15s ease, opacity 0.15s ease',
                 outline: selected ? '2px solid var(--accent)' : isDropTarget ? '2px dashed var(--accent)' : 'none',
@@ -315,7 +315,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                 // 행은 minmax(60px, auto)로 자동 확장되므로 hidden 사용해도 콘텐츠가 잘리지 않음.
                 minWidth: 0,
                 overflow: 'hidden',
-                ...(isDropTarget ? { background: 'rgba(74,144,226,0.2)' } : {}),
+                ...(isDropTarget ? { background: 'color-mix(in srgb, var(--accent) 20%, transparent)' } : {}),
               }}
             >
               {/* 날짜 번호 */}
@@ -323,7 +323,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                 <span style={{
                   fontSize: 11, fontWeight: 700,
                   color: dayOfWeek === 0 ? 'var(--weekend-text)' : dayOfWeek === 6 ? 'var(--accent)' : 'var(--text-primary)',
-                  textShadow: '0 1px 3px rgba(0,0,0,0.3), 0 0 8px rgba(255,255,255,0.6)',
+                  textShadow: 'var(--label-halo)',
                 }}>
                   {format(day, 'd')}
                 </span>

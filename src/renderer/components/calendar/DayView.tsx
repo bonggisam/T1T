@@ -351,7 +351,7 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
               }}
               style={{
               ...styles.hourRow,
-              background: isDropTarget ? 'rgba(74,144,226,0.2)' : 'rgba(128,128,128,0.02)',
+              background: isDropTarget ? 'color-mix(in srgb, var(--accent) 20%, transparent)' : 'rgba(128,128,128,0.02)',
               outline: isDropTarget ? '2px dashed var(--accent)' : 'none',
               outlineOffset: -1,
               cursor: 'pointer',
@@ -437,8 +437,8 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
                   <div
                     key={`cc-${cp.weekday}-${cp.period}`}
                     style={{
-                      background: 'rgba(74,144,226,0.15)',
-                      border: '1px dashed rgba(74,144,226,0.5)',
+                      background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
+                      border: '1px dashed color-mix(in srgb, var(--accent) 50%, transparent)',
                       borderRadius: 4,
                       padding: '2px 6px',
                       fontSize: 11,

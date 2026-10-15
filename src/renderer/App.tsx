@@ -26,6 +26,7 @@ import { useTodosStore } from './store/todosStore';
 import { useUsersStore } from './store/usersStore';
 import { useUIStore } from './store/uiStore';
 import { useReminder } from './hooks/useReminder';
+import { useClassReminder } from './hooks/useClassReminder';
 import { ScheduleView } from './components/schedule/ScheduleView';
 import { KeyphoneView } from './components/keyphone/KeyphoneView';
 import { LibraryView } from './components/library/LibraryView';
@@ -65,6 +66,7 @@ export function App() {
 
   // 일정 알림 리마인더
   useReminder();
+  useClassReminder();
 
   useEffect(() => {
     const unsub = initialize();

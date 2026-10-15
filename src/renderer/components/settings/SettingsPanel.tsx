@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../utils/firebase';
 import { useAuthStore } from '../../store/authStore';
+import { useWidgetStore } from '../../store/widgetStore';
 import { CalendarSyncSettings } from './CalendarSyncSettings';
 import { ComciganSettings } from './ComciganSettings';
 
@@ -22,6 +23,7 @@ const COLOR_PRESETS = [
 
 export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) {
   const { user, logout } = useAuthStore();
+  const widget = useWidgetStore();
   const [transparency, setTransparency] = useState(user?.settings.transparency ?? 80);
   const [alwaysOnTop, setAlwaysOnTop] = useState(user?.settings.alwaysOnTop ?? true);
   const [clickThrough, setClickThrough] = useState(user?.settings.clickThrough ?? false);
@@ -237,6 +239,34 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
           <ToggleRow label="NEW 배지 표시" value={notifBadge} onChange={setNotifBadge} />
         </Section>
 
+        {/* Today widgets — 이 PC에만 저장, 즉시 적용 */}
+        <Section title="🌤️ 오늘 화면 위젯">
+          <ToggleRow label="날씨·미세먼지" value={widget.showWeather} onChange={(v) => widget.setPref('showWeather', v)} />
+          <ToggleRow label="D-Day (시험·방학 자동)" value={widget.showDDay} onChange={(v) => widget.setPref('showDDay', v)} />
+          {widget.hiddenAutoDDays.length > 0 && (
+            <div style={styles.settingRow}>
+              <span style={styles.label}>숨긴 자동 D-Day {widget.hiddenAutoDDays.length}개</span>
+              <button onClick={widget.resetHiddenAutoDDays} style={styles.widgetSelect}>다시 보이기</button>
+            </div>
+          )}
+          <ToggleRow label="지금·다음 수업 (컴시간)" value={widget.showNextClass} onChange={(v) => widget.setPref('showNextClass', v)} />
+          <div style={styles.settingRow}>
+            <span style={styles.label}>수업 시작 전 알림</span>
+            <select
+              value={widget.classReminderMin}
+              onChange={(e) => widget.setPref('classReminderMin', Number(e.target.value))}
+              style={styles.widgetSelect}
+            >
+              <option value={0}>끔</option>
+              <option value={1}>1분 전</option>
+              <option value={3}>3분 전</option>
+              <option value={5}>5분 전</option>
+              <option value={10}>10분 전</option>
+            </select>
+          </div>
+          <ToggleRow label="시간표 변경 알림" value={widget.timetableChangeAlert} onChange={(v) => widget.setPref('timetableChangeAlert', v)} />
+        </Section>
+
         {/* Calendar Sync */}
         <Section title="📅 캘린더 연동">
           <CalendarSyncSettings
@@ -416,6 +446,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--border-color)',
     boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
     overflow: 'hidden',
+    padding: '4px 16px 0',
   },
   header: {
     display: 'flex',
@@ -458,6 +489,15 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     fontWeight: 500,
     color: 'var(--text-primary)',
+  },
+  widgetSelect: {
+    fontSize: 12,
+    padding: '3px 8px',
+    borderRadius: 6,
+    border: '1px solid var(--border-color)',
+    background: 'var(--bg-secondary)',
+    color: 'var(--text-primary)',
+    cursor: 'pointer',
   },
   slider: {
     width: 120,

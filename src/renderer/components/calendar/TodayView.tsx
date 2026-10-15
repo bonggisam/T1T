@@ -9,6 +9,7 @@ import type { PersonalEvent, CalendarEvent, User } from '@shared/types';
 import { getCreatorTag, PERSONAL_SUFFIX, formatEventTooltip, formatPersonalTooltip, canManageEvent, getPersonalEventDisplayColor } from '../../utils/calendarHelpers';
 import { SchoolBadge } from '../common/SchoolBadge';
 import { useComciganStore } from '../../store/comciganStore';
+import { TodayWidgets } from './TodayWidgets';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const DEFAULT_PERIOD_START_HOURS: Record<number, number> = { 1: 9, 2: 10, 3: 11, 4: 12, 5: 13, 6: 14, 7: 15, 8: 16 };
@@ -120,6 +121,9 @@ export function TodayView({ onAddPersonalEvent, onPersonalClick }: TodayViewProp
           +
         </button>
       </div>
+
+      {/* 날씨·내 수업·D-Day 위젯 */}
+      <TodayWidgets />
 
       {/* days === 1: 24시간 타임라인 */}
       {days === 1 ? (
@@ -470,8 +474,8 @@ function DayTimeline({
                     left: 2, right: 2,
                     top,
                     height: HOUR_HEIGHT - 2,
-                    background: 'rgba(74,144,226,0.12)',
-                    border: '1px dashed rgba(74,144,226,0.5)',
+                    background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+                    border: '1px dashed color-mix(in srgb, var(--accent) 50%, transparent)',
                     borderRadius: 5,
                     padding: '3px 6px',
                     fontSize: 10,

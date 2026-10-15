@@ -1,5 +1,21 @@
 import { create } from 'zustand';
 import type { ComciganConfig, ComciganSchool, ComciganTimetableData, TeacherPeriod } from '@shared/types';
+import { diffTimetable } from '../utils/classPeriods';
+import { useWidgetStore } from './widgetStore';
+import { useAuthStore } from './authStore';
+import { showToast } from '../components/common/Toast';
+import { playNotificationSound, showDesktopNotification } from '../utils/notifications';
+
+/** 자동 갱신으로 받은 시간표가 이번 주 남은 수업과 다르면 알림 */
+function notifyTimetableChanges(prev: ComciganTimetableData | null, next: ComciganTimetableData | null): void {
+  if (!useWidgetStore.getState().timetableChangeAlert) return;
+  const changes = diffTimetable(prev, next);
+  if (changes.length === 0) return;
+  const summary = changes.length === 1 ? changes[0] : `${changes[0]} 외 ${changes.length - 1}건`;
+  showToast(`📚 시간표 변경: ${summary}`, 'info');
+  if (useAuthStore.getState().user?.settings?.notificationSound) playNotificationSound();
+  showDesktopNotification('📚 시간표가 변경되었습니다', changes.slice(0, 4).join('\n'));
+}
 
 interface ComciganState {
   config: ComciganConfig | null;
@@ -56,6 +72,7 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
 
       // Subscribe to auto-refresh updates from main process
       const unsub = window.electronAPI?.onComciganUpdate((data) => {
+        notifyTimetableChanges(get().timetableData, data);
         set({ timetableData: data });
       });
       set({ unsubscribe: unsub ?? null });
@@ -67,7 +84,10 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
         const timer = setInterval(async () => {
           try {
             const data = await window.electronAPI?.comciganFetch() ?? null;
-            if (data) set({ timetableData: data });
+            if (data) {
+              notifyTimetableChanges(get().timetableData, data);
+              set({ timetableData: data });
+            }
           } catch (err) {
             console.warn('[ComciganStore] Auto-refresh failed:', err);
           }
@@ -105,6 +125,7 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const data = await window.electronAPI?.comciganFetch() ?? null;
+      notifyTimetableChanges(get().timetableData, data);
       set({ timetableData: data, loading: false });
     } catch (err: any) {
       set({ loading: false, error: err?.message || '시간표 가져오기 실패' });

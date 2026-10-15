@@ -154,8 +154,8 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'rgba(128,128,128,0.05)',
   },
   backBtn: {
-    background: 'rgba(74, 144, 226, 0.15)',
-    border: '1px solid rgba(74, 144, 226, 0.3)',
+    background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
+    border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
     cursor: 'pointer',
     padding: '4px 10px',
     borderRadius: 6,

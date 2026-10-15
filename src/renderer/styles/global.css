@@ -1,66 +1,85 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
+/* Pretendard — 앱에 내장 (CSP가 외부 폰트를 막으므로 Google Fonts 대신 로컬 파일 사용). SIL OFL 1.1, assets/fonts/Pretendard-LICENSE.txt */
+@font-face {
+  font-family: 'Pretendard Variable';
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url('../assets/fonts/PretendardVariable.woff2') format('woff2-variations');
+}
 
 :root {
-  /* Light theme — fully transparent background */
+  /* Light theme — 바탕화면 위에 뜨는 투명 창. 중립 슬레이트 톤 */
   --bg-primary: transparent;
-  --bg-secondary: rgba(255, 255, 255, 0.15);
-  --bg-hover: rgba(255, 255, 255, 0.25);
-  --bg-active: rgba(255, 255, 255, 0.35);
-  --bg-modal: rgba(255, 255, 255, 0.92);
-  --text-primary: rgba(20, 20, 20, 1);
-  --text-secondary: rgba(30, 30, 30, 0.85);
-  --text-muted: rgba(30, 30, 30, 0.6);
-  --border-color: rgba(0, 0, 0, 0.15);
-  --border-subtle: rgba(0, 0, 0, 0.12);
-  --grid-line: rgba(0, 0, 0, 0.25);
-  --shadow-color: rgba(0, 0, 0, 0.1);
+  --bg-secondary: rgba(255, 255, 255, 0.42);
+  --bg-hover: rgba(255, 255, 255, 0.6);
+  --bg-active: rgba(255, 255, 255, 0.75);
+  --bg-modal: rgba(250, 251, 253, 0.985);
+  --text-primary: #111827;
+  --text-secondary: rgba(31, 41, 55, 0.86);
+  --text-muted: rgba(55, 65, 81, 0.62);
+  --border-color: rgba(15, 23, 42, 0.12);
+  --border-subtle: rgba(15, 23, 42, 0.08);
+  --grid-line: rgba(15, 23, 42, 0.14);
+  --shadow-color: rgba(15, 23, 42, 0.12);
   --schedule-font-size: 11px;
   --comcigan-text: #ffffff;
-  --comcigan-bg: rgba(59, 130, 246, 0.5);
-  --comcigan-shadow: 0 1px 3px rgba(0,0,0,0.6);
-  --accent: #4A90E2;
-  --accent-hover: #357ABD;
-  --danger: #E74C3C;
-  --success: #2ECC71;
-  --warning: #F39C12;
-  --today-bg: rgba(74, 144, 226, 0.2);
-  --weekend-text: #E74C3C;
+  --comcigan-bg: rgba(62, 123, 250, 0.55);
+  --comcigan-shadow: 0 1px 3px rgba(0,0,0,0.45);
+  --accent: #3E7BFA;
+  --accent-hover: #2563EB;
+  --accent-soft: rgba(62, 123, 250, 0.12);
+  --danger: #EF4444;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --today-bg: rgba(62, 123, 250, 0.14);
+  --weekend-text: #EF4444;
+  --saturday-text: #3E7BFA;
   --blur-amount: 20px;
   --radius-xs: 4px;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   /* 깊이감·모션 토큰 — 컴포넌트가 공통으로 참조 */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 6px 20px rgba(15, 23, 42, 0.08);
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --focus-ring: 0 0 0 3px rgba(74, 144, 226, 0.18);
+  --focus-ring: 0 0 0 3px rgba(62, 123, 250, 0.2);
+  /* 투명 창 너머 바탕화면 위에서도 날짜 숫자가 읽히도록 주는 은은한 테두리광 (테마별 방향 반대) */
+  --label-halo: 0 0 5px rgba(255, 255, 255, 0.75);
+  --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
 }
 
 [data-theme='dark'] {
   --bg-primary: transparent;
-  --bg-secondary: rgba(40, 40, 40, 0.25);
-  --bg-hover: rgba(60, 60, 60, 0.35);
-  --bg-active: rgba(80, 80, 80, 0.45);
-  --bg-modal: rgba(30, 30, 30, 0.95);
-  --text-primary: rgba(255, 255, 255, 1);
-  --text-secondary: rgba(255, 255, 255, 0.85);
-  --text-muted: rgba(255, 255, 255, 0.55);
-  --border-color: rgba(255, 255, 255, 0.2);
-  --border-subtle: rgba(255, 255, 255, 0.1);
-  --grid-line: rgba(255, 255, 255, 0.3);
-  --shadow-color: rgba(0, 0, 0, 0.3);
-  --today-bg: rgba(74, 144, 226, 0.2);
-  --weekend-text: #FF6B6B;
+  --bg-secondary: rgba(255, 255, 255, 0.07);
+  --bg-hover: rgba(255, 255, 255, 0.12);
+  --bg-active: rgba(255, 255, 255, 0.18);
+  --bg-modal: rgba(23, 25, 31, 0.985);
+  --text-primary: #F3F4F6;
+  --text-secondary: rgba(229, 231, 235, 0.86);
+  --text-muted: rgba(209, 213, 219, 0.58);
+  --border-color: rgba(255, 255, 255, 0.14);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --grid-line: rgba(255, 255, 255, 0.16);
+  --shadow-color: rgba(0, 0, 0, 0.35);
+  --accent: #5B8DFF;
+  --accent-hover: #7AA2FF;
+  --accent-soft: rgba(91, 141, 255, 0.18);
+  --today-bg: rgba(91, 141, 255, 0.18);
+  --weekend-text: #F87171;
+  --saturday-text: #7AA2FF;
   --comcigan-text: #ffffff;
-  --comcigan-bg: rgba(59, 130, 246, 0.45);
+  --comcigan-bg: rgba(91, 141, 255, 0.45);
   --comcigan-shadow: 0 1px 3px rgba(0,0,0,0.7);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.35);
+  --focus-ring: 0 0 0 3px rgba(91, 141, 255, 0.28);
+  --label-halo: 0 0 5px rgba(0, 0, 0, 0.6);
 }
 
 [data-theme='dark'] .glass {
-  background: rgba(30, 30, 30, 0.6);
+  background: rgba(17, 19, 24, 0.62);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 * {
@@ -74,11 +93,11 @@ html, body, #root {
   height: 100%;
   overflow: hidden;
   background: transparent;
-  font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-sans);
   color: var(--text-primary);
   user-select: none;
   -webkit-app-region: no-drag;
-  /* 한글 본문 렌더링 — 안티앨리어싱 + 살짝 좁힌 자간이 Noto Sans KR을 더 단정하게 보이게 함 */
+  /* 한글 본문 렌더링 — 안티앨리어싱 + 살짝 좁힌 자간이 Pretendard를 더 단정하게 보이게 함 */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.01em;
@@ -104,9 +123,9 @@ html, body, #root {
 
 /* Glassmorphism base — light grey tint for readability + 은은한 깊이감 */
 .glass {
-  background: rgba(240, 240, 240, 0.55);
-  border: 1px solid var(--grid-line);
-  border-radius: 10px;
+  background: rgba(246, 247, 250, 0.66);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 14px;
   box-shadow: var(--shadow-sm), var(--shadow-md);
 }
 
@@ -117,6 +136,16 @@ html, body, #root {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   box-shadow: 0 8px 32px var(--shadow-color);
+}
+
+/* 가로 스크롤 줄 — 끝이 잘려 보이면 페이드로 "더 있음"을 알림 */
+.scroll-fade-x {
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
+}
+.scroll-fade-x::-webkit-scrollbar {
+  display: none;
 }
 
 /* Title bar drag region */
@@ -153,6 +182,16 @@ html, body, #root {
 
 .animate-slide-up {
   animation: slideUp 0.26s var(--ease-out);
+}
+
+/* 폼 요소는 기본적으로 글꼴을 상속하지 않음 → 앱 글꼴로 통일 */
+button, input, textarea, select {
+  font-family: inherit;
+  letter-spacing: inherit;
+}
+/* 날짜 입력은 고유 최소 너비가 커서 좁은 창의 flex 줄에서 밖으로 삐져나옴 → 줄어들 수 있게 */
+input[type='date'], input[type='datetime-local'], input[type='time'] {
+  min-width: 0;
 }
 
 /* Buttons — 상태 변화에 짧은 트랜지션을 줘서 딱딱 끊기지 않게 */

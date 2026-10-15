@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, screen, shell, webContents as electronWebContents, type NativeImage } from 'electron';
+import { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, powerMonitor, screen, shell, webContents as electronWebContents, type NativeImage } from 'electron';
 import * as http from 'http';
 import * as crypto from 'crypto';
 import * as path from 'path';
@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as dotenv from 'dotenv';
 import { autoUpdater } from 'electron-updater';
 import { comciganService } from './comcigan';
+import * as macUpdater from './macUpdater';
 import { GOOGLE_CLIENT_ID as INJECTED_GOOGLE_ID, GOOGLE_CLIENT_SECRET as INJECTED_GOOGLE_SECRET } from './credentials.gen';
 
 // 진단 로그 — 개발 모드에서만 (프로덕션 console 노이즈 제거)
@@ -550,6 +551,7 @@ function setupIPC(): void {
   // Auto-updater IPC
   ipcMain.handle('updater:download', async () => {
     // 미서명 Mac은 Squirrel 다운로드가 항상 실패 → 릴리스 페이지로 안내
+    if (macSelfUpdate) return; // 자체 설치기가 이미 자동 다운로드 중
     if (UPDATER_MANUAL_ONLY) {
       await shell.openExternal(RELEASES_URL).catch(() => {});
       return;
@@ -558,36 +560,22 @@ function setupIPC(): void {
   });
 
   ipcMain.handle('updater:install', () => {
-    // 흐름:
+    // 흐름 (installDownloadedUpdate):
     //   1) UI에 "설치 중" 알림 → 사용자 인지
     //   2) 500ms 대기 (배너가 렌더 완료할 시간)
     //   3) isQuitting = true → 창 close 핸들러가 preventDefault(hide)를 건너뛰어 app.quit()이 실제로 완료됨.
     //      (이 플래그 없이는 quitAndInstall이 spawn한 인스톨러만 뜨고 앱은 숨겨진 채 살아 있었음)
-    //   4) quitAndInstall(isSilent=false, isForceRunAfter=true):
+    //   4) Windows: quitAndInstall(isSilent=false, isForceRunAfter=true):
     //      electron-updater 6 실제 동작은 install(isSilent, isSilent ? isForceRunAfter : autoRunAppAfterInstall)
     //      → isSilent=false면 두 번째 인자는 무시되고 autoRunAppAfterInstall(기본 true)가 쓰여 `--updated --force-run`.
     //      /S 없이 oneClick 인스톨러의 작은 진행 창이 보이는데, "앱이 사라졌다"는 오해를 막아 주므로 의도적으로 유지.
+    //      Mac: 자체 설치기 스크립트가 종료 후 번들 교체 + 재실행.
     //   5) 실패 시 사용자에게 에러 + 수동 설치 경로 안내
-    try {
-      if (UPDATER_MANUAL_ONLY) {
-        shell.openExternal(RELEASES_URL).catch(() => {});
-        return;
-      }
-      sendToRenderer('updater:installing');
-      setTimeout(() => {
-        try {
-          isQuitting = true;
-          logUpdate('info', 'quitAndInstall requested by user');
-          autoUpdater.quitAndInstall(false, true);
-        } catch (err: any) {
-          console.error('[Updater] quitAndInstall failed:', err);
-          sendToRenderer('updater:error', `설치 시작 실패: ${err?.message || '알 수 없음'} — 앱 종료 후 다시 실행하면 자동 적용됩니다.`);
-        }
-      }, 500);
-    } catch (err: any) {
-      console.error('[Updater] install handler failed:', err);
-      sendToRenderer('updater:error', `업데이트 시작 실패: ${err?.message || '알 수 없음'}`);
+    if (UPDATER_MANUAL_ONLY && !macSelfUpdate) {
+      shell.openExternal(RELEASES_URL).catch(() => {});
+      return;
     }
+    installDownloadedUpdate('user');
   });
 
   // 메뉴에서 수동 호출 — 사용자에게 명확한 피드백
@@ -637,12 +625,96 @@ const MAX_DOWNLOAD_RETRIES = 3;
 //   (Apple Developer 인증서로 서명하게 되면 이 플래그를 false로 바꾸면 됨)
 const UPDATER_MANUAL_ONLY = process.platform === 'darwin';
 const RELEASES_URL = 'https://github.com/bonggisam/T1T/releases/latest';
+// Mac 자체 설치기(macUpdater.ts) 사용 가능 여부 — 앱 위치에 쓰기 권한이 있을 때만. setupAutoUpdater에서 결정.
+let macSelfUpdate = false;
+// Mac 자체 설치기로 받아 검증까지 끝난 DMG 경로
+let macDownloadedDmg: string | null = null;
+let macDownloading = false;
+// 다운로드 완료 후 자동 설치: 입력이 이 시간 이상 없거나 화면이 잠기면 조용히 설치
+const AUTO_INSTALL_IDLE_SEC = 10 * 60;
+let autoInstallTimer: NodeJS.Timeout | null = null;
+let installStarted = false;
 let lastAvailableVersion: string | null = null; // 재시도 카운터는 "새" 버전을 봤을 때만 리셋
 let downloadedVersion: string | null = null;    // 다운로드 완료된 버전 — 30분 재확인이 배너를 'available'로 되돌리지 않도록
 let autoErrorNotified = false;                  // 자동 확인 중 비-네트워크 오류는 세션당 1회만 배너로 알림
 
+/**
+ * 다운로드된 업데이트 설치.
+ * reason='user'면 기존처럼 진행 창이 보이는 설치, 'idle'/'lock'(자리 비움)이면 조용히 설치 후 자동 재실행.
+ */
+function installDownloadedUpdate(reason: 'user' | 'idle' | 'lock'): void {
+  if (installStarted) return;
+  const isMac = process.platform === 'darwin';
+  if (isMac ? !macDownloadedDmg : !downloadedVersion) return;
+  installStarted = true;
+  logUpdate('info', `install requested (${reason}) v${downloadedVersion}`);
+  sendToRenderer('updater:installing');
+
+  setTimeout(() => {
+    try {
+      isQuitting = true;
+      if (isMac) {
+        // 앱 종료를 기다렸다가 번들을 교체하고 다시 실행하는 스크립트 → 그다음 종료
+        macUpdater.spawnInstaller(macDownloadedDmg!, true);
+        app.quit();
+      } else {
+        // 자리 비움 설치는 /S(silent) + 설치 후 자동 실행. 사용자가 누른 설치는 진행 창 유지 (updater:install 주석 참조)
+        autoUpdater.quitAndInstall(reason !== 'user', true);
+      }
+    } catch (err: any) {
+      installStarted = false;
+      console.error('[Updater] install failed:', err);
+      logUpdate('error', err);
+      sendToRenderer('updater:error', `설치 시작 실패: ${err?.message || '알 수 없음'} — 앱 종료 후 다시 실행하면 자동 적용됩니다.`);
+    }
+  }, 500);
+}
+
+/** 다운로드 완료 후 1분마다 자리 비움 여부를 확인해 자동 설치 */
+function scheduleAutoInstall(): void {
+  if (autoInstallTimer) return;
+  autoInstallTimer = setInterval(() => {
+    if (powerMonitor.getSystemIdleTime() >= AUTO_INSTALL_IDLE_SEC) {
+      if (autoInstallTimer) { clearInterval(autoInstallTimer); autoInstallTimer = null; }
+      installDownloadedUpdate('idle');
+    }
+  }, 60 * 1000);
+}
+
+/** 미서명 Mac — DMG를 직접 받아 sha512 검증 (실패 시 20s/40s/60s 후 재시도) */
+async function startMacDownload(version: string, files: macUpdater.UpdateFileInfo[]): Promise<void> {
+  if (macDownloading || (macDownloadedDmg && downloadedVersion === version)) return;
+  const file = macUpdater.pickDmg(files);
+  if (!file) {
+    logUpdate('warn', `no dmg for arch ${process.arch} in v${version}`);
+    sendToRenderer('updater:available', { version, manualOnly: true });
+    return;
+  }
+  macDownloading = true;
+  try {
+    const dmg = await macUpdater.downloadDmg(version, file, (p) => sendToRenderer('updater:progress', p));
+    macDownloadedDmg = dmg;
+    downloadedVersion = version;
+    logUpdate('info', `mac update-downloaded: v${version} → ${dmg}`);
+    sendToRenderer('updater:downloaded', { idleMinutes: AUTO_INSTALL_IDLE_SEC / 60 });
+    scheduleAutoInstall();
+  } catch (err: any) {
+    logUpdate('error', err);
+    if (downloadRetries < MAX_DOWNLOAD_RETRIES) {
+      downloadRetries++;
+      setTimeout(() => { startMacDownload(version, files).catch(() => {}); }, downloadRetries * 20 * 1000);
+    } else {
+      sendToRenderer('updater:error', `자동 업데이트 실패 — 설정에서 수동 다운로드를 이용해주세요. (${(err?.message || '').slice(0, 80)})`);
+    }
+  } finally {
+    macDownloading = false;
+  }
+}
+
 function setupAutoUpdater(): void {
   if (isDev) return; // Skip in development
+
+  macSelfUpdate = UPDATER_MANUAL_ONLY && macUpdater.isSupported();
 
   // 옛 버전(v2.5.20~v2.5.39)에서 캐시된 feedURL을 우회하기 위해 명시적으로 설정.
   // package.json의 build.publish가 있어도 매번 GitHub 원본을 명시해 캐시 mismatch 회피.
@@ -663,7 +735,7 @@ function setupAutoUpdater(): void {
     error: (m: unknown) => logUpdate('error', m),
     debug: (m: unknown) => logUpdate('debug', m),
   };
-  logUpdate('info', `setupAutoUpdater v${app.getVersion()} platform=${process.platform} manualOnly=${UPDATER_MANUAL_ONLY}`);
+  logUpdate('info', `setupAutoUpdater v${app.getVersion()} platform=${process.platform} manualOnly=${UPDATER_MANUAL_ONLY} macSelfUpdate=${macSelfUpdate}`);
   // 참고: 'before-quit-for-update'는 Electron 내장 autoUpdater의 이벤트이며 electron-updater에는 없다.
   // 종료 플래그(isQuitting)는 app.on('before-quit')에서 세우므로 quitAndInstall / autoInstallOnAppQuit
   // 어느 경로든 app.quit() 시점에 창 close 핸들러가 quit를 가로채지 않는다.
@@ -689,6 +761,12 @@ function setupAutoUpdater(): void {
     logUpdate('info', `update-available: v${info.version} (current v${app.getVersion()})`);
     // 이미 다운로드까지 끝난 버전이면 배너를 'available'로 되돌리지 않음 (설치 버튼 유지)
     if (downloadedVersion === info.version) return;
+    // 미서명 Mac: Squirrel 대신 자체 설치기로 DMG 다운로드
+    if (macSelfUpdate) {
+      sendToRenderer('updater:available', { version: info.version, releaseNotes: info.releaseNotes, manualOnly: false });
+      startMacDownload(info.version, info.files as macUpdater.UpdateFileInfo[]).catch(() => {});
+      return;
+    }
     // Windows: 자동 다운로드 시작됨을 알리지만 진행률은 background
     // Mac: manualOnly → 배너가 "다운로드 페이지 열기" 버튼을 보여줌
     sendToRenderer('updater:available', {
@@ -714,8 +792,9 @@ function setupAutoUpdater(): void {
   autoUpdater.on('update-downloaded', (info) => {
     downloadedVersion = info?.version ?? lastAvailableVersion;
     logUpdate('info', `update-downloaded: v${downloadedVersion}`);
-    // 다운로드 완료 → 사용자에게 재시작 안내
-    sendToRenderer('updater:downloaded');
+    // 다운로드 완료 → 자리 비움 시 자동 설치 예약 + 배너로 안내 (바로 설치 버튼도 제공)
+    sendToRenderer('updater:downloaded', { idleMinutes: AUTO_INSTALL_IDLE_SEC / 60 });
+    scheduleAutoInstall();
   });
 
   autoUpdater.on('error', (err) => {
@@ -748,6 +827,9 @@ function setupAutoUpdater(): void {
       console.warn('[Updater] Silent auto-check error:', msg);
     }
   });
+
+  // 화면 잠금 = 자리 비움 → 받아 둔 업데이트가 있으면 바로 설치
+  powerMonitor.on('lock-screen', () => installDownloadedUpdate('lock'));
 
   // 시작 시 한 번 + 30분 주기 자동 확인 (조용히)
   autoUpdater.checkForUpdates().catch(() => {});
@@ -1052,6 +1134,21 @@ function setupSchoolScrapeIPC(): void {
   });
 }
 
+// Weather IPC (날씨 + 미세먼지)
+function setupWeatherIPC(): void {
+  const { fetchWeather } = require('./weather');
+
+  ipcMain.handle('weather:fetch', async (_event, lat: number, lon: number) => {
+    // 대한민국 범위 밖 좌표는 거부 (입력 검증)
+    if (typeof lat !== 'number' || typeof lon !== 'number' ||
+        !Number.isFinite(lat) || !Number.isFinite(lon) ||
+        lat < 33 || lat > 39 || lon < 124 || lon > 132) {
+      throw new Error('Invalid coordinates');
+    }
+    return fetchWeather(lat, lon);
+  });
+}
+
 // Comcigan IPC
 function setupComciganIPC(): void {
   ipcMain.handle('comcigan:search', async (_event, name: string) => {
@@ -1116,6 +1213,7 @@ app.whenReady().then(() => {
     createTray();
     setupComciganIPC();
     setupSchoolScrapeIPC();
+    setupWeatherIPC();
     setupAutoUpdater();
     if (mainWindow) comciganService.setMainWindow(mainWindow);
     // Comcigan 초기 fetch는 5초 더 지연 (네트워크 무거움)
@@ -1155,12 +1253,19 @@ app.on('before-quit', () => {
   isQuitting = true;
   // 종료 직전 창 상태 저장 (마지막 위치/크기)
   saveWindowState();
+  // Mac: 받아 둔 업데이트가 있으면 종료와 함께 설치 (Windows는 autoInstallOnAppQuit이 담당). 다시 실행하지는 않음.
+  if (macDownloadedDmg && !installStarted) {
+    installStarted = true;
+    try { macUpdater.spawnInstaller(macDownloadedDmg, false); }
+    catch (err) { logUpdate('error', err); }
+  }
 });
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   comciganService.stopAutoRefresh();
   if (updaterInterval) { clearInterval(updaterInterval); updaterInterval = null; }
+  if (autoInstallTimer) { clearInterval(autoInstallTimer); autoInstallTimer = null; }
 });
 
 app.on('window-all-closed', () => {
