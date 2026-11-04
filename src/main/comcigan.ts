@@ -53,13 +53,22 @@ class ComciganService {
     this.mainWindow = win;
   }
 
+  /**
+   * 파서를 초기화해 준비된 인스턴스만 this.timetable에 둔다. 실패하면 throw.
+   * 초기화 도중 설정이 바뀌었으면(학교 변경/해제) 옛 설정의 인스턴스는 버린다.
+   */
+  private async initTimetable(config: ComciganConfig): Promise<void> {
+    const timetable = new Timetable();
+    await timetable.init({ maxGrade: config.maxGrade || 3 });
+    timetable.setSchool(config.schoolCode);
+    if (this.config === config) this.timetable = timetable;
+  }
+
   async init(): Promise<void> {
     this.config = loadConfigFromDisk();
     if (this.config && Timetable) {
       try {
-        this.timetable = new Timetable();
-        await this.timetable.init({ maxGrade: this.config.maxGrade || 3 });
-        this.timetable.setSchool(this.config.schoolCode);
+        await this.initTimetable(this.config);
         // Initial fetch (non-blocking)
         this.fetchTimetable().catch((err) => console.warn('[Comcigan] Initial fetch failed:', err));
       } catch (err) {
@@ -86,18 +95,22 @@ class ComciganService {
     this.config = config;
     saveConfigToDisk(config);
 
-    this.timetable = new Timetable();
-    await this.timetable.init({ maxGrade: config.maxGrade || 3 });
-    this.timetable.setSchool(config.schoolCode);
+    // 초기화가 실패해도 새 설정으로 옛 학교 시간표를 읽지 않도록 먼저 비운다
+    this.timetable = null;
+    await this.initTimetable(config);
 
     await this.fetchTimetable();
     this.startAutoRefresh();
   }
 
   async fetchTimetable(): Promise<ComciganTimetableData | null> {
-    if (!this.timetable || !this.config) return null;
+    if (!this.config) return null;
 
     try {
+      // 앱 시작 때 네트워크가 없었거나 직전 조회가 실패했으면 여기서 다시 초기화
+      if (!this.timetable) await this.initTimetable(this.config);
+      if (!this.timetable) return this.cachedData; // 초기화 도중 설정이 바뀜
+
       const data = await this.timetable.getTimetable();
 
       let classTimes: string[] = [];
@@ -119,7 +132,10 @@ class ComciganService {
       // Push to renderer
       this.sendToRenderer('comcigan:updated', this.cachedData);
       return this.cachedData;
-    } catch {
+    } catch (err) {
+      // 실행 중 사이트 식별 코드가 바뀌었을 수 있으므로 인스턴스를 버려 다음 갱신 때 새로 초기화
+      console.warn('[Comcigan] Fetch failed, will re-init on next refresh:', err);
+      this.timetable = null;
       return this.cachedData; // Return cached on error
     }
   }
