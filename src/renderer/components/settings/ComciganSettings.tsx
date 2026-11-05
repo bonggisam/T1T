@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useComciganStore } from '../../store/comciganStore';
+import { useAuthStore } from '../../store/authStore';
+import { LINK_SCHOOLS, useComciganLinksStore } from '../../store/comciganLinksStore';
 
 export function ComciganSettings() {
   const { config, timetableData, searchResults, searching, loading, error, searchSchool, configure, fetchTimetable, clearConfig } = useComciganStore();
@@ -8,6 +10,15 @@ export function ComciganSettings() {
   const [selectedSchool, setSelectedSchool] = useState<{ code: number; name: string } | null>(null);
   const [teacherName, setTeacherName] = useState('');
   const [maxGrade, setMaxGrade] = useState(3);
+  const user = useAuthStore((s) => s.user);
+  const links = useComciganLinksStore((s) => s.links);
+  // 관리자가 연결표에 올린 내 표기
+  const myLinks = LINK_SCHOOLS.flatMap((school) => {
+    const doc = links[school];
+    return (doc?.entries ?? [])
+      .filter((e) => e.userId === user?.id)
+      .map((e) => ({ label: e.label, schoolCode: doc!.schoolCode, schoolName: doc!.schoolName, maxGrade: doc!.maxGrade }));
+  });
 
   if (config) {
     // Already configured — show status
@@ -15,6 +26,8 @@ export function ComciganSettings() {
       ? new Date(timetableData.lastUpdated).toLocaleString('ko-KR')
       : '없음';
     const periodCount = timetableData?.teacherSchedule.length ?? 0;
+    const currentLabel = config.teacherLabel ?? config.teacherName.substring(0, 2);
+    const linked = myLinks.find((l) => l.schoolCode === config.schoolCode);
 
     return (
       <div style={styles.container}>
@@ -26,6 +39,16 @@ export function ComciganSettings() {
           <span style={styles.label}>교사</span>
           <span style={styles.value}>{config.teacherName}</span>
         </div>
+        <div style={styles.row}>
+          <span style={styles.label}>컴시간 표기</span>
+          <span style={styles.value}>{currentLabel}</span>
+        </div>
+        {linked && linked.label !== currentLabel && (
+          <div style={styles.row}>
+            <span style={{ ...styles.label, color: 'var(--warning)' }}>연결표의 내 표기는 {linked.label}입니다</span>
+            <button onClick={() => configure({ ...config, teacherLabel: linked.label })} disabled={loading} style={styles.btn}>맞추기</button>
+          </div>
+        )}
         <div style={styles.row}>
           <span style={styles.label}>수업</span>
           <span style={styles.value}>주 {periodCount}교시</span>
@@ -69,6 +92,24 @@ export function ComciganSettings() {
 
   return (
     <div style={styles.container}>
+      {/* 관리자가 연결표에 올려 두었으면 검색 없이 바로 연결한다 */}
+      {user && myLinks.map((link) => (
+        <button
+          key={link.schoolCode}
+          onClick={() => configure({
+            schoolCode: link.schoolCode,
+            schoolName: link.schoolName,
+            teacherName: user.name,
+            maxGrade: link.maxGrade || 3,
+            teacherLabel: link.label,
+          })}
+          disabled={loading}
+          style={{ ...styles.btn, background: 'var(--accent)', color: 'var(--on-accent)', width: '100%', marginBottom: 4 }}
+        >
+          {loading ? '설정 중...' : `연결표로 바로 연결: ${link.schoolName} (${link.label})`}
+        </button>
+      ))}
+
       {/* School search */}
       <div style={styles.searchRow}>
         <input

@@ -1145,6 +1145,12 @@ function setupComciganIPC(): void {
     return comciganService.searchSchool(trimmed);
   });
 
+  ipcMain.handle('comcigan:school-grid', async (_event, schoolCode: number, maxGrade: number, force?: boolean) => {
+    if (!Number.isInteger(schoolCode) || schoolCode <= 0 || schoolCode > 9_999_999) throw new Error('Invalid school code');
+    if (!Number.isInteger(maxGrade) || maxGrade < 1 || maxGrade > 6) throw new Error('Invalid grade');
+    return comciganService.getSchoolGrid(schoolCode, maxGrade, force === true);
+  });
+
   ipcMain.handle('comcigan:configure', async (_event, config) => {
     await comciganService.configure(config);
   });

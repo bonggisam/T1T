@@ -19,6 +19,8 @@ export interface WidgetPrefs {
   classReminderMin: number;
   /** 컴시간 시간표 변경 감지 알림 */
   timetableChangeAlert: boolean;
+  /** 내 감독·당직 차례 미리 알림 */
+  dutyReminder: boolean;
   customDDays: CustomDDay[];
   /** 숨긴 자동 D-Day 키 (`제목|YYYY-MM-DD`) */
   hiddenAutoDDays: string[];
@@ -32,6 +34,7 @@ const DEFAULT_PREFS: WidgetPrefs = {
   showNextClass: true,
   classReminderMin: 5,
   timetableChangeAlert: true,
+  dutyReminder: true,
   customDDays: [],
   hiddenAutoDDays: [],
 };

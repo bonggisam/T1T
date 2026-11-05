@@ -11,11 +11,14 @@ try {
   console.warn('[Comcigan] comcigan-parser module not found');
 }
 
-import type { ComciganConfig, ComciganSchool, ComciganTimetableData, TeacherPeriod } from '../shared/types';
+import type { ComciganConfig, ComciganSchool, ComciganSchoolGrid, ComciganTimetableData, TeacherPeriod } from '../shared/types';
 import { BrowserWindow } from 'electron';
+import { buildTeacherGrid, parseSchoolSearch } from './comciganGrid';
 
 // Simple JSON file persistence (avoid electron-store ESM issues)
 import * as fs from 'fs';
+import * as http from 'http';
+import * as https from 'https';
 import * as path from 'path';
 import { app } from 'electron';
 
@@ -41,6 +44,41 @@ function saveConfigToDisk(config: ComciganConfig | null): void {
 }
 
 const WEEKDAY_STRINGS = ['월', '화', '수', '목', '금'];
+/** 전교 시간표는 받는 데 몇 초 걸리므로 잠시 재사용한다 */
+const GRID_TTL_MS = 10 * 60 * 1000;
+const SEARCH_TIMEOUT_MS = 15 * 1000;
+
+/** 학교 코드가 틀리면 사이트가 빈 자료를 준다. 파서의 알 수 없는 오류 대신 원인을 남긴다. */
+function noTimetableData(): Error {
+  return Object.assign(new Error('컴시간에서 이 학교의 시간표 자료를 받지 못했습니다'), { code: 'NO_TIMETABLE_DATA' });
+}
+
+/** 컴시간 검색 주소는 학교 이름을 EUC-KR로 받는다. 파서가 함께 설치한 변환기를 쓴다. */
+function eucKrPercent(text: string): string {
+  const iconv = require(require.resolve('iconv-lite', { paths: [path.dirname(require.resolve('comcigan-parser'))] }));
+  let out = '';
+  for (const byte of iconv.encode(text, 'euc-kr')) out += `%${byte.toString(16).padStart(2, '0')}`;
+  return out;
+}
+
+function getText(url: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const client = url.startsWith('https:') ? https : http;
+    const req = client.get(url, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume();
+        reject(new Error(`컴시간 응답 오류 (${res.statusCode})`));
+        return;
+      }
+      res.setEncoding('utf8');
+      let body = '';
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => resolve(body));
+    });
+    req.setTimeout(SEARCH_TIMEOUT_MS, () => req.destroy(new Error('컴시간 응답 없음')));
+    req.on('error', reject);
+  });
+}
 
 class ComciganService {
   private timetable: any = null;
@@ -48,6 +86,8 @@ class ComciganService {
   private refreshTimer: NodeJS.Timeout | null = null;
   private cachedData: ComciganTimetableData | null = null;
   private mainWindow: BrowserWindow | null = null;
+  private gridCache = new Map<number, ComciganSchoolGrid>();
+  private gridPending = new Map<number, Promise<ComciganSchoolGrid>>();
 
   setMainWindow(win: BrowserWindow): void {
     this.mainWindow = win;
@@ -82,12 +122,10 @@ class ComciganService {
     if (!Timetable) throw new Error('comcigan-parser 모듈을 찾을 수 없습니다');
     const t = new Timetable();
     await t.init({ maxGrade: 3 });
-    const results = await t.search(name);
-    return results.map((r: any) => ({
-      code: r.code,
-      name: r.name,
-      region: r.region,
-    }));
+    // 파서의 search는 학교 코드가 아닌 열을 읽어 빈 시간표를 받게 된다. 초기화로 찾은 같은 주소를 직접 읽는다.
+    const schools = parseSchoolSearch(await getText(`${t._baseUrl}${t._extractCode}${eucKrPercent(name)}`));
+    if (schools.length === 0) throw new Error('검색된 학교가 없습니다.');
+    return schools;
   }
 
   async configure(config: ComciganConfig): Promise<void> {
@@ -111,16 +149,10 @@ class ComciganService {
       if (!this.timetable) await this.initTimetable(this.config);
       if (!this.timetable) return this.cachedData; // 초기화 도중 설정이 바뀜
 
+      const classTimes = await this.readClassTimes(this.timetable);
       const data = await this.timetable.getTimetable();
 
-      let classTimes: string[] = [];
-      try {
-        classTimes = await this.timetable.getClassTime();
-      } catch (e) {
-        console.warn('[Comcigan] getClassTime failed:', e);
-      }
-
-      const schedule = this.extractTeacherSchedule(data, this.config.teacherName, classTimes);
+      const schedule = this.extractTeacherSchedule(data, this.config.teacherName, classTimes, this.config.teacherLabel);
 
       this.cachedData = {
         teacherSchedule: schedule,
@@ -136,14 +168,91 @@ class ComciganService {
       // 실행 중 사이트 식별 코드가 바뀌었을 수 있으므로 인스턴스를 버려 다음 갱신 때 새로 초기화
       console.warn('[Comcigan] Fetch failed, will re-init on next refresh:', err);
       this.timetable = null;
+      if ((err as { code?: string })?.code === 'NO_TIMETABLE_DATA' && await this.repairSchoolCode()) {
+        return this.fetchTimetable();
+      }
       return this.cachedData; // Return cached on error
     }
+  }
+
+  /** 시정표. 조회에 실패하면 빈 값으로 넘어가고, 자료 자체가 비었으면 오류를 낸다. */
+  private async readClassTimes(timetable: any): Promise<string[]> {
+    let times: unknown;
+    try {
+      times = await timetable.getClassTime();
+    } catch (e) {
+      console.warn('[Comcigan] getClassTime failed:', e);
+      return [];
+    }
+    if (times === undefined) throw noTimetableData();
+    return Array.isArray(times) ? times : [];
+  }
+
+  /**
+   * 예전 파서는 학교 검색에서 코드가 아닌 열을 읽었다. 그때 연결한 PC는 틀린 코드를 저장하고 있어 빈 자료를 받는다.
+   * 저장된 학교 이름으로 다시 찾아 코드만 바로잡는다. 이름이 정확히 하나로 맞을 때만 고치고, 고쳤으면 true.
+   */
+  private async repairSchoolCode(): Promise<boolean> {
+    const config = this.config;
+    if (!config) return false;
+    try {
+      const found = (await this.searchSchool(config.schoolName)).filter((s) => s.name === config.schoolName);
+      if (found.length !== 1 || found[0].code === config.schoolCode) return false;
+      if (this.config !== config) return false; // 찾는 동안 설정이 바뀜
+      console.warn('[Comcigan] 저장된 학교 코드를 바로잡았습니다');
+      this.config = { ...config, schoolCode: found[0].code };
+      saveConfigToDisk(this.config);
+      return true;
+    } catch (err) {
+      console.warn('[Comcigan] School code repair failed:', err);
+      return false;
+    }
+  }
+
+  /**
+   * 학교 전체의 교사별 수업 칸. 회의 찾기와 연결표에 쓴다.
+   * 내 시간표 설정과 별개로 학교 코드만으로 읽어, 다른 학교도 볼 수 있다.
+   * 받지 못하면 전에 받은 값을 돌려주고, 받은 적이 없으면 오류를 낸다.
+   */
+  async getSchoolGrid(schoolCode: number, maxGrade: number, force = false): Promise<ComciganSchoolGrid> {
+    if (!Timetable) throw new Error('comcigan-parser 모듈을 찾을 수 없습니다');
+    const cached = this.gridCache.get(schoolCode);
+    if (!force && cached && Date.now() - new Date(cached.fetchedAt).getTime() < GRID_TTL_MS) return cached;
+    const pending = this.gridPending.get(schoolCode);
+    if (pending) return pending;
+
+    const load = (async () => {
+      try {
+        const timetable = new Timetable();
+        await timetable.init({ maxGrade });
+        timetable.setSchool(schoolCode);
+        const classTimes = await this.readClassTimes(timetable);
+        const data = await timetable.getTimetable();
+        const grid: ComciganSchoolGrid = {
+          schoolCode,
+          teachers: buildTeacherGrid(data, maxGrade),
+          classTimes,
+          fetchedAt: new Date().toISOString(),
+        };
+        this.gridCache.set(schoolCode, grid);
+        return grid;
+      } catch (err) {
+        console.warn('[Comcigan] School grid failed:', err);
+        if (cached) return cached;
+        throw err;
+      } finally {
+        this.gridPending.delete(schoolCode);
+      }
+    })();
+    this.gridPending.set(schoolCode, load);
+    return load;
   }
 
   private extractTeacherSchedule(
     fullData: any,
     teacherName: string,
     classTimes: string[],
+    teacherLabel?: string,
   ): TeacherPeriod[] {
     const schedule: TeacherPeriod[] = [];
     const maxGrade = this.config?.maxGrade || 3;
@@ -174,8 +283,8 @@ class ComciganService {
 
             if (!teacher || !subject) continue;
 
-            // Match by first 2 chars (parser truncates names)
-            if (teacher === namePrefix || teacher.includes(namePrefix)) {
+            // 연결표로 확인한 표기가 있으면 그 값만 본다. 없으면 이름 앞 두 글자로 찾는다 (파서가 이름을 두 글자로 자른다).
+            if (teacherLabel ? teacher === teacherLabel : teacher === namePrefix || teacher.includes(namePrefix)) {
               // weekday: store as 1=Mon~5=Fri for our internal use
               const weekday = dayIdx + 1;
 

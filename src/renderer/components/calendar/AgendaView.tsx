@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { addDays, isSameDay, startOfToday } from 'date-fns';
 import type { PersonalEvent } from '@shared/types';
-import { useVisibleEvents } from '../../hooks/useVisibleEvents';
+import { useCalendarEvents } from '../../hooks/useCalendarEvents';
 import { useVisiblePersonalEvents } from '../../hooks/useVisiblePersonalEvents';
 import { useUIStore } from '../../store/uiStore';
 import { isEventOnDate } from '../../utils/calendarHelpers';
@@ -14,8 +14,8 @@ const DAYS_AHEAD = 60;
 /** 앞으로 60일의 일정을 날짜별로 보여 준다. 수업은 오늘만 함께 적는다. */
 export function AgendaView({ onPersonalClick }: { onPersonalClick?: (pe: PersonalEvent) => void }) {
   const { categoryFilter } = useUIStore();
-  // useVisibleEvents가 이미 학교+카테고리 필터를 적용함 — 여기서는 날짜만 필터
-  const events = useVisibleEvents();
+  // useCalendarEvents가 이미 학교+카테고리 필터를 적용함 — 여기서는 날짜만 필터
+  const events = useCalendarEvents();
   const personalEvents = useVisiblePersonalEvents();
 
   const days = useMemo(() => {

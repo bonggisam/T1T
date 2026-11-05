@@ -31,7 +31,9 @@ function customVars(color: string): ChipVars {
 }
 
 /** 공유 일정 칩 색. 설정의 일정 색 기준(학교, 분류, 작성자)을 따른다. */
-export function sharedChipVars(event: Pick<CalendarEvent, 'school' | 'category' | 'adminColor'>): ChipVars {
+export function sharedChipVars(event: Pick<CalendarEvent, 'school' | 'category' | 'adminColor' | 'duty'>): ChipVars {
+  // 내 감독·당직 차례는 색 기준과 상관없이 같은 색이다
+  if (event.duty) return familyVars('duty');
   const { colorBy, colorAssist } = useAppearanceStore.getState();
   if (colorBy === 'author' && event.adminColor) return customVars(event.adminColor);
   if (colorBy === 'category') return familyVars(event.category);
@@ -46,9 +48,9 @@ export function personalChipVars(pe: PersonalEvent, profileColor?: string): Chip
 }
 
 /** 색 구분 돕기: 색만으로 구분하지 않도록 무늬를 더한다 */
-export function assistClass(event: Pick<CalendarEvent, 'school'>): string {
+export function assistClass(event: Pick<CalendarEvent, 'school' | 'duty'>): string {
   const { colorBy, colorAssist } = useAppearanceStore.getState();
-  if (!colorAssist || colorBy !== 'school') return '';
+  if (!colorAssist || colorBy !== 'school' || event.duty) return '';
   if (event.school === 'taeseong_high') return ' pat-high';
   if (event.school === 'all') return ' pat-all';
   return '';

@@ -5,7 +5,7 @@ import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
 import { useVisiblePersonalEvents } from '../../hooks/useVisiblePersonalEvents';
 import { getHoliday } from '../../utils/holidays';
-import { useVisibleEvents } from '../../hooks/useVisibleEvents';
+import { useCalendarEvents } from '../../hooks/useCalendarEvents';
 import { useTimelineScroll } from '../../hooks/useTimelineScroll';
 import type { PersonalEvent, CalendarEvent, User } from '@shared/types';
 import { getCreatorTag, PERSONAL_SUFFIX, formatEventTooltip, formatPersonalTooltip, canManageEvent, getPersonalEventDisplayColor } from '../../utils/calendarHelpers';
@@ -36,7 +36,7 @@ interface TodayViewProps {
 export function TodayView({ onAddPersonalEvent, onPersonalClick }: TodayViewProps = {}) {
   const { setSelectedEvent, setShowEventDetail, setShowEventModal, setSelectedDate } = useCalendarStore();
   const { user } = useAuthStore();
-  const events = useVisibleEvents();
+  const events = useCalendarEvents();
   const personalEvents = useVisiblePersonalEvents();
 
   const [days, setDays] = useState(1);

@@ -10,7 +10,7 @@ import { personalChipVars, sharedChipVars, tintStyle } from '../../utils/eventCo
 import type { PersonalEvent } from '@shared/types';
 import { showToast } from '../common/Toast';
 import { formatEventTooltip, formatPersonalTooltip, getCreatorTag, canManageEvent, PERSONAL_SUFFIX, getPersonalEventDisplayColor } from '../../utils/calendarHelpers';
-import { useVisibleEvents } from '../../hooks/useVisibleEvents';
+import { useCalendarEvents } from '../../hooks/useCalendarEvents';
 import { useTimelineScroll } from '../../hooks/useTimelineScroll';
 import { SchoolBadge } from '../common/SchoolBadge';
 import { useComciganStore } from '../../store/comciganStore';
@@ -43,7 +43,7 @@ interface DragInfo {
 
 export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = {}) {
   const { selectedDate, setSelectedDate, setSelectedEvent, setShowEventDetail, setShowEventModal, updateEvent, addEvent } = useCalendarStore();
-  const events = useVisibleEvents();
+  const events = useCalendarEvents();
   const { getPeriodsForWeekday, timetableData, config: comciganConfig } = useComciganStore();
   const { user } = useAuthStore();
   const { updatePersonalEvent, addPersonalEvent } = usePersonalEventStore();

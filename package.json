@@ -14,6 +14,7 @@
     "build:win": "npm run build && npm run clean:release && electron-builder --win --x64",
     "build:mac": "npm run build && npm run clean:release && electron-builder --mac",
     "lint": "eslint src --ext .ts,.tsx",
+    "check:privacy": "node scripts/check-personal-isolation.cjs",
     "clean:release": "node scripts/clean-old-releases.cjs"
   },
   "dependencies": {

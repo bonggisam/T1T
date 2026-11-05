@@ -32,11 +32,17 @@ import { useAppearanceStore } from './store/appearanceStore';
 import { useReminder } from './hooks/useReminder';
 import { useClassReminder } from './hooks/useClassReminder';
 import { useClassPrivacy } from './hooks/useClassPrivacy';
+import { useDutyReminder } from './hooks/useDutyReminder';
+import { useDutyStore, useDutySubscription } from './store/dutyStore';
+import { useComciganLinksStore } from './store/comciganLinksStore';
 import { isPersonalHidden } from './store/privacyStore';
 import { parseEventDrafts } from './utils/pasteEventParser';
 import { ScheduleView } from './components/schedule/ScheduleView';
 import { KeyphoneView } from './components/keyphone/KeyphoneView';
 import { LibraryView } from './components/library/LibraryView';
+import { MeetingFinderView } from './components/meeting/MeetingFinderView';
+import { DutyView } from './components/duty/DutyView';
+import { DutyEntryDetail } from './components/duty/DutyEntryDetail';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ResizeHandles } from './components/common/ResizeHandles';
 import { startSchoolScheduleAutoSync } from './utils/schoolScheduleSync';
@@ -46,7 +52,7 @@ type AuthScreen = 'login' | 'signup';
 
 export function App() {
   const { user, loading, initialize } = useAuthStore();
-  const { subscribeToEvents, cleanup: cleanupEvents, showEventModal, showEventDetail, events: sharedEvents } = useCalendarStore();
+  const { subscribeToEvents, cleanup: cleanupEvents, showEventModal, showEventDetail, selectedEvent, events: sharedEvents } = useCalendarStore();
   const { subscribeToNotifications, cleanup: cleanupNotifications, showPanel: showNotifications } = useNotificationStore();
   const { subscribeToPersonalEvents, startAutoSync, stopAutoSync, cleanup: cleanupPersonal } = usePersonalEventStore();
   const { loadConfig: loadComcigan, cleanup: cleanupComcigan } = useComciganStore();
@@ -54,7 +60,7 @@ export function App() {
   const { subscribeToUsers, cleanup: cleanupUsers } = useUsersStore();
   const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
   // 단일 activeTab 상태 — 한 번에 하나의 탭만 활성, race condition 제거
-  type Tab = null | 'settings' | 'admin' | 'tpass' | 'outing' | 'todos' | 'reserv' | 'meal' | 'schedule' | 'keyphone' | 'library';
+  type Tab = null | 'settings' | 'admin' | 'tpass' | 'outing' | 'todos' | 'reserv' | 'meal' | 'schedule' | 'keyphone' | 'library' | 'meeting' | 'duty';
   const [activeTab, setActiveTab] = useState<Tab>(null);
   const [showPersonalModal, setShowPersonalModal] = useState(false);
   // 붙여 넣기 창에 넣을 글. null이면 닫힘
@@ -69,6 +75,8 @@ export function App() {
   const showSchedule = activeTab === 'schedule';
   const showKeyphone = activeTab === 'keyphone';
   const showLibrary = activeTab === 'library';
+  const showMeeting = activeTab === 'meeting';
+  const showDuty = activeTab === 'duty';
   const toggle = (tab: Exclude<Tab, null>) => setActiveTab((cur) => cur === tab ? null : tab);
   const theme = useAppearanceStore((s) => s.mode);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -78,6 +86,9 @@ export function App() {
   useClassReminder();
   // 내 수업 시간에 개인 일정 자동 가리기, 단축키 처리
   useClassPrivacy();
+  // 시험 감독·당직 표와 내 차례 미리 알림
+  useDutySubscription(user?.status === 'active' ? user.id : null);
+  useDutyReminder();
 
   useEffect(() => {
     const unsub = initialize();
@@ -139,6 +150,8 @@ export function App() {
         subscribeToPersonalEvents(currentUser.id);
         subscribeToTodos(currentUser.id);
         subscribeToUsers();
+        useDutyStore.getState().subscribe();
+        useComciganLinksStore.getState().subscribe();
       } catch (e) {
         console.warn(`[App] 재구독 실패 (시도 ${attempt + 1}):`, e);
         if (attempt < 3) {
@@ -432,6 +445,10 @@ export function App() {
             <KeyphoneView onBack={() => setActiveTab(null)} />
           ) : showLibrary ? (
             <LibraryView onBack={() => setActiveTab(null)} />
+          ) : showMeeting ? (
+            <MeetingFinderView onBack={() => setActiveTab(null)} />
+          ) : showDuty ? (
+            <DutyView onBack={() => setActiveTab(null)} />
           ) : (
             <Calendar
               key={dayKey}
@@ -445,7 +462,9 @@ export function App() {
         )}
 
         {showEventModal && <EventModal />}
-        {showEventDetail && <EventDetail />}
+        {showEventDetail && (selectedEvent?.duty
+          ? <DutyEntryDetail onOpenTable={() => setActiveTab('duty')} />
+          : <EventDetail />)}
         {showNotifications && <NotificationPanel />}
         {/* 쓰는 중에 수업이 시작되면 글을 잃지 않고 표시만 끈다 */}
         {showPersonalModal && (

@@ -84,6 +84,8 @@ export interface CalendarEvent {
   seriesId?: string | null;
   /** 응답을 받는 일정이면 그 종류 */
   responseType?: ResponseType | null;
+  /** 달력에 함께 그리는 내 감독·당직 차례. 일정 문서가 아니어서 저장하지 않고 화면에서만 쓴다. */
+  duty?: DutyRef;
   attachments: Attachment[];
   checklist: ChecklistItem[];
   readBy: Record<string, ReadReceipt>; // userId -> { name, readAt }
@@ -203,6 +205,78 @@ export interface ComciganConfig {
   schoolName: string;
   teacherName: string;
   maxGrade: number;
+  /** 연결표로 확인한 컴시간 표기. 있으면 이름 앞 두 글자 대신 이 값으로 내 수업을 찾는다. */
+  teacherLabel?: string;
+}
+
+/** 한 교사의 전교 시간표 요약. 어느 반에 들어가는지는 넘기지 않는다. */
+export interface ComciganTeacherSlots {
+  /** 수업이 있는 칸. `요일-교시`, 요일은 1=월 ~ 5=금 */
+  slots: string[];
+  subjects: string[];
+  grades: number[];
+}
+
+/** 회의 찾기와 연결표에 쓰는 학교 전체의 교사별 수업 칸 */
+export interface ComciganSchoolGrid {
+  schoolCode: number;
+  /** 컴시간 교사 표기(두 글자)별 수업 */
+  teachers: Record<string, ComciganTeacherSlots>;
+  classTimes: string[];
+  fetchedAt: string;
+}
+
+export interface ComciganLinkEntry {
+  label: string;
+  userId: string;
+  name: string;
+}
+
+/** 컴시간 표기와 계정 연결표. 학교마다 문서 하나이고 관리자가 고친다. */
+export interface ComciganLinkDoc {
+  school: School;
+  schoolCode: number;
+  schoolName: string;
+  maxGrade: number;
+  entries: ComciganLinkEntry[];
+  updatedBy?: string;
+  updatedAt?: Date | null;
+}
+
+// 시험 감독·당직 표
+export interface DutyEntry {
+  id: string;
+  date: string; // yyyy-MM-dd
+  /** 자정부터 분. 없으면 하루 종일로 표시한다 */
+  startMin: number | null;
+  endMin: number | null;
+  /** 표에 적힌 교시. 시각을 교시마다 고칠 때 쓴다 */
+  periods: number[];
+  name: string;
+  kind: string;
+  place: string;
+}
+
+export interface DutyTable {
+  id: string;
+  title: string;
+  school: School | 'all';
+  createdBy: string;
+  createdByName: string;
+  firstDate: string;
+  lastDate: string;
+  entries: DutyEntry[];
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
+export interface DutyRef {
+  tableId: string;
+  entryId: string;
+  tableTitle: string;
+  kind: string;
+  place: string;
+  periods: number[];
 }
 
 export interface TeacherPeriod {
@@ -287,6 +361,8 @@ export interface ElectronAPI {
   comciganFetch: () => Promise<ComciganTimetableData | null>;
   comciganGetCached: () => Promise<ComciganTimetableData | null>;
   comciganClear: () => Promise<void>;
+  /** 학교 전체의 교사별 수업 칸. 내 시간표 설정과 상관없이 학교 코드로 읽는다. */
+  comciganSchoolGrid: (schoolCode: number, maxGrade: number, force?: boolean) => Promise<ComciganSchoolGrid>;
   onComciganUpdate: (callback: (data: ComciganTimetableData) => void) => () => void;
 }
 

@@ -142,6 +142,10 @@
   --fam-other-ink: #334155;
   --fam-other-solid: #475569;
   --fam-other-on: #fff;
+  --fam-duty: #0891B2;
+  --fam-duty-ink: #164E63;
+  --fam-duty-solid: #0E7490;
+  --fam-duty-on: #fff;
   --fam-high-a: #A21CAF;
   --fam-high-a-ink: #701A75;
   --fam-high-a-solid: #86198F;
@@ -232,6 +236,10 @@
   --fam-other-ink: #CBD5E1;
   --fam-other-solid: #CBD5E1;
   --fam-other-on: #111827;
+  --fam-duty: #22D3EE;
+  --fam-duty-ink: #A5F3FC;
+  --fam-duty-solid: #67E8F9;
+  --fam-duty-on: #06262E;
   --fam-high-a: #E879F9;
   --fam-high-a-ink: #F5D0FE;
   --fam-high-a-solid: #F0ABFC;
@@ -385,6 +393,21 @@ html[data-today='pen'] .today-num svg {
 .cal-cell:hover { background: var(--bg-hover); }
 .cal-cell.selected { background: var(--accent-soft); }
 .cal-cell.drop { background: color-mix(in srgb, var(--accent) 20%, transparent); outline: 2px dashed var(--accent); outline-offset: -2px; }
+
+/* 회의 찾기 칸 */
+.finder-cell {
+  min-height: 28px;
+  padding: 2px 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: var(--fs-label);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.finder-cell:disabled { cursor: default; }
+.finder-cell:not(:disabled):hover { border-color: var(--text-muted); }
+.finder-cell[aria-pressed='true'] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 
 /* 팝오버 메뉴 */
 .menu-pop {

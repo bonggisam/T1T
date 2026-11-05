@@ -20,12 +20,13 @@ const CATEGORIES: { key: EventCategory; label: string }[] = [
 ];
 
 export function EventModal() {
-  const { addEvent, addEventSeries, setShowEventModal, selectedDate } = useCalendarStore();
+  const { addEvent, addEventSeries, setShowEventModal, selectedDate, eventDraft } = useCalendarStore();
   const { user } = useAuthStore();
   const { viewingSchool, setViewingSchool } = useUIStore();
 
   // 현재 보는 학교 뷰에 맞게 기본 공유 범위 계산
   function defaultScope(): School | 'all' {
+    if (eventDraft?.scope) return eventDraft.scope;
     if (viewingSchool === 'all') {
       // 전체 뷰 → 본인 학교가 유효하면 본인 학교, 아니면 'all'
       if (user?.school === 'taeseong_middle' || user?.school === 'taeseong_high') {
@@ -39,23 +40,23 @@ export function EventModal() {
   // selectedDate에 시간 정보가 있으면 사용, 없으면(0시=월뷰) 9시 기본
   const clickedHour = selectedDate.getHours();
   const startHour = clickedHour > 0 ? clickedHour : 9;
-  const defaultStart = new Date(selectedDate);
-  defaultStart.setHours(startHour, 0, 0, 0);
-  const defaultEnd = new Date(selectedDate);
-  defaultEnd.setHours(startHour + 1, 0, 0, 0);
+  const defaultStart = new Date(eventDraft?.start ?? selectedDate);
+  if (!eventDraft?.start) defaultStart.setHours(startHour, 0, 0, 0);
+  const defaultEnd = new Date(eventDraft?.end ?? selectedDate);
+  if (!eventDraft?.end) defaultEnd.setHours(startHour + 1, 0, 0, 0);
 
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const [title, setTitle] = useState(eventDraft?.title ?? '');
+  const [description, setDescription] = useState(eventDraft?.description ?? '');
   const [startDate, setStartDate] = useState(formatDateTimeLocal(defaultStart));
   const [endDate, setEndDate] = useState(formatDateTimeLocal(defaultEnd));
   const [allDay, setAllDay] = useState(false);
-  const [category, setCategory] = useState<EventCategory>('event');
+  const [category, setCategory] = useState<EventCategory>(eventDraft?.category ?? 'event');
   const [scope, setScope] = useState<School | 'all'>(defaultScope());
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [newCheckItem, setNewCheckItem] = useState('');
   const [saving, setSaving] = useState(false);
   const [repeat, setRepeat] = useState<RepeatConfig | null>(null);
-  const [responseType, setResponseType] = useState<ResponseType | null>(null);
+  const [responseType, setResponseType] = useState<ResponseType | null>(eventDraft?.responseType ?? null);
 
   // ESC 키로 닫기 (캡처 우선)
   useEscapeKey(() => setShowEventModal(false));

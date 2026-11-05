@@ -18,10 +18,21 @@ import { getSchoolTag, getCreatorTag } from '../utils/calendarHelpers';
 import { commitInBatches } from '../utils/firestoreBatch';
 import { deleteAllResponses } from '../utils/eventResponses';
 import { describeRepeat, newSeriesId, shiftRepeatDays, type Occurrence } from '../utils/repeat';
-import type { CalendarEvent, CalendarView, ChecklistItem, ReadReceipt, RepeatConfig, School, SeriesScope } from '@shared/types';
+import type { CalendarEvent, CalendarView, ChecklistItem, EventCategory, ReadReceipt, RepeatConfig, ResponseType, School, SeriesScope } from '@shared/types';
 
 type NewEvent = Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt'>;
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** 일정 창을 미리 채워 여는 값. 회의 찾기에서 고른 시간을 넘길 때 쓴다. */
+export interface EventDraft {
+  title?: string;
+  description?: string;
+  start?: Date;
+  end?: Date;
+  category?: EventCategory;
+  responseType?: ResponseType | null;
+  scope?: School | 'all';
+}
 
 interface CalendarState {
   events: CalendarEvent[];
@@ -30,6 +41,7 @@ interface CalendarState {
   view: CalendarView;
   selectedEvent: CalendarEvent | null;
   showEventModal: boolean;
+  eventDraft: EventDraft | null;
   showEventDetail: boolean;
   loading: boolean;
   unsubscribe: (() => void) | null;
@@ -39,6 +51,7 @@ interface CalendarState {
   setView: (view: CalendarView) => void;
   setSelectedEvent: (event: CalendarEvent | null) => void;
   setShowEventModal: (show: boolean) => void;
+  openEventDraft: (draft: EventDraft) => void;
   setShowEventDetail: (show: boolean) => void;
   navigateMonth: (direction: -1 | 1) => void;
   subscribeToEvents: () => void;
@@ -139,6 +152,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
   view: 'month',
   selectedEvent: null,
   showEventModal: false,
+  eventDraft: null,
   showEventDetail: false,
   loading: true,
   unsubscribe: null,
@@ -147,7 +161,8 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
   setCurrentMonth: (date) => set({ currentMonth: date }),
   setView: (view) => set({ view }),
   setSelectedEvent: (event) => set({ selectedEvent: event }),
-  setShowEventModal: (show) => set({ showEventModal: show }),
+  setShowEventModal: (show) => set(show ? { showEventModal: true } : { showEventModal: false, eventDraft: null }),
+  openEventDraft: (draft) => set({ eventDraft: draft, showEventModal: true }),
   setShowEventDetail: (show) => set({ showEventDetail: show }),
 
   navigateMonth: (direction) => {

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webFrame } from 'electron';
-import type { ComciganConfig, ComciganSchool, ComciganTimetableData, WeatherData } from '../shared/types';
+import type { ComciganConfig, ComciganSchool, ComciganSchoolGrid, ComciganTimetableData, WeatherData } from '../shared/types';
 
 contextBridge.exposeInMainWorld('electronAPI', {
   toggleAlwaysOnTop: (value: boolean) => ipcRenderer.invoke('window:toggle-always-on-top', value),
@@ -76,6 +76,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   comciganFetch: (): Promise<ComciganTimetableData | null> => ipcRenderer.invoke('comcigan:fetch'),
   comciganGetCached: (): Promise<ComciganTimetableData | null> => ipcRenderer.invoke('comcigan:get-cached'),
   comciganClear: (): Promise<void> => ipcRenderer.invoke('comcigan:clear'),
+  comciganSchoolGrid: (schoolCode: number, maxGrade: number, force?: boolean): Promise<ComciganSchoolGrid> =>
+    ipcRenderer.invoke('comcigan:school-grid', schoolCode, maxGrade, force),
   onComciganUpdate: (callback: (data: ComciganTimetableData) => void) => {
     const listener = (_event: any, data: ComciganTimetableData) => callback(data);
     ipcRenderer.on('comcigan:updated', listener);

@@ -54,14 +54,14 @@ const WHEN_ONLY_RE = /^(일시|일자|일정|날짜|때|시간|기간|행사일)
 const NEEDS_HEADING_RE = /^(마감|마감일|제출|제출일|제출\s*기한|기한|신청|신청\s*기간|신청\s*기한|접수|접수\s*기간|입력|입력\s*기간|운영|운영\s*기간)$/;
 const MAX_TITLE = 40;
 
-function makeDate(year: number, month: number, day: number): Date | null {
+export function makeDate(year: number, month: number, day: number): Date | null {
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
   const d = new Date(year, month - 1, day);
   return d.getMonth() === month - 1 && d.getDate() === day ? d : null;
 }
 
 /** 연도 없는 날짜의 연도: 두 달 넘게 지났으면 내년 일정으로 본다 */
-function guessYear(month: number, day: number, base: Date): number {
+export function guessYear(month: number, day: number, base: Date): number {
   const thisYear = makeDate(base.getFullYear(), month, day);
   if (!thisYear) return base.getFullYear();
   const twoMonthsAgo = new Date(base.getFullYear(), base.getMonth() - 2, base.getDate());
@@ -180,7 +180,7 @@ function validMinutes(hour: number, minute: number): boolean {
   return hour < 24 && minute < 60;
 }
 
-interface FoundTime {
+export interface FoundTime {
   startMin: number;
   endMin?: number;
   text: string;
@@ -200,7 +200,7 @@ function rangeTime(
   return { startMin, endMin: endHour * 60 + Number(em || 0), text };
 }
 
-function findTime(line: string, periodStarts: Map<number, number>): FoundTime | null {
+export function findTime(line: string, periodStarts: Map<number, number>): FoundTime | null {
   const colonRange = line.match(TIME_COLON_RANGE_RE);
   if (colonRange) {
     const found = rangeTime(colonRange[1], colonRange[2], colonRange[3], colonRange[4], colonRange[5], colonRange[6], colonRange[0]);
@@ -256,7 +256,7 @@ function titleFrom(rest: string, heading: string): string {
   return rest;
 }
 
-function periodStartsOf(classTimes: string[]): Map<number, number> {
+export function periodStartsOf(classTimes: string[]): Map<number, number> {
   const periodStarts = new Map<number, number>();
   classTimes.forEach((entry, i) => {
     const m = entry.match(/(\d{1,2}):(\d{2})/);

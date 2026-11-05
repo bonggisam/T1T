@@ -78,6 +78,41 @@ service cloud.firestore {
       );
     }
 
+    // 컴시간 표기와 계정 연결표 — 학교마다 문서 하나. 활성 교사는 읽고 관리자만 고친다.
+    // 회의 찾기와 감독·당직 표가 쓰는 이름과 표기만 담고 이메일은 넣지 않는다.
+    match /comcigan_links/{school} {
+      allow read: if isActive();
+      allow write: if isAdmin()
+        && school in ['taeseong_middle', 'taeseong_high']
+        && request.resource.data.keys().hasOnly(['school', 'schoolCode', 'schoolName', 'maxGrade', 'entries', 'updatedBy', 'updatedAt'])
+        && request.resource.data.school == school
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.entries is list
+        && request.resource.data.entries.size() <= 300;
+    }
+
+    // 시험 감독·당직 표 — 활성 교사가 만들고, 만든 사람과 관리자가 고치거나 지운다. 활성 교사는 모두 볼 수 있다.
+    function validDutyTable(data) {
+      return data.keys().hasOnly(['title', 'school', 'entries', 'firstDate', 'lastDate', 'createdBy', 'createdByName', 'createdAt', 'updatedAt'])
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 60
+        && data.school in ['taeseong_middle', 'taeseong_high', 'all']
+        && data.entries is list && data.entries.size() > 0 && data.entries.size() <= 2000
+        && data.firstDate is string && data.lastDate is string
+        && data.createdByName is string && data.createdByName.size() <= 50;
+    }
+    match /duty_tables/{tableId} {
+      allow read: if isActive();
+      allow create: if isActive()
+        && request.resource.data.createdBy == request.auth.uid
+        && validDutyTable(request.resource.data);
+      allow update: if isActive()
+        && (resource.data.createdBy == request.auth.uid || isAdmin())
+        && request.resource.data.createdBy == resource.data.createdBy
+        && validDutyTable(request.resource.data);
+      allow delete: if isActive()
+        && (resource.data.createdBy == request.auth.uid || isAdmin());
+    }
+
     // Personal events
     match /personal_events/{userId}/events/{eventId} {
       allow read, write: if isAuth() && request.auth.uid == userId && isActive();

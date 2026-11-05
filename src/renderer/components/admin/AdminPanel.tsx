@@ -6,6 +6,7 @@ import { showToast } from '../common/Toast';
 import type { User, UserStatus } from '@shared/types';
 import { SCHOOL_LABELS } from '@shared/types';
 import { Ic } from '../common/Ic';
+import { ComciganLinkTable } from './ComciganLinkTable';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -94,7 +95,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
   const { user } = useAuthStore();
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [activeUsers, setActiveUsers] = useState<User[]>([]);
-  const [tab, setTab] = useState<'pending' | 'active'>('pending');
+  const [tab, setTab] = useState<'pending' | 'active' | 'links'>('pending');
   const [schoolFilter, setSchoolFilter] = useState<SchoolFilter>('all');
   const [loading, setLoading] = useState(true);
 
@@ -217,6 +218,12 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
         >
           활성 사용자 ({activeUsers.length})
         </button>
+        <button
+          onClick={() => { setTab('links'); setSchoolFilter('all'); }}
+          style={{ ...styles.tab, ...(tab === 'links' ? styles.tabActive : {}) }}
+        >
+          컴시간 연결
+        </button>
       </div>
 
       {/* 학교별 서브필터 (활성 탭에서만) */}
@@ -240,8 +247,10 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
         </div>
       )}
 
+      {tab === 'links' && !loading && <ComciganLinkTable users={activeUsers} />}
+
       {/* Content */}
-      <div style={styles.list}>
+      {tab !== 'links' && <div style={styles.list}>
         {loading ? (
           <p style={styles.emptyMsg}>로딩 중...</p>
         ) : tab === 'pending' ? (
@@ -334,7 +343,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
             return filteredActive.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} onChangeSchool={handleChangeSchool} />);
           })()
         )}
-      </div>
+      </div>}
     </div>
   );
 }
