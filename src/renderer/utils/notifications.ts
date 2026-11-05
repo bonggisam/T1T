@@ -1,8 +1,11 @@
 import {
   collection,
+  query,
+  where,
   getDocs,
   addDoc,
   serverTimestamp,
+  type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { db } from './firebase';
@@ -23,9 +26,11 @@ export async function notifyAllUsers(
   const me = getAuth().currentUser?.uid;
   if (!me) return;
   try {
-    const snapshot = await getDocs(collection(db, USER_DIRECTORY));
+    const docs = await readNotifyTargets();
+    // 명단 규칙이 아직 없으면 일반 교사는 대상을 읽을 수 없다. 저장마다 오류를 띄우지 않고 예전처럼 넘어간다
+    if (!docs) return;
 
-    const targets = snapshot.docs.filter((d) => {
+    const targets = docs.filter((d) => {
       if (d.id === me) return false;
       // 일정의 school 값에 따라 대상 필터링
       // 'all' → 모든 활성 사용자
@@ -52,6 +57,27 @@ export async function notifyAllUsers(
   } catch (err) {
     console.error('Failed to send notifications:', err);
     notifyFailureToSender();
+  }
+}
+
+/**
+ * 알림 대상. 명단을 먼저 읽고, 명단 규칙이 없거나 아직 비어 있으면 users 목록을 쓴다 (관리자만 읽힌다).
+ * @returns 규칙 때문에 어느 쪽도 읽을 수 없으면 null
+ */
+async function readNotifyTargets(): Promise<QueryDocumentSnapshot[] | null> {
+  const isDenied = (err: unknown) => (err as { code?: string })?.code === 'permission-denied';
+  try {
+    const directory = await getDocs(collection(db, USER_DIRECTORY));
+    if (!directory.empty) return directory.docs;
+  } catch (err) {
+    if (!isDenied(err)) throw err;
+  }
+  try {
+    const users = await getDocs(query(collection(db, 'users'), where('status', '==', 'active')));
+    return users.docs;
+  } catch (err) {
+    if (isDenied(err)) return null;
+    throw err;
   }
 }
 

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../utils/firebase';
 import { USER_DIRECTORY } from '../utils/userDirectory';
 import type { User } from '@shared/types';
@@ -17,20 +17,30 @@ export const useUsersStore = create<UsersState>((set, get) => ({
   unsubscribe: null,
 
   subscribeToUsers: () => {
-    const prev = get().unsubscribe;
-    prev?.();
-    const unsub = onSnapshot(collection(db, USER_DIRECTORY), (snap) => {
-      const users = snap.docs.map((d) => {
-        const data = d.data();
-        return {
-          id: d.id,
-          name: data.name || '',
-          school: data.school || 'taeseong_middle',
-          profileColor: data.profileColor,
-        };
+    get().unsubscribe?.();
+    const onData = (snap: { docs: Array<{ id: string; data: () => Record<string, any> }> }) => {
+      set({
+        users: snap.docs.map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            name: data.name || '',
+            school: data.school || 'taeseong_middle',
+            profileColor: data.profileColor,
+          };
+        }),
       });
-      set({ users });
-    }, (err) => console.warn('[UsersStore] subscription error:', err));
+    };
+    const unsub = onSnapshot(collection(db, USER_DIRECTORY), onData, (err) => {
+      // 명단 규칙이 아직 없으면 예전처럼 users 목록을 읽는다. 관리자만 읽힌다
+      console.warn('[UsersStore] directory unavailable:', err);
+      const fallback = onSnapshot(
+        query(collection(db, 'users'), where('status', '==', 'active')),
+        onData,
+        (fallbackErr) => console.warn('[UsersStore] subscription error:', fallbackErr),
+      );
+      set({ unsubscribe: fallback });
+    });
     set({ unsubscribe: unsub });
   },
 
