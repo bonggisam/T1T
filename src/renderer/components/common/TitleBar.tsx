@@ -7,8 +7,9 @@ import { useNotificationStore } from '../../store/notificationStore';
 import { usePersonalHidden, usePrivacyStore } from '../../store/privacyStore';
 import { useUIStore } from '../../store/uiStore';
 import { usePopover } from '../../hooks/usePopover';
-import { NARROW_MAX, useWindowSize, WIDE_MIN } from '../../hooks/useWindowSize';
+import { useWindowSize, WIDE_MIN } from '../../hooks/useWindowSize';
 import { CalendarNav } from '../calendar/CalendarNav';
+import { Dock } from './Dock';
 import { TOOL_TABS, ToolMenu, type ToolTab } from './ToolMenu';
 
 /*
@@ -25,7 +26,7 @@ const FULL_DATE_MIN = 387;
 /** 이보다 좁으면 T1T와 오늘, 편집 글자, 구분선을 뺀다 */
 const COMPACT_MAX = 359;
 /** 도구 아이콘이 제목 줄에 함께 들어가는 폭. 이보다 좁으면 아래에 아이콘 줄을 따로 둔다 */
-const ONE_ROW_MIN = 840;
+const ONE_ROW_MIN = 900;
 const TOOL_MENU_WIDTH = 300;
 
 interface TitleBarProps {
@@ -46,7 +47,7 @@ interface TitleBarProps {
 
 /**
  * 제목 줄. 날짜 이동, 개인 일정 가리기, 알림, 도구 모음을 한 줄에 둔다.
- * 도구 아이콘은 창 크기와 상관없이 항상 보인다. 창이 넓으면 제목 줄에, 아니면 그 아래 아이콘 줄에 둔다.
+ * 도구 아이콘은 창 크기와 상관없이 항상 가운데에 보인다. 창이 넓으면 제목 줄에, 아니면 그 아래 아이콘 줄에 둔다.
  */
 export function TitleBar({
   onToggleSettings, onToggleAdmin, showSettingsBtn, showAdminBtn,
@@ -93,49 +94,49 @@ export function TitleBar({
         <span style={styles.spacer} />
 
         {signedIn && oneRow && onOpenTab && (
-          <>
+          <Dock style={styles.dockCentered} role="toolbar" ariaLabel="도구">
             <ToolIcons activeTab={activeTab} onOpenTab={onOpenTab} />
-            <span style={styles.separator} />
-          </>
+          </Dock>
         )}
-
-        {signedIn && wide && onOpenTab && (
-          <IconBtn
-            Icon={Search}
-            onClick={() => { onOpenCalendar?.(); setCalendarTool('search'); }}
-            title="일정 검색"
-          />
-        )}
-
-        {signedIn && <PrivacyToggle />}
 
         {signedIn && (
-          <button
-            onClick={() => setShowPanel(!showPanel)}
-            style={{ ...styles.iconBtn, background: showPanel ? 'var(--accent-soft)' : 'transparent', color: showPanel ? 'var(--accent)' : 'var(--text-secondary)' }}
-            title={unreadCount > 0 ? `알림 ${unreadCount}개` : '알림'}
-            aria-label={unreadCount > 0 ? `알림 ${unreadCount}개` : '알림'}
-          >
-            <Bell size={16} strokeWidth={2.2} />
-            {unreadCount > 0 && <span style={styles.badge}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
-          </button>
+          <Dock maxScale={1.4} radius={46} style={styles.systemDock}>
+            {wide && onOpenTab && (
+              <IconBtn
+                dock
+                Icon={Search}
+                onClick={() => { onOpenCalendar?.(); setCalendarTool('search'); }}
+                title="일정 검색"
+              />
+            )}
+            <PrivacyToggle />
+            <button
+              className="dock-item"
+              data-dock-label={unreadCount > 0 ? `알림 ${unreadCount}개` : '알림'}
+              onClick={() => setShowPanel(!showPanel)}
+              style={{ ...styles.iconBtn, background: showPanel ? 'var(--accent-soft)' : 'transparent', color: showPanel ? 'var(--accent)' : 'var(--text-secondary)' }}
+              aria-label={unreadCount > 0 ? `알림 ${unreadCount}개` : '알림'}
+            >
+              <Bell size={16} strokeWidth={2.2} />
+              {unreadCount > 0 && <span style={styles.badge}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
+            </button>
+            {onOpenTab && (
+              <button
+                ref={menu.anchorRef}
+                className="dock-item"
+                data-dock-label="도구 모음"
+                onClick={() => menu.setOpen((v) => !v)}
+                style={{ ...styles.iconBtn, background: menu.open ? 'var(--accent-soft)' : 'transparent', color: menu.open ? 'var(--accent)' : 'var(--text-secondary)' }}
+                aria-label="도구 모음"
+                aria-expanded={menu.open}
+                aria-haspopup="menu"
+              >
+                <LayoutGrid size={16} strokeWidth={2.2} />
+              </button>
+            )}
+            {wide && <IconBtn dock Icon={Settings} onClick={onToggleSettings} title="설정" />}
+          </Dock>
         )}
-
-        {signedIn && onOpenTab && (
-          <button
-            ref={menu.anchorRef}
-            onClick={() => menu.setOpen((v) => !v)}
-            style={{ ...styles.iconBtn, background: menu.open ? 'var(--accent-soft)' : 'transparent', color: menu.open ? 'var(--accent)' : 'var(--text-secondary)' }}
-            title="도구 모음"
-            aria-label="도구 모음"
-            aria-expanded={menu.open}
-            aria-haspopup="menu"
-          >
-            <LayoutGrid size={16} strokeWidth={2.2} />
-          </button>
-        )}
-
-        {signedIn && wide && <IconBtn Icon={Settings} onClick={onToggleSettings} title="설정" />}
 
         {!compact && <span style={styles.separator} />}
 
@@ -161,14 +162,9 @@ export function TitleBar({
       </div>
 
       {signedIn && !oneRow && onOpenTab && (
-        <div
-          className="titlebar"
-          style={{ ...styles.toolRow, justifyContent: width < NARROW_MAX ? 'space-between' : 'flex-end' }}
-          role="toolbar"
-          aria-label="도구"
-        >
+        <Dock className="titlebar" style={styles.toolRow} role="toolbar" ariaLabel="도구">
           <ToolIcons activeTab={activeTab} onOpenTab={onOpenTab} />
-        </div>
+        </Dock>
       )}
 
       {menu.open && onOpenTab && (
@@ -199,7 +195,7 @@ function ToolIcons({ activeTab, onOpenTab }: { activeTab: string | null; onOpenT
   return (
     <>
       {TOOL_TABS.map(({ tab, label, Icon }) => (
-        <IconBtn key={tab} Icon={Icon} active={activeTab === tab} onClick={() => onOpenTab(tab)} title={label} />
+        <IconBtn key={tab} dock Icon={Icon} active={activeTab === tab} onClick={() => onOpenTab(tab)} title={label} />
       ))}
     </>
   );
@@ -211,6 +207,7 @@ function PrivacyToggle() {
   const toggle = usePrivacyStore((s) => s.toggle);
   return (
     <IconBtn
+      dock
       Icon={hidden ? EyeOff : Eye}
       active={hidden}
       onClick={toggle}
@@ -225,18 +222,22 @@ interface IconBtnProps {
   onClick: () => void;
   active?: boolean;
   accent?: boolean;
+  /** 독 안의 아이콘. 이름은 독이 보여 주므로 기본 말풍선을 쓰지 않는다 */
+  dock?: boolean;
 }
 
-function IconBtn({ Icon, title, onClick, active, accent }: IconBtnProps) {
+function IconBtn({ Icon, title, onClick, active, accent, dock }: IconBtnProps) {
   return (
     <button
+      className={dock ? 'dock-item' : undefined}
+      data-dock-label={dock ? title : undefined}
       onClick={onClick}
       style={{
         ...styles.iconBtn,
         background: active ? 'var(--accent-soft)' : 'transparent',
         color: active || accent ? 'var(--accent)' : 'var(--text-secondary)',
       }}
-      title={title}
+      title={dock ? undefined : title}
       aria-label={title}
     >
       <Icon size={16} strokeWidth={2.2} />
@@ -246,6 +247,7 @@ function IconBtn({ Icon, title, onClick, active, accent }: IconBtnProps) {
 
 const styles: Record<string, React.CSSProperties> = {
   bar: {
+    position: 'relative',
     display: 'flex',
     alignItems: 'center',
     gap: 2,
@@ -256,8 +258,23 @@ const styles: Record<string, React.CSSProperties> = {
   toolRow: {
     display: 'flex',
     flexWrap: 'wrap',
-    gap: 2,
+    justifyContent: 'center',
+    gap: '0 clamp(2px, calc((100vw - 300px) / 14), 10px)',
     padding: '0 8px 3px',
+    flexShrink: 0,
+  },
+  dockCentered: {
+    position: 'absolute',
+    left: '50%',
+    top: 6,
+    transform: 'translateX(-50%)',
+    display: 'flex',
+    gap: 6,
+  },
+  systemDock: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 2,
     flexShrink: 0,
   },
   home: {

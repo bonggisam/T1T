@@ -325,6 +325,34 @@ html, body, #root {
   opacity: 1 !important;
 }
 
+/* 아이콘에 마우스를 대면 커지고 색이 바뀐다 (Dock.tsx) */
+.dock-item {
+  transform-origin: top center;
+  transition: transform 110ms ease-out, color 110ms, background-color 110ms;
+}
+.dock-item[data-near='true'] {
+  z-index: 1;
+  color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+}
+.dock-tip {
+  position: absolute;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px var(--shadow-color);
+}
+@media (prefers-reduced-motion: reduce) {
+  .dock-item { transition: none; }
+}
+
 /* 일정 칩 — 연한 바탕과 왼쪽 띠. 색은 --c-base, --c-ink로 받는다 */
 .ev {
   pointer-events: auto;
