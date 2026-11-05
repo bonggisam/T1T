@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { isPageLoadFailure, WebFailNotice } from '../common/WebFailNotice';
 import { Ic } from '../common/Ic';
 
 // 주소는 빌드 시 .env의 VITE_TPASS_URL에서 주입한다. 저장소에는 값을 두지 않는다.
@@ -13,6 +14,8 @@ interface TPassViewProps {
 
 export function TPassView({ onBack }: TPassViewProps) {
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [entering, setEntering] = useState(Boolean(TPASS_URL));
   const webviewContainerRef = useRef<HTMLDivElement>(null);
   // Electron webview는 HTMLElement 확장이지만 reload/goBack 등의 메서드를 가짐. 타입 표준에 없어 any 사용.
@@ -29,6 +32,7 @@ export function TPassView({ onBack }: TPassViewProps) {
       if (!mounted) return;
       setLoading(false);
       if (e?.isMainFrame) setEntering(false);
+      if (isPageLoadFailure(e)) setFailed(true);
     };
     // 페이지가 뜨면 메인 프로세스가 비밀번호 단계를 넘긴다. 실패하면 페이지를 그대로 보여 주어 직접 넣을 수 있다.
     const onDomReady = () => {
@@ -62,13 +66,20 @@ export function TPassView({ onBack }: TPassViewProps) {
       if (webview.parentNode) webview.parentNode.removeChild(webview);
       webviewRef.current = null;
     };
-  }, []);
+  }, [attempt]);
 
   useEffect(() => {
     if (!entering) return;
     const timer = setTimeout(() => setEntering(false), ENTERING_MAX_MS);
     return () => clearTimeout(timer);
   }, [entering]);
+
+  function retry() {
+    setFailed(false);
+    setLoading(true);
+    setEntering(true);
+    setAttempt((n) => n + 1);
+  }
 
   function handleRefresh() {
     if (webviewRef.current) {
@@ -98,6 +109,7 @@ export function TPassView({ onBack }: TPassViewProps) {
           <div style={styles.loadingProgress} />
         </div>
       )}
+      {failed && <WebFailNotice label="외출시스템" onRetry={retry} />}
       {TPASS_URL ? (
         <div style={styles.webviewArea}>
           <div ref={webviewContainerRef} style={styles.webviewContainer} />

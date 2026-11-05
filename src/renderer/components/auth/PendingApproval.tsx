@@ -11,8 +11,8 @@ export function PendingApproval() {
     if (!user) return;
     const unsub = onSnapshot(doc(db, 'users', user.id), (snap) => {
       const data = snap.data();
-      if (data && data.status === 'active') {
-        // 상태가 active로 바뀌면 스토어 초기화 (onAuthStateChanged 재발동)
+      if (data && data.status !== 'pending') {
+        // 승인이나 거절이 정해지면 그 화면으로 간다 (onAuthStateChanged 재발동)
         window.location.reload();
       }
     }, (err) => console.warn('[PendingApproval] listener failed:', err));

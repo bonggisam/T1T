@@ -36,7 +36,6 @@ export interface AppearanceChoices {
 
 export interface UserSettings {
   notificationSound: boolean;
-  notificationBadge: boolean;
   alwaysOnTop: boolean;
   clickThrough: boolean;
   defaultView: CalendarView;
@@ -86,6 +85,8 @@ export interface CalendarEvent {
   responseType?: ResponseType | null;
   /** 달력에 함께 그리는 내 시험감독 차례. 일정 문서가 아니어서 저장하지 않고 화면에서만 쓴다. */
   duty?: DutyRef;
+  /** 학교 홈페이지에서 자동으로 가져온 학사일정 */
+  schoolScheduleImport?: boolean;
   attachments: Attachment[];
   checklist: ChecklistItem[];
   readBy: Record<string, ReadReceipt>; // userId -> { name, readAt }
@@ -372,7 +373,7 @@ export interface ElectronAPI {
   onUpdaterEvent: (callback: (channel: string, data: any) => void) => () => void;
   // Google Calendar
   googleAuth: () => Promise<{ access_token: string; refresh_token?: string; expires_in: number } | { error: string }>;
-  googleRefresh: (refreshToken: string) => Promise<{ access_token: string; expires_in: number } | { error: string }>;
+  googleRefresh: (refreshToken: string) => Promise<{ access_token: string; expires_in: number } | { error: string; expired?: boolean }>;
   // School website scraper
   schoolFetchSchedule: (schoolKey: string) => Promise<{
     events: Array<{ startDate: string; endDate: string; title: string; seq: string }>;
@@ -387,6 +388,10 @@ export interface ElectronAPI {
   // Comcigan
   comciganSearch: (name: string) => Promise<ComciganSchool[]>;
   comciganConfigure: (config: ComciganConfig) => Promise<void>;
+  clearWebSessions: () => Promise<void>;
+  setEditShortcut: (enabled: boolean) => Promise<void>;
+  /** 시간표 설정은 사람마다 따로 둔다. 로그인하면 부르고 로그아웃하면 null로 부른다 */
+  comciganSetUser: (userId: string | null) => Promise<void>;
   comciganGetConfig: () => Promise<ComciganConfig | null>;
   comciganFetch: () => Promise<ComciganTimetableData | null>;
   comciganGetCached: () => Promise<ComciganTimetableData | null>;

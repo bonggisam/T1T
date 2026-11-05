@@ -6,7 +6,7 @@ import { AppearanceSettings } from './AppearanceSettings';
 import { CalendarSyncSettings } from './CalendarSyncSettings';
 import { ComciganSettings } from './ComciganSettings';
 import { Ic, type IconName } from '../common/Ic';
-import type { UpdateState } from '@shared/types';
+import type { ReminderTime, UpdateState, UserSettings } from '@shared/types';
 
 interface SettingsPanelProps {
   onClose: () => void;
@@ -44,12 +44,11 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [alwaysOnTop, setAlwaysOnTop] = useState(user?.settings.alwaysOnTop ?? true);
   const [clickThrough, setClickThrough] = useState(user?.settings.clickThrough ?? false);
   const [notifSound, setNotifSound] = useState(user?.settings.notificationSound ?? true);
-  const [notifBadge, setNotifBadge] = useState(user?.settings.notificationBadge ?? true);
+  const [reminder, setReminder] = useState<ReminderTime>(user?.settings.reminderDefault ?? '30min');
   const [profileColor, setProfileColor] = useState(user?.profileColor || '#4A90E2');
   const [syncInterval, setSyncInterval] = useState(user?.settings.syncInterval ?? 15);
   const [appVersion, setAppVersion] = useState('1.0.0');
   const [autoLaunch, setAutoLaunch] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [updateNote, setUpdateNote] = useState('');
@@ -74,9 +73,18 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   }, []);
   // 이전: 설정창이 전체 화면을 차지하던 시절 윈도우 리사이즈 로직 — 이제 모달이라 불필요
 
+  // 누르는 즉시 저장한다. 화면 설정과 같은 방식으로 맞춰, 저장 단추를 잊고 닫아 값이 사라지는 일이 없게 한다
+  function persist(settings: Partial<UserSettings>, color?: string) {
+    setSaveMsg('');
+    saveSettings(settings, color).catch((err: any) => {
+      setSaveMsg('저장 실패: ' + (err?.message || '알 수 없는 오류'));
+    });
+  }
+
   function handleAlwaysOnTop(value: boolean) {
     setAlwaysOnTop(value);
     window.electronAPI?.toggleAlwaysOnTop(value);
+    persist({ alwaysOnTop: value });
   }
 
   function handleClickThrough(value: boolean) {
@@ -93,6 +101,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     }
     setClickThrough(value);
     window.electronAPI?.toggleClickThrough(value);
+    persist({ clickThrough: value });
   }
 
   // 외부(트레이/단축키)에서 클릭 통과 변경 시 UI 동기화
@@ -106,29 +115,6 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   // 이전 윈도우 리사이즈 모드에서 사용하던 함수 — 모달 전환 후 no-op으로 유지 (참조 위치 호환성)
   async function restoreOriginalBounds() {
     // intentionally empty
-  }
-
-  async function handleSave() {
-    if (!user) return;
-    setSaving(true);
-    setSaveMsg('');
-    try {
-      // 스토어도 함께 갱신된다. 그래야 다시 열었을 때 옛 값이 보이거나 옛 값으로 덮어쓰지 않는다.
-      await saveSettings({
-        alwaysOnTop,
-        clickThrough,
-        notificationSound: notifSound,
-        notificationBadge: notifBadge,
-        syncInterval,
-      }, profileColor);
-      // Restore window size before closing
-      await restoreOriginalBounds();
-      onClose();
-    } catch (err: any) {
-      setSaveMsg('저장 실패: ' + (err?.message || '알 수 없는 오류'));
-    } finally {
-      setSaving(false);
-    }
   }
 
   async function handleClose() {
@@ -171,7 +157,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 {COLOR_PRESETS.map((c) => (
                   <div
                     key={c}
-                    onClick={() => setProfileColor(c)}
+                    onClick={() => { setProfileColor(c); persist({}, c); }}
                     style={{
                       ...styles.colorSwatch,
                       background: c,
@@ -191,12 +177,32 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           <div style={{ height: 4 }} />
           <ToggleRow label="항상 위 표시" value={alwaysOnTop} onChange={handleAlwaysOnTop} />
           <ToggleRow label="클릭 통과 모드" value={clickThrough} onChange={handleClickThrough} />
+          <ToggleRow label="편집 모드 단축키 (Ctrl+Shift+C)" value={widget.editShortcut} onChange={(v) => widget.setPref('editShortcut', v)} />
+          <p style={styles.privacyNote}>Word, PowerPoint의 서식 복사 단축키와 겹칩니다. 서식 복사를 쓰시면 꺼 주세요. 편집 단추는 그대로 쓸 수 있습니다.</p>
         </Section>
 
         {/* Notification section */}
         <Section icon="bell" title="알림 설정">
-          <ToggleRow label="알림음" value={notifSound} onChange={setNotifSound} />
-          <ToggleRow label="NEW 배지 표시" value={notifBadge} onChange={setNotifBadge} />
+          <ToggleRow label="알림음" value={notifSound} onChange={(v) => { setNotifSound(v); persist({ notificationSound: v }); }} />
+          <div style={styles.settingRow}>
+            <span style={styles.label}>공유 일정 시작 전 알림</span>
+            <select
+              value={reminder}
+              onChange={(e) => {
+                const value = e.target.value as ReminderTime;
+                setReminder(value);
+                persist({ reminderDefault: value, multiReminders: [] });
+              }}
+              style={styles.widgetSelect}
+              aria-label="공유 일정 시작 전 알림"
+            >
+              <option value="none">끔</option>
+              <option value="10min">10분 전</option>
+              <option value="30min">30분 전</option>
+              <option value="1hour">1시간 전</option>
+              <option value="1day">하루 전</option>
+            </select>
+          </div>
         </Section>
 
         {/* 수업 화면 보호 — 끄는 옵션 없이 항상 동작한다. 단축키는 잠시 숨기거나 보이게 할 뿐이다. */}
@@ -249,7 +255,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         <Section icon="calendar" title="캘린더 연동">
           <CalendarSyncSettings
             syncInterval={syncInterval}
-            onSyncIntervalChange={setSyncInterval}
+            onSyncIntervalChange={(minutes) => { setSyncInterval(minutes); persist({ syncInterval: minutes }); }}
           />
         </Section>
 
@@ -377,9 +383,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
       </div>
 
       <div style={styles.footer}>
-        <button onClick={handleSave} disabled={saving} style={styles.saveBtn}>
-          {saving ? '저장 중...' : '설정 저장'}
-        </button>
+        <button onClick={handleClose} style={styles.saveBtn}>닫기</button>
         {saveMsg && <span style={{ fontSize: 'var(--fs-label)', color: 'var(--danger)', alignSelf: 'center' }}>{saveMsg}</span>}
         <button onClick={logout} style={styles.logoutBtn}>로그아웃</button>
       </div>

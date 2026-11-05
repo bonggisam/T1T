@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { collection, query, where, getDocs, updateDoc, doc, limit as fsLimit, orderBy } from 'firebase/firestore';
+import { reconcileUserDirectory } from '../../utils/userDirectory';
 import { db } from '../../utils/firebase';
 import { useAuthStore } from '../../store/authStore';
 import { showToast } from '../common/Toast';
@@ -95,7 +96,9 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
   const { user } = useAuthStore();
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [activeUsers, setActiveUsers] = useState<User[]>([]);
-  const [tab, setTab] = useState<'pending' | 'active' | 'links'>('pending');
+  const [blockedUsers, setBlockedUsers] = useState<User[]>([]);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [tab, setTab] = useState<'pending' | 'active' | 'blocked' | 'links'>('pending');
   const [schoolFilter, setSchoolFilter] = useState<SchoolFilter>('all');
   const [loading, setLoading] = useState(true);
 
@@ -125,12 +128,35 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
       const activeSnap = await getDocs(activeQ);
       const active = activeSnap.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as User));
 
+      // 비활성화하거나 거절한 사람도 보여 줘야 되돌릴 수 있다
+      const blockedQ = query(collection(db, 'users'), where('status', 'in', ['deactivated', 'rejected']), fsLimit(500));
+      const blockedSnap = await getDocs(blockedQ);
+      const blocked = blockedSnap.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as User));
+
       setPendingUsers(pending);
       setActiveUsers(active);
+      setBlockedUsers(blocked);
+      setLoadFailed(false);
+      // 승인, 비활성화, 학교 변경을 알림 대상 명단에 맞춘다
+      reconcileUserDirectory().catch((err) => console.warn('[Directory] reconcile failed:', err));
     } catch (err) {
       console.error('Failed to fetch users:', err);
+      setLoadFailed(true);
     }
     setLoading(false);
+  }
+
+  async function handleRestore(target: User) {
+    const next = target.status === 'rejected' ? 'pending' : 'active';
+    try {
+      await updateDoc(doc(db, 'users', target.id), { status: next });
+      showToast(next === 'active' ? `${target.name} 교사를 다시 활성화했습니다.` : `${target.name} 교사를 승인 대기로 옮겼습니다.`);
+    } catch (err) {
+      console.error('Restore failed:', err);
+      showToast('되돌리지 못했습니다.', 'error');
+    } finally {
+      fetchUsers();
+    }
   }
 
   async function handleApprove(userId: string, role: 'teacher' | 'head_teacher' = 'teacher') {
@@ -153,6 +179,8 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
   }
 
   async function handleReject(userId: string) {
+    const target = pendingUsers.find((u) => u.id === userId);
+    if (!window.confirm(`${target?.name ?? '이 사용자'}의 가입을 거절할까요?\n"비활성·거절" 목록에서 되돌릴 수 있습니다.`)) return;
     try {
       await updateDoc(doc(db, 'users', userId), { status: 'rejected' });
     } catch (err) {
@@ -175,6 +203,8 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
   }
 
   async function handleDeactivate(userId: string) {
+    const target = activeUsers.find((u) => u.id === userId);
+    if (!window.confirm(`${target?.name ?? '이 사용자'} 교사를 비활성화할까요?\n달력을 쓸 수 없게 되며, "비활성·거절" 목록에서 되돌릴 수 있습니다.`)) return;
     try {
       await updateDoc(doc(db, 'users', userId), { status: 'deactivated' });
     } catch (err) {
@@ -219,6 +249,12 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
           활성 사용자 ({activeUsers.length})
         </button>
         <button
+          onClick={() => { setTab('blocked'); setSchoolFilter('all'); }}
+          style={{ ...styles.tab, ...(tab === 'blocked' ? styles.tabActive : {}) }}
+        >
+          비활성·거절 ({blockedUsers.length})
+        </button>
+        <button
           onClick={() => { setTab('links'); setSchoolFilter('all'); }}
           style={{ ...styles.tab, ...(tab === 'links' ? styles.tabActive : {}) }}
         >
@@ -253,6 +289,29 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
       {tab !== 'links' && <div style={styles.list}>
         {loading ? (
           <p style={styles.emptyMsg}>로딩 중...</p>
+        ) : loadFailed ? (
+          <div style={styles.emptyMsg}>
+            <p>사용자 목록을 읽지 못했습니다. 인터넷 연결을 확인해 주세요.</p>
+            <button onClick={fetchUsers} style={styles.approveBtn}>다시 시도</button>
+          </div>
+        ) : tab === 'blocked' ? (
+          blockedUsers.length === 0 ? (
+            <p style={styles.emptyMsg}>비활성화하거나 거절한 사용자가 없습니다.</p>
+          ) : (
+            blockedUsers.map((u) => (
+              <div key={u.id} style={styles.userCard}>
+                <div style={styles.userInfo}>
+                  <span style={styles.userName}>{u.name}</span>
+                  <span style={styles.userEmail}>{u.email} · {u.status === 'rejected' ? '가입 거절' : '비활성화'}</span>
+                </div>
+                <div style={styles.userActions}>
+                  <button onClick={() => handleRestore(u)} style={styles.approveBtn}>
+                    {u.status === 'rejected' ? '승인 대기로' : '다시 활성화'}
+                  </button>
+                </div>
+              </div>
+            ))
+          )
         ) : tab === 'pending' ? (
           pendingUsers.length === 0 ? (
             <p style={styles.emptyMsg}>대기 중인 요청이 없습니다.</p>

@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import './styles/global.css';
 import { applyDisplayPrefs } from './utils/displayPrefs';
 import { applyCachedAppearance } from './store/appearanceStore';
@@ -35,8 +36,21 @@ window.addEventListener('unhandledrejection', (e) => {
   showGlobalErrorToast(`비동기 오류: ${msg.slice(0, 100)}`);
 });
 
+// 투명 창이라 그림이 모두 지워지면 앱이 사라진 것처럼 보인다. 제목 줄이나 창에서 난 오류도 여기서 받는다
+function renderFatal(error: Error) {
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 20, background: '#f7f8fb', color: '#1f2937', textAlign: 'center', borderRadius: 12 }}>
+      <strong>화면을 표시할 수 없습니다</strong>
+      <span style={{ fontSize: 12, color: '#6b7280' }}>{error.message}</span>
+      <button onClick={() => window.location.reload()} style={{ padding: '6px 14px', borderRadius: 7, border: 'none', background: '#1f3a68', color: '#fff', cursor: 'pointer' }}>다시 불러오기</button>
+    </div>
+  );
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary fallback={renderFatal}>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>
 );

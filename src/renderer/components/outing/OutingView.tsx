@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { isPageLoadFailure, WebFailNotice } from '../common/WebFailNotice';
 import { Ic } from '../common/Ic';
 
 /**
@@ -31,6 +32,8 @@ interface OutingViewProps {
 
 export function OutingView({ onBack }: OutingViewProps) {
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [url, setUrl] = useState<string>(() => getOutingUrl());
   const [showSettings, setShowSettings] = useState(false);
   const [draftUrl, setDraftUrl] = useState<string>('');
@@ -44,7 +47,11 @@ export function OutingView({ onBack }: OutingViewProps) {
     let mounted = true;
     const onStartLoad = () => { if (mounted) setLoading(true); };
     const onStopLoad = () => { if (mounted) setLoading(false); };
-    const onFailLoad = () => { if (mounted) setLoading(false); };
+    const onFailLoad = (e: any) => {
+      if (!mounted) return;
+      setLoading(false);
+      if (isPageLoadFailure(e)) setFailed(true);
+    };
 
     const webview = document.createElement('webview');
     webview.setAttribute('src', url);
@@ -67,7 +74,13 @@ export function OutingView({ onBack }: OutingViewProps) {
       if (webview.parentNode) webview.parentNode.removeChild(webview);
       webviewRef.current = null;
     };
-  }, [url]);
+  }, [url, attempt]);
+
+  function retry() {
+    setFailed(false);
+    setLoading(true);
+    setAttempt((n) => n + 1);
+  }
 
   function handleRefresh() {
     if (webviewRef.current) {
@@ -117,6 +130,7 @@ export function OutingView({ onBack }: OutingViewProps) {
           <div style={styles.loadingProgress} />
         </div>
       )}
+      {failed && <WebFailNotice label="외출상황" onRetry={retry} />}
       {url ? (
         <div ref={webviewContainerRef} style={styles.webviewContainer} />
       ) : (

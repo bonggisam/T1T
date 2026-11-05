@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { isPageLoadFailure, WebFailNotice } from '../common/WebFailNotice';
 import { Ic } from '../common/Ic';
 
 const RESERV_URL = 'https://ourssm.com/login';
@@ -9,6 +10,8 @@ interface ReservViewProps {
 
 export function ReservView({ onBack }: ReservViewProps) {
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const webviewContainerRef = useRef<HTMLDivElement>(null);
   const webviewRef = useRef<any>(null);
 
@@ -20,7 +23,11 @@ export function ReservView({ onBack }: ReservViewProps) {
     const handlers = {
       start: () => { if (mounted) setLoading(true); },
       stop: () => { if (mounted) setLoading(false); },
-      fail: () => { if (mounted) setLoading(false); },
+      fail: (e: any) => {
+        if (!mounted) return;
+        setLoading(false);
+        if (isPageLoadFailure(e)) setFailed(true);
+      },
     };
 
     const webview = document.createElement('webview');
@@ -45,7 +52,13 @@ export function ReservView({ onBack }: ReservViewProps) {
       if (webview.parentNode) webview.parentNode.removeChild(webview);
       webviewRef.current = null;
     };
-  }, []);
+  }, [attempt]);
+
+  function retry() {
+    setFailed(false);
+    setLoading(true);
+    setAttempt((n) => n + 1);
+  }
 
   function reload() {
     try { webviewRef.current?.reload?.(); } catch (err) { console.warn('[ReservView] reload failed:', err); }
@@ -67,6 +80,7 @@ export function ReservView({ onBack }: ReservViewProps) {
           <button onClick={onBack} style={styles.closeBtn}><Ic name="x" gap={false} /></button>
         </div>
       </div>
+      {failed && <WebFailNotice label="회의실 예약" onRetry={retry} />}
       <div ref={webviewContainerRef} style={styles.webviewWrap}>
         {loading && (
           <div style={styles.loadingOverlay}>

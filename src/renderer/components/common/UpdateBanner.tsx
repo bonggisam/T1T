@@ -23,6 +23,8 @@ export function UpdateBanner() {
   // 이벤트 핸들러(useEffect [] 클로저)에서 최신 status를 읽기 위한 ref
   const statusRef = useRef<UpdateStatus>('idle');
   useEffect(() => { statusRef.current = status; }, [status]);
+  // 닫은 오류는 30분 뒤 같은 내용으로 다시 띄우지 않는다
+  const dismissedError = useRef<string | null>(null);
 
   useEffect(() => {
     const cleanup = window.electronAPI?.onUpdaterEvent((channel, data) => {
@@ -34,6 +36,7 @@ export function UpdateBanner() {
           // 30분 재확인에서 같은 버전이 다시 오면 다운로드 완료/진행 상태를 뒤집지 않음
           // (뒤집히면 "지금 재시작 + 설치" 버튼이 사라져 사용자가 설치할 방법을 잃음)
           if (statusRef.current === 'downloaded' || statusRef.current === 'downloading') break;
+          dismissedError.current = null;
           setStatus('available');
           // releaseNotes는 string 또는 [{note}] 배열 — 문자열로 정규화
           {
@@ -74,10 +77,13 @@ export function UpdateBanner() {
             // 설치 시작 단계 실패 — 'downloaded'를 유지해 "지금 재시작 + 설치" 버튼을 살려둠 (재시도 가능).
             // 'error'로 넘기면 12초 뒤 사라지고 앱을 재시작하기 전엔 설치 버튼으로 돌아올 방법이 없었음.
             setInfo((prev) => ({ ...prev, error: msg }));
+          } else if (msg === dismissedError.current) {
+            // 다시 띄우지는 않지만 "받는 중"으로 남겨 두지도 않는다
+            setStatus('idle');
           } else {
+            // 수동 다운로드 단추가 사라지지 않게 닫을 때까지 둔다
             setStatus('error');
             setInfo({ error: msg });
-            setTimeout(() => setStatus('idle'), 12000);
           }
           break;
         }
@@ -98,7 +104,6 @@ export function UpdateBanner() {
       } else if (state.phase === 'error' && state.error) {
         setStatus('error');
         setInfo({ error: state.error });
-        setTimeout(() => setStatus('idle'), 12000);
       }
     }).catch(() => {});
     return cleanup;
@@ -195,7 +200,13 @@ export function UpdateBanner() {
           >
             수동 다운로드
           </button>
-          <button onClick={() => setStatus('idle')} style={styles.dismissBtn}><Ic name="x" gap={false} /></button>
+          <button
+            onClick={() => { dismissedError.current = info.error ?? null; setStatus('idle'); }}
+            style={styles.dismissBtn}
+            aria-label="닫기"
+          >
+            <Ic name="x" gap={false} />
+          </button>
         </>
       )}
     </div>

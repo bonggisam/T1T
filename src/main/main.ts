@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, Tray, Menu, globalShortcut, ipcMain, nativeImage, powerMonitor, screen, shell, webContents as electronWebContents, type NativeImage } from 'electron';
+import { app, BrowserWindow, clipboard, Tray, Menu, globalShortcut, ipcMain, nativeImage, powerMonitor, screen, session, shell, webContents as electronWebContents, type NativeImage } from 'electron';
 import * as http from 'http';
 import * as crypto from 'crypto';
 import * as path from 'path';
@@ -261,10 +261,8 @@ function createWindow(): void {
 }
 
 function createTray(): void {
-  // Use a simple 16x16 icon for tray
-  const iconPath = isDev
-    ? path.join(__dirname, '../../assets/tray-icon.png')
-    : path.join(process.resourcesPath, 'assets/tray-icon.png');
+  // assets는 앱 묶음(asar) 안에 있다. 없으면 단색 사각형으로 나온다
+  const iconPath = path.join(__dirname, '../../assets/tray-icon.png');
 
   let trayIcon: NativeImage;
   try {
@@ -304,11 +302,16 @@ function updateTrayMenu(): void {
     {
       label: '항상 위',
       type: 'checkbox',
-      checked: !!mainWindow?.isAlwaysOnTop(),
+      // 위젯 모드에서는 창이 바탕에 있으므로 실제 상태가 아니라 설정값을 보여 준다
+      checked: alwaysOnTopPref,
       click: (menuItem) => {
         alwaysOnTopPref = menuItem.checked;
-        mainWindow?.setAlwaysOnTop(menuItem.checked);
+        if (!isWidgetMode) mainWindow?.setAlwaysOnTop(menuItem.checked);
       },
+    },
+    {
+      label: '화면 새로고침',
+      click: () => mainWindow?.webContents.reload(),
     },
     {
       label: isClickThrough ? '클릭 통과 해제' : '클릭 통과 켜기',
@@ -373,10 +376,49 @@ function applyWidgetMode(enabled: boolean): void {
   }
 }
 
+const EDIT_SHORTCUT = 'CommandOrControl+Shift+C';
+
+/** Ctrl+Shift+C: 편집 모드와 위젯 모드 전환 */
+function setEditShortcut(enabled: boolean): void {
+  const registered = globalShortcut.isRegistered(EDIT_SHORTCUT);
+  if (registered === enabled) return;
+  if (!enabled) {
+    globalShortcut.unregister(EDIT_SHORTCUT);
+    return;
+  }
+  const ok = globalShortcut.register(EDIT_SHORTCUT, () => {
+    if (mainWindow?.isVisible()) {
+      applyWidgetMode(!isWidgetMode);
+      mainWindow?.webContents.send('widget-mode-changed', isWidgetMode);
+    } else {
+      mainWindow?.show();
+    }
+  });
+  if (!ok) console.warn('[Shortcut] Failed to register Ctrl+Shift+C — may conflict with another app');
+}
+
+// 화면 프로세스가 죽으면 투명 창만 남아 앱이 사라진 것처럼 보인다. 다시 불러온다
+const RENDERER_RESTART_LIMIT = 3;
+const RENDERER_RESTART_WINDOW_MS = 60 * 1000;
+let rendererRestarts: number[] = [];
+
+function watchRendererCrash(win: BrowserWindow): void {
+  win.webContents.on('render-process-gone', (_event, details) => {
+    logCrash('render-process-gone', details.reason);
+    if (details.reason === 'clean-exit') return;
+    const now = Date.now();
+    rendererRestarts = rendererRestarts.filter((at) => now - at < RENDERER_RESTART_WINDOW_MS);
+    if (rendererRestarts.length >= RENDERER_RESTART_LIMIT) return; // 계속 죽으면 되풀이하지 않는다
+    rendererRestarts.push(now);
+    if (!win.isDestroyed()) win.webContents.reload();
+  });
+}
+
 // IPC Handlers
 function setupIPC(): void {
   ipcMain.handle('window:toggle-always-on-top', (_event, value: boolean) => {
     alwaysOnTopPref = !!value;
+    updateTrayMenu();
     // 위젯 모드에서는 다른 창 뒤에 있어야 하므로 설정값만 기억하고 해제할 때 적용한다
     if (!isWidgetMode) mainWindow?.setAlwaysOnTop(alwaysOnTopPref);
   });
@@ -628,15 +670,25 @@ function setupIPC(): void {
   });
 
   // 시작 시 자동 실행 (로그인 시 실행)
+  // 포터블은 임시 폴더에 풀려 돌아간다. 그 경로를 등록하면 다음 부팅에 실행되지 않으므로 실행 파일 위치를 쓴다
+  const loginItemTarget = () => (process.env.PORTABLE_EXECUTABLE_FILE ? { path: process.env.PORTABLE_EXECUTABLE_FILE } : {});
   ipcMain.handle('app:get-auto-launch', () => {
-    return app.getLoginItemSettings().openAtLogin;
+    return app.getLoginItemSettings(loginItemTarget()).openAtLogin;
   });
   ipcMain.handle('app:set-auto-launch', (_event, enabled: boolean) => {
-    app.setLoginItemSettings({
-      openAtLogin: enabled,
-      // Windows에서는 트레이로 시작 옵션을 보낼 수 있음 (옵션)
-    });
-    return app.getLoginItemSettings().openAtLogin;
+    app.setLoginItemSettings({ openAtLogin: enabled, ...loginItemTarget() });
+    return app.getLoginItemSettings(loginItemTarget()).openAtLogin;
+  });
+
+  // 공용 PC에서 앞 교사의 회의실, 도서관 로그인이 다음 교사에게 남지 않게 한다
+  ipcMain.handle('app:clear-web-sessions', async () => {
+    await Promise.allSettled(['persist:tpass', 'persist:outing', 'persist:reserv', 'persist:library']
+      .map((partition) => session.fromPartition(partition).clearStorageData()));
+  });
+
+  // 편집 모드 단축키. Word, PowerPoint의 서식 복사와 겹쳐 끌 수 있게 한다
+  ipcMain.handle('app:set-edit-shortcut', (_event, enabled: boolean) => {
+    setEditShortcut(enabled !== false);
   });
 }
 
@@ -730,10 +782,8 @@ function armStallWatch(): void {
     downloadCancel = null;
     lastLoggedPercent = -1;
     updateState = { ...updateState, phase: 'error', percent: undefined };
-    if (!stallNotified) {
-      stallNotified = true;
-      sendUpdate('updater:error', '다운로드가 멈췄습니다. 학교망에서 GitHub 파일 서버가 막혔을 수 있습니다. 수동 다운로드를 이용해 주세요');
-    }
+    stallNotified = true;
+    sendUpdate('updater:error', '다운로드가 멈췄습니다. 학교망에서 GitHub 파일 서버가 막혔을 수 있습니다. 수동 다운로드를 이용해 주세요');
   }, DOWNLOAD_STALL_MS);
 }
 
@@ -863,14 +913,19 @@ function setupAutoUpdater(): void {
     updateState = { ...updateState, checkedAt: new Date().toISOString(), latest: info.version, checkError: undefined };
     // 30분마다 재확인이 돌면 같은 버전으로 이 이벤트가 반복 발화한다.
     // 재시도 카운터를 매번 0으로 돌리면 3회 제한이 무의미해지므로 "새 버전"일 때만 리셋.
+    const retryingStalled = stallNotified && info.version === lastAvailableVersion;
     if (info.version !== lastAvailableVersion) {
       downloadRetries = 0;
+      stallNotified = false;
       lastAvailableVersion = info.version;
     }
     logUpdate('info', `update-available: v${info.version} (current v${app.getVersion()})`);
     // 이미 다운로드까지 끝난 버전이면 배너를 'available'로 되돌리지 않음 (설치 버튼 유지)
     if (downloadedVersion === info.version) return;
     armStallWatch();
+    // 파일 서버가 막힌 곳에서는 30분마다 다시 받으려다 멈춘다. "자동 다운로드 중"을 다시 띄우면
+    // 수동 다운로드 안내가 덮이고 배너가 계속 받는 중이라고 말하게 된다. 뒤에서 조용히 시도한다
+    if (retryingStalled) return;
     // 미서명 Mac: Squirrel 대신 자체 설치기로 DMG 다운로드
     if (macSelfUpdate) {
       sendUpdate('updater:available', { version: info.version, releaseNotes: info.releaseNotes, manualOnly: false });
@@ -1072,7 +1127,7 @@ function setupGoogleAuthIPC(): void {
     };
     if (GOOGLE_CLIENT_SECRET) params.client_secret = GOOGLE_CLIENT_SECRET;
     const body = new URLSearchParams(params).toString();
-    return new Promise<{ access_token: string; expires_in: number } | { error: string }>((resolve) => {
+    return new Promise<{ access_token: string; expires_in: number } | { error: string; expired?: boolean }>((resolve) => {
       const req = https.request({
         hostname: 'oauth2.googleapis.com',
         path: '/token',
@@ -1091,7 +1146,8 @@ function setupGoogleAuthIPC(): void {
             if (json.access_token) {
               resolve({ access_token: json.access_token, expires_in: json.expires_in || 3600 });
             } else {
-              resolve({ error: json.error_description || json.error || 'refresh failed' });
+              // invalid_grant만 "다시 연동해야 함"이다. 나머지는 잠시 뒤 다시 시도한다
+              resolve({ error: json.error_description || json.error || 'refresh failed', expired: json.error === 'invalid_grant' });
             }
           } catch (e: any) { resolve({ error: e?.message || 'parse error' }); }
         });
@@ -1306,6 +1362,10 @@ function setupComciganIPC(): void {
     await comciganService.configure(config);
   });
 
+  ipcMain.handle('comcigan:set-user', (_event, userId: unknown) => {
+    comciganService.setUser(typeof userId === 'string' && userId ? userId : null);
+  });
+
   ipcMain.handle('comcigan:get-config', () => {
     return comciganService.getConfig();
   });
@@ -1344,6 +1404,12 @@ if (!gotLock) {
 }
 
 app.whenReady().then(() => {
+  // 기본 메뉴는 보이지 않으면서 Ctrl+W로 창을 닫고 Ctrl+R로 화면을 다시 연다. Mac은 복사·붙여넣기에 필요한 메뉴만 둔다
+  if (!isDev) {
+    Menu.setApplicationMenu(process.platform === 'darwin'
+      ? Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }])
+      : null);
+  }
   createWindow();
   // 시작 속도 최적화: 핵심 IPC만 즉시, 나머지는 지연 로드
   setupIPC();
@@ -1356,7 +1422,7 @@ app.whenReady().then(() => {
     setupWeatherIPC();
     setupAutoUpdater();
     if (mainWindow) comciganService.setMainWindow(mainWindow);
-    // Comcigan 초기 fetch는 5초 더 지연 (네트워크 무거움)
+    // 시간표 조회는 5초 더 늦춘다 (네트워크 무거움). 설정은 로그인하면 comcigan:set-user가 바로 읽는다
     setTimeout(() => comciganService.init().catch(() => {}), 5000);
   }, 50);
 
@@ -1382,23 +1448,14 @@ app.whenReady().then(() => {
   powerMonitor.on('resume', onWake);
   powerMonitor.on('unlock-screen', onWake);
 
+  if (mainWindow) watchRendererCrash(mainWindow);
+
   // Start in widget mode after window loads
   mainWindow?.webContents.on('did-finish-load', () => {
     applyWidgetMode(true);
   });
 
-  // Register global shortcut: Ctrl+Shift+C to toggle edit/widget mode
-  const widgetShortcutOk = globalShortcut.register('CommandOrControl+Shift+C', () => {
-    if (mainWindow?.isVisible()) {
-      applyWidgetMode(!isWidgetMode);
-      mainWindow?.webContents.send('widget-mode-changed', isWidgetMode);
-    } else {
-      mainWindow?.show();
-    }
-  });
-  if (!widgetShortcutOk) {
-    console.warn('[Shortcut] Failed to register Ctrl+Shift+C — may conflict with another app');
-  }
+  setEditShortcut(true);
 
   // Register global shortcut: Ctrl+Shift+X to toggle click-through
   // (UI 클릭 불가 상태에서 복구용 단축키)

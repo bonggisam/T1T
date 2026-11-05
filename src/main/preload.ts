@@ -76,6 +76,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Comcigan
   comciganSearch: (name: string): Promise<ComciganSchool[]> => ipcRenderer.invoke('comcigan:search', name),
   comciganConfigure: (config: ComciganConfig): Promise<void> => ipcRenderer.invoke('comcigan:configure', config),
+  clearWebSessions: (): Promise<void> => ipcRenderer.invoke('app:clear-web-sessions'),
+  setEditShortcut: (enabled: boolean): Promise<void> => ipcRenderer.invoke('app:set-edit-shortcut', enabled),
+  comciganSetUser: (userId: string | null): Promise<void> => ipcRenderer.invoke('comcigan:set-user', userId),
   comciganGetConfig: (): Promise<ComciganConfig | null> => ipcRenderer.invoke('comcigan:get-config'),
   comciganFetch: (): Promise<ComciganTimetableData | null> => ipcRenderer.invoke('comcigan:fetch'),
   comciganGetCached: (): Promise<ComciganTimetableData | null> => ipcRenderer.invoke('comcigan:get-cached'),

@@ -8,7 +8,7 @@ interface SignupFormProps {
 }
 
 export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
-  const { signup, error, clearError, loading } = useAuthStore();
+  const { signup, error, clearError, submitting } = useAuthStore();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -133,8 +133,8 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
           required
         />
         {(localError || error) && <p style={styles.error}>{localError || error}</p>}
-        <button type="submit" disabled={loading} style={styles.submitBtn}>
-          {loading ? '가입 중...' : '가입 요청'}
+        <button type="submit" disabled={submitting} style={styles.submitBtn}>
+          {submitting ? '가입 중...' : '가입 요청'}
         </button>
       </form>
 

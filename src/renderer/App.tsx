@@ -31,6 +31,9 @@ import { useUsersStore } from './store/usersStore';
 import { useUIStore } from './store/uiStore';
 import { useAppearanceStore } from './store/appearanceStore';
 import { useReminder } from './hooks/useReminder';
+import { useWidgetStore } from './store/widgetStore';
+import { AccountNotice } from './components/auth/AccountNotice';
+import { publishOwnDirectoryRow, reconcileUserDirectory } from './utils/userDirectory';
 import { useClassReminder } from './hooks/useClassReminder';
 import { useClassPrivacy } from './hooks/useClassPrivacy';
 import { useDutyReminder } from './hooks/useDutyReminder';
@@ -52,8 +55,12 @@ import { syncSharedEventsToGoogle } from './utils/sharedEventsGoogleSync';
 
 type AuthScreen = 'login' | 'signup';
 
+const WEB_TABS = ['tpass', 'outing', 'reserv', 'library'] as const;
+type WebTab = typeof WEB_TABS[number];
+const isWebTab = (tab: string): tab is WebTab => (WEB_TABS as readonly string[]).includes(tab);
+
 export function App() {
-  const { user, loading, initialize } = useAuthStore();
+  const { user, loading, initialize, profileUnavailable, retryProfile } = useAuthStore();
   const { subscribeToEvents, cleanup: cleanupEvents, showEventModal, showEventDetail, selectedEvent, events: sharedEvents } = useCalendarStore();
   const { subscribeToNotifications, cleanup: cleanupNotifications, showPanel: showNotifications } = useNotificationStore();
   const { subscribeToPersonalEvents, startAutoSync, stopAutoSync, cleanup: cleanupPersonal } = usePersonalEventStore();
@@ -68,18 +75,28 @@ export function App() {
   // 붙여 넣기 창에 넣을 글. null이면 닫힘
   const [pasteText, setPasteText] = useState<string | null>(null);
   const showSettings = activeTab === 'settings';
-  const showAdmin = activeTab === 'admin';
-  const showTPass = activeTab === 'tpass';
-  const showOuting = activeTab === 'outing';
-  const showTodos = activeTab === 'todos';
-  const showReserv = activeTab === 'reserv';
-  const showMeal = activeTab === 'meal';
-  const showSchedule = activeTab === 'schedule';
-  const showKeyphone = activeTab === 'keyphone';
-  const showLibrary = activeTab === 'library';
-  const showMeeting = activeTab === 'meeting';
-  const showDuty = activeTab === 'duty';
-  const toggle = (tab: Exclude<Tab, null>) => setActiveTab((cur) => cur === tab ? null : tab);
+  // 설정은 위에 뜨는 창이다. 그 뒤의 화면은 그대로 두고, 닫으면 돌아간다
+  const tabBehindSettings = useRef<Tab>(null);
+  const view: Tab = showSettings ? tabBehindSettings.current : activeTab;
+  const showAdmin = view === 'admin';
+  const showTodos = view === 'todos';
+  const showMeal = view === 'meal';
+  const showSchedule = view === 'schedule';
+  const showKeyphone = view === 'keyphone';
+  const showMeeting = view === 'meeting';
+  const showDuty = view === 'duty';
+  const toggle = (tab: Exclude<Tab, null>) => setActiveTab((cur) => {
+    if (tab !== 'settings') return cur === tab ? null : tab;
+    if (cur === 'settings') return tabBehindSettings.current;
+    tabBehindSettings.current = cur;
+    return 'settings';
+  });
+  // 한 번 연 웹 화면은 숨겨서 둔다. 지우면 입력하던 내용이 사라지고 페이지를 처음부터 다시 받는다
+  const [openedWebTabs, setOpenedWebTabs] = useState<WebTab[]>([]);
+  const webTabs = view && isWebTab(view) && !openedWebTabs.includes(view) ? [...openedWebTabs, view] : openedWebTabs;
+  useEffect(() => {
+    if (webTabs !== openedWebTabs) setOpenedWebTabs(webTabs);
+  }, [webTabs, openedWebTabs]);
   const theme = useAppearanceStore((s) => s.mode);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
@@ -217,28 +234,57 @@ export function App() {
   useEffect(() => {
     if (user?.status === 'active') {
       // 최초 로그인 시 viewingSchool을 본인 학교로 초기화 (저장값 없을 때만)
-      useUIStore.getState().initViewingSchoolForUser(user.school);
+      useUIStore.getState().initViewingSchoolForUser(user.id, user.school);
+      useWidgetStore.getState().bindUser(user.id);
       subscribeToEvents();
       subscribeToNotifications(user.id);
       subscribeToPersonalEvents(user.id);
       subscribeToTodos(user.id);
       subscribeToUsers();
-      startAutoSync(user.settings?.syncInterval ?? 0.25);
-      loadComcigan();
+      loadComcigan(user.id);
       // 학교 홈페이지 학사일정 자동 동기화 (매일 오전 7시)
       const stopSchoolSync = startSchoolScheduleAutoSync(user.id, user.name || '학사일정 자동동기화');
       return () => {
         cleanupEvents();
         cleanupNotifications();
-        stopAutoSync();
         cleanupPersonal();
         cleanupTodos();
         cleanupUsers();
         cleanupComcigan();
         stopSchoolSync();
+        useWidgetStore.getState().bindUser(null);
+        // 다음 교사에게 앞 교사가 열어 둔 화면을 넘기지 않는다
+        tabBehindSettings.current = null;
+        setActiveTab(null);
+        setOpenedWebTabs([]);
       };
     }
   }, [user?.id, user?.status]);
+
+  // 외부 캘린더 동기화. 설정에서 주기를 바꾸면 바로 적용한다
+  const syncInterval = user?.settings?.syncInterval ?? 0.25;
+  useEffect(() => {
+    if (user?.status !== 'active') return undefined;
+    startAutoSync(syncInterval);
+    return () => stopAutoSync();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.status, syncInterval]);
+
+  // 알림 대상과 @멘션에 쓰는 교사 명단에 내 줄을 올린다. 관리자는 승인된 사람과 맞춘다
+  useEffect(() => {
+    if (!user || user.status !== 'active') return;
+    publishOwnDirectoryRow(user).catch((err) => console.warn('[Directory] publish failed:', err));
+    if (user.role === 'admin' || user.role === 'super_admin') {
+      reconcileUserDirectory().catch((err) => console.warn('[Directory] reconcile failed:', err));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.status, user?.role, user?.name, user?.school, user?.profileColor]);
+
+  // Word, PowerPoint의 서식 복사와 겹치는 단축키는 설정에서 끌 수 있다
+  const editShortcut = useWidgetStore((s) => s.editShortcut);
+  useEffect(() => {
+    window.electronAPI?.setEditShortcut?.(editShortcut)?.catch?.(() => {});
+  }, [editShortcut]);
 
   // 공유 이벤트(학교 일정 + 학사일정) 변경 시 → 사용자 개인 Google Calendar로 자동 push.
   // 디바운스 2초 — 여러 변경이 빠르게 들어와도 한 번만 sync.
@@ -319,6 +365,25 @@ export function App() {
     );
   }
 
+  // 로그인은 돼 있는데 네트워크가 없어 계정을 읽지 못했다. 로그인 화면으로 보내지 않고 기다린다
+  if (!user && profileUnavailable) {
+    return (
+      <div className="glass" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <TitleBar
+          onToggleSettings={() => {}}
+          onToggleAdmin={() => {}}
+          showSettingsBtn={false}
+          showAdminBtn={false}
+        />
+        <AccountNotice
+          title="인터넷 연결을 기다리는 중입니다"
+          message="연결되면 자동으로 달력이 열립니다."
+          onRetry={retryProfile}
+        />
+      </div>
+    );
+  }
+
   // Not logged in
   if (!user) {
     return (
@@ -355,7 +420,7 @@ export function App() {
     );
   }
 
-  if (user.status === 'rejected') {
+  if (user.status === 'rejected' || user.status === 'deactivated') {
     return (
       <div className="glass" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
         <TitleBar
@@ -364,12 +429,10 @@ export function App() {
           showSettingsBtn={false}
           showAdminBtn={false}
         />
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, textAlign: 'center' }}>
-          <div>
-            <p style={{ fontSize: 'var(--fs-heading)', fontWeight: 600, marginBottom: 8 }}>가입이 거절되었습니다</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--fs-lead)' }}>관리자에게 문의해주세요.</p>
-          </div>
-        </div>
+        <AccountNotice
+          title={user.status === 'rejected' ? '가입이 거절되었습니다' : '계정이 비활성화되었습니다'}
+          message="관리자에게 문의해 주세요."
+        />
       </div>
     );
   }
@@ -432,27 +495,19 @@ export function App() {
       {isOperator && <OperatorOutageBanner />}
       <ComciganOutageBanner />
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-        <ErrorBoundary key={activeTab || 'calendar'}>
+        <ErrorBoundary key={view || 'calendar'}>
           {showAdmin ? (
             <AdminPanel onClose={() => setActiveTab(null)} />
-          ) : showTPass ? (
-            <TPassView onBack={() => setActiveTab(null)} />
-          ) : showOuting ? (
-            <OutingView onBack={() => setActiveTab(null)} />
-          ) : showTodos ? (
+          ) : view && isWebTab(view) ? null : showTodos ? (
             <PrivateContent fallback={<PrivateNotice>할 일은 개인 내용이라 가렸습니다</PrivateNotice>}>
               <TodosView onBack={() => setActiveTab(null)} />
             </PrivateContent>
-          ) : showReserv ? (
-            <ReservView onBack={() => setActiveTab(null)} />
           ) : showMeal ? (
             <MealView onBack={() => setActiveTab(null)} />
           ) : showSchedule ? (
             <ScheduleView onBack={() => setActiveTab(null)} />
           ) : showKeyphone ? (
             <KeyphoneView onBack={() => setActiveTab(null)} />
-          ) : showLibrary ? (
-            <LibraryView onBack={() => setActiveTab(null)} />
           ) : showMeeting ? (
             <MeetingFinderView onBack={() => setActiveTab(null)} />
           ) : showDuty ? (
@@ -464,9 +519,19 @@ export function App() {
             />
           )}
         </ErrorBoundary>
+        {webTabs.map((tab) => (
+          <div key={tab} style={{ position: 'absolute', inset: 0, visibility: view === tab ? 'visible' : 'hidden', zIndex: view === tab ? 1 : -1 }}>
+            <ErrorBoundary>
+              {tab === 'tpass' && <TPassView onBack={() => setActiveTab(null)} />}
+              {tab === 'outing' && <OutingView onBack={() => setActiveTab(null)} />}
+              {tab === 'reserv' && <ReservView onBack={() => setActiveTab(null)} />}
+              {tab === 'library' && <LibraryView onBack={() => setActiveTab(null)} />}
+            </ErrorBoundary>
+          </div>
+        ))}
         {/* 설정은 모달 오버레이로 표시 — 메인 콘텐츠를 가리지 않음 */}
         {showSettings && (
-          <SettingsPanel onClose={() => setActiveTab(null)} />
+          <SettingsPanel onClose={() => setActiveTab(tabBehindSettings.current)} />
         )}
 
         {showEventModal && <EventModal />}

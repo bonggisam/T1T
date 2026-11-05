@@ -16,6 +16,11 @@ interface AuthState {
   firebaseUser: FirebaseUser | null;
   user: User | null;
   loading: boolean;
+  /** 로그인·가입 요청을 보내는 중. 입력한 값을 지우지 않도록 화면은 그대로 둔다 */
+  submitting: boolean;
+  /** 로그인은 돼 있는데 계정 정보를 읽지 못했다 (네트워크 없음 등). 화면이 기다리며 다시 읽는다 */
+  profileUnavailable: boolean;
+  retryProfile: () => void;
   error: string | null;
   initialize: () => () => void;
   login: (email: string, password: string) => Promise<void>;
@@ -29,7 +34,6 @@ interface AuthState {
 
 const defaultSettings: UserSettings = {
   notificationSound: true,
-  notificationBadge: true,
   alwaysOnTop: true,
   clickThrough: false,
   defaultView: 'month',
@@ -41,67 +45,121 @@ const defaultSettings: UserSettings = {
 
 let signupInProgress = false;
 
+const PROFILE_RETRY_MS = 5000;
+let profileRetryTimer: ReturnType<typeof setTimeout> | null = null;
+let profileLoad: { uid: string; promise: Promise<ProfileResult> } | null = null;
+
+type ProfileResult = 'ok' | 'missing' | 'failed';
+
+function cancelProfileRetry(): void {
+  if (profileRetryTimer) clearTimeout(profileRetryTimer);
+  profileRetryTimer = null;
+}
+
+/**
+ * 계정 문서를 읽어 화면을 정한다.
+ * 읽지 못한 것을 로그아웃처럼 다루면, 네트워크가 붙기 전에 자동 실행된 PC가 로그인 화면에 갇힌다.
+ */
+function loadProfile(firebaseUser: FirebaseUser): Promise<ProfileResult> {
+  if (profileLoad?.uid === firebaseUser.uid) return profileLoad.promise;
+  cancelProfileRetry();
+  const promise = (async (): Promise<ProfileResult> => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+      if (auth.currentUser?.uid !== firebaseUser.uid) return 'failed'; // 읽는 사이 로그아웃함
+      if (!userDoc.exists()) {
+        useAuthStore.setState({ firebaseUser, user: null, loading: false, profileUnavailable: false });
+        return 'missing';
+      }
+      const data = userDoc.data();
+      useAuthStore.setState({
+        firebaseUser,
+        user: {
+          id: firebaseUser.uid,
+          email: data.email,
+          name: data.name,
+          role: data.role as UserRole,
+          status: data.status as UserStatus,
+          school: (data.school as School) || 'taeseong_middle',
+          profileColor: data.profileColor,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          lastLogin: new Date(),
+          settings: { ...defaultSettings, ...data.settings },
+        },
+        loading: false,
+        profileUnavailable: false,
+        error: null,
+      });
+      updateDoc(doc(db, 'users', firebaseUser.uid), {
+        lastLogin: serverTimestamp(),
+      }).catch((err) => console.warn('[Auth] lastLogin update failed:', err));
+      return 'ok';
+    } catch (err) {
+      console.error('[Auth] User data load failed:', err);
+      if (auth.currentUser?.uid !== firebaseUser.uid) return 'failed';
+      useAuthStore.setState({ firebaseUser, user: null, loading: false, profileUnavailable: true });
+      profileRetryTimer = setTimeout(() => { loadProfile(firebaseUser); }, PROFILE_RETRY_MS);
+      return 'failed';
+    } finally {
+      profileLoad = null;
+    }
+  })();
+  profileLoad = { uid: firebaseUser.uid, promise };
+  return promise;
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   firebaseUser: null,
   user: null,
   loading: true,
   error: null,
 
+  submitting: false,
+  profileUnavailable: false,
+
+  retryProfile: () => {
+    const current = auth.currentUser;
+    if (current && !get().user) loadProfile(current);
+  },
+
   initialize: () => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (signupInProgress) return;
 
       if (!firebaseUser) {
-        set({ firebaseUser: null, user: null, loading: false });
+        cancelProfileRetry();
+        set({ firebaseUser: null, user: null, loading: false, profileUnavailable: false });
         return;
       }
 
-      try {
-        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          set({
-            firebaseUser,
-            user: {
-              id: firebaseUser.uid,
-              email: data.email,
-              name: data.name,
-              role: data.role as UserRole,
-              status: data.status as UserStatus,
-              school: (data.school as School) || 'taeseong_middle',
-              profileColor: data.profileColor,
-              createdAt: data.createdAt?.toDate() || new Date(),
-              lastLogin: new Date(),
-              settings: { ...defaultSettings, ...data.settings },
-            },
-            loading: false,
-            error: null,
-          });
-          updateDoc(doc(db, 'users', firebaseUser.uid), {
-            lastLogin: serverTimestamp(),
-          }).catch((err) => console.warn('[Auth] lastLogin update failed:', err));
-        } else {
-          set({ firebaseUser, user: null, loading: false });
-        }
-      } catch (err) {
-        console.error('[Auth] User data load failed:', err);
-        set({ firebaseUser, user: null, loading: false });
-      }
+      await loadProfile(firebaseUser);
     });
-    return unsubscribe;
+    // 연결이 돌아오면 기다리지 않고 바로 읽는다
+    const onOnline = () => get().retryProfile();
+    window.addEventListener('online', onOnline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      cancelProfileRetry();
+      unsubscribe();
+    };
   },
 
   login: async (email, password) => {
-    set({ loading: true, error: null });
+    set({ submitting: true, error: null });
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      // 같은 계정으로 다시 로그인하면 onAuthStateChanged가 오지 않는다. 직접 읽어 화면이 멈추지 않게 한다
+      const result = await loadProfile(cred.user);
+      if (result === 'missing') set({ error: '계정 정보를 찾지 못했습니다. 관리자에게 문의해 주세요.' });
     } catch (err: any) {
-      set({ loading: false, error: getErrorMessage(err.code) });
+      set({ error: getErrorMessage(err.code) });
+    } finally {
+      set({ submitting: false });
     }
   },
 
   signup: async (email, password, name, school) => {
-    set({ loading: true, error: null });
+    set({ submitting: true, error: null });
     signupInProgress = true;
 
     let role: UserRole = 'teacher';
@@ -158,10 +216,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         settings: defaultSettings,
       };
 
-      set({ firebaseUser: cred.user, user, loading: false, error: null });
+      set({ firebaseUser: cred.user, user, loading: false, profileUnavailable: false, error: null });
     } catch (err: any) {
-      set({ loading: false, error: getErrorMessage(err.code) });
+      set({ error: getErrorMessage(err.code) });
     } finally {
+      set({ submitting: false });
       signupInProgress = false;
     }
   },
@@ -175,7 +234,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       disconnectGoogle();
     } catch (err) { console.warn('[Auth] Google disconnect on logout failed:', err); }
     try { await signOut(auth); } catch (err) { console.warn('[Auth] Signout failed:', err); }
-    set({ firebaseUser: null, user: null, loading: false });
+    cancelProfileRetry();
+    set({ firebaseUser: null, user: null, loading: false, profileUnavailable: false });
+    window.electronAPI?.clearWebSessions?.()?.catch?.(() => {});
+    // 공용 PC에서 다음 교사가 볼 수 없게 이 PC에 남은 개인 일정을 지운다
+    try {
+      const { clearPersonalCache } = await import('../utils/offlineCache');
+      await clearPersonalCache();
+    } catch (err) { console.warn('[Auth] Personal cache clear failed:', err); }
   },
 
   resetPassword: async (email) => {

@@ -9,10 +9,14 @@ export interface ToastMessage {
 
 let toastId = 0;
 let addToastFn: ((msg: Omit<ToastMessage, 'id'>) => void) | null = null;
+/** 앱이 처음 뜨는 동안 온 알림. "업데이트 완료"가 사라지지 않게 모아 둔다. 로그아웃 뒤에는 모으지 않는다 */
+const waiting: Array<Omit<ToastMessage, 'id'>> = [];
+let shownOnce = false;
 
 /** 어디서든 호출 가능한 전역 토스트 함수 */
 export function showToast(text: string, type: ToastMessage['type'] = 'success') {
-  addToastFn?.({ text, type });
+  if (addToastFn) addToastFn({ text, type });
+  else if (!shownOnce && waiting.length < 5) waiting.push({ text, type });
 }
 
 export function ToastContainer() {
@@ -25,12 +29,14 @@ export function ToastContainer() {
     const timer = setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
       timersRef.current.delete(timer);
-    }, 2500);
+    }, msg.type === 'error' || msg.text.length > 30 ? 6000 : 2500);
     timersRef.current.add(timer);
   }, []);
 
   useEffect(() => {
     addToastFn = addToast;
+    shownOnce = true;
+    waiting.splice(0).forEach(addToast);
     return () => {
       addToastFn = null;
       timersRef.current.forEach(clearTimeout);
@@ -68,6 +74,8 @@ const styles: Record<string, React.CSSProperties> = {
     bottom: 16,
     left: '50%',
     transform: 'translateX(-50%)',
+    width: 'max-content',
+    maxWidth: 'calc(100vw - 24px)',
     display: 'flex',
     flexDirection: 'column',
     gap: 6,
@@ -92,6 +100,8 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 'var(--fs-body)',
     fontWeight: 600,
     color: 'var(--on-accent)',
-    whiteSpace: 'nowrap',
+    // 좁은 창에서 긴 오류가 잘리지 않게 줄을 바꾼다
+    wordBreak: 'keep-all',
+    overflowWrap: 'anywhere',
   },
 };

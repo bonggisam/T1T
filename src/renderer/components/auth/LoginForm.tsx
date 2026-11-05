@@ -7,11 +7,12 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
-  const { login, resetPassword, error, clearError, loading } = useAuthStore();
+  const { login, resetPassword, error, clearError, submitting } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [resetMode, setResetMode] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [resetError, setResetError] = useState('');
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -26,11 +27,13 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
 
   async function handleReset(e: React.FormEvent) {
     e.preventDefault();
+    setResetError('');
     try {
       await resetPassword(email);
       setResetSent(true);
-    } catch (err) {
+    } catch (err: any) {
       console.warn('[Login] Password reset failed:', err);
+      setResetError(err?.message || '재설정 메일을 보내지 못했습니다');
     }
   }
 
@@ -55,6 +58,7 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
               style={styles.input}
               required
             />
+            {resetError && <p style={styles.error}>{resetError}</p>}
             <button type="submit" style={styles.submitBtn}>재설정 링크 보내기</button>
             <button type="button" onClick={() => setResetMode(false)} style={styles.linkBtn}>
               로그인으로 돌아가기
@@ -88,8 +92,8 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
           required
         />
         {error && <p style={styles.error}>{error}</p>}
-        <button type="submit" disabled={loading} style={styles.submitBtn}>
-          {loading ? '로그인 중...' : '로그인'}
+        <button type="submit" disabled={submitting} style={styles.submitBtn}>
+          {submitting ? '로그인 중...' : '로그인'}
         </button>
       </form>
 
