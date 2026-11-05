@@ -24,6 +24,10 @@ const TITLE_SPAN_RATIO = 0.6;
 const PDF_RENDER_SCALE = 2.5;
 const MIN_PDF_TEXT = 12;
 const DATE_NAME_RE = /\d{1,2}\s*월\s*\d{1,2}\s*일|\d{1,2}[./]\d{1,2}/;
+/** 시트에서 읽는 줄과 칸의 한계. 감독표는 이보다 훨씬 작다. 표 밖 먼 칸에 값이 하나 있어도 멈추지 않게 한다 */
+const MAX_SHEET_ROWS = 5000;
+const MAX_SHEET_COLS = 300;
+const HTML_HEAD_RE = /^\s*<(?:!doctype\s+html|html|head|meta|body|table)\b/i;
 
 export const DUTY_FILE_ACCEPT = '.xlsx,.xlsm,.xlsb,.xls,.ods,.csv,.tsv,.txt,.html,.htm,.hwp,.hwpx,.docx,.pdf,.png,.jpg,.jpeg,.webp,.bmp,.gif';
 
@@ -42,8 +46,12 @@ function cleanCell(text: string): string {
 /** 칸 목록을 표로 만든다. 병합된 칸은 묶인 모든 칸에 같은 값을 넣는다 (제목처럼 넓은 칸은 첫 칸에만) */
 export function gridToText(cells: GridCell[]): string {
   if (cells.length === 0) return '';
-  const rows = Math.max(...cells.map((c) => c.row + c.rowSpan));
-  const cols = Math.max(...cells.map((c) => c.col + c.colSpan));
+  let rows = 0;
+  let cols = 0;
+  for (const c of cells) {
+    rows = Math.max(rows, c.row + c.rowSpan);
+    cols = Math.max(cols, c.col + c.colSpan);
+  }
   const grid = Array.from({ length: rows }, () => new Array<string>(cols).fill(''));
   for (const cell of cells) {
     const text = cleanCell(cell.text);
@@ -83,7 +91,41 @@ function decodeText(bytes: Uint8Array): string {
   }
 }
 
+/**
+ * 값이 있는 칸의 범위를 구한다. 시트의 사용 범위는 서식 때문에 끝까지(A1:XFD1048576) 잡혀 있을 수 있어 그대로 돌면 앱이 멈춘다.
+ * 표 왼쪽의 빈 열은 표 모양의 일부이므로 남긴다.
+ */
+function valueRange(sheet: any, utils: typeof import('xlsx').utils) {
+  let top = Infinity;
+  let left = Infinity;
+  let bottom = -1;
+  let right = -1;
+  for (const key of Object.keys(sheet)) {
+    if (key[0] === '!' || !sheetCellText(sheet[key]).trim()) continue;
+    const { r, c } = utils.decode_cell(key);
+    top = Math.min(top, r);
+    left = Math.min(left, c);
+    bottom = Math.max(bottom, r);
+    right = Math.max(right, c);
+  }
+  if (bottom < 0) return null;
+  const s = { r: top, c: Math.min(left, utils.decode_range(sheet['!ref']).s.c) };
+  return { s, e: { r: Math.min(bottom, s.r + MAX_SHEET_ROWS - 1), c: Math.min(right, s.c + MAX_SHEET_COLS - 1) } };
+}
+
+/** 웹 표로 저장한 파일인가. 확장자가 xls여도 속은 웹 표인 파일이 있다 */
+function isHtmlFile(bytes: Uint8Array, name: string): boolean {
+  if (/\.html?$/i.test(name)) return true;
+  // 글자 인코딩을 모르므로 앞쪽의 영문 태그만 본다. 맨 앞의 UTF-8 표시는 뗀다
+  return HTML_HEAD_RE.test(new TextDecoder('latin1').decode(bytes.subarray(0, 512)).replace(/^\xEF\xBB\xBF/, ''));
+}
+
 async function readSheetFile(bytes: Uint8Array, name: string): Promise<string> {
+  // 엑셀 라이브러리는 웹 표 칸 안의 문단을 붙여 읽으므로 붙여 넣은 표처럼 읽는다
+  if (isHtmlFile(bytes, name)) {
+    const table = tableHtmlToText(decodeText(bytes));
+    if (table) return table;
+  }
   const XLSX = await import('xlsx');
   const options = { cellDates: true, cellText: true, cellNF: false } as const;
   let workbook;
@@ -100,19 +142,28 @@ async function readSheetFile(bytes: Uint8Array, name: string): Promise<string> {
     const hidden = workbook.Workbook?.Sheets?.find((s: any) => s.name === sheetName)?.Hidden;
     const sheet: any = workbook.Sheets[sheetName];
     if (hidden || !sheet?.['!ref']) continue;
-    const range = XLSX.utils.decode_range(sheet['!ref']);
+    const range = valueRange(sheet, XLSX.utils);
+    if (!range) continue;
     const merges: any[] = sheet['!merges'] ?? [];
     const covered = new Set<string>();
-    const cells: GridCell[] = merges.map((m) => {
-      for (let r = m.s.r; r <= m.e.r; r++) for (let c = m.s.c; c <= m.e.c; c++) covered.add(`${r}:${c}`);
-      return {
+    const cells: GridCell[] = [];
+    for (const m of merges) {
+      // 시트 끝까지 잡힌 병합도 있어 값이 있는 범위 안에서만 채운다
+      const lastRow = Math.min(m.e.r, range.e.r);
+      const lastCol = Math.min(m.e.c, range.e.c);
+      for (let r = Math.max(m.s.r, range.s.r); r <= lastRow; r++) {
+        for (let c = Math.max(m.s.c, range.s.c); c <= lastCol; c++) covered.add(`${r}:${c}`);
+      }
+      const text = sheetCellText(sheet[XLSX.utils.encode_cell(m.s)]);
+      if (!text.trim() || m.s.r > lastRow || m.s.c > lastCol) continue;
+      cells.push({
         row: m.s.r - range.s.r,
         col: m.s.c - range.s.c,
-        rowSpan: m.e.r - m.s.r + 1,
-        colSpan: m.e.c - m.s.c + 1,
-        text: sheetCellText(sheet[XLSX.utils.encode_cell(m.s)]),
-      };
-    });
+        rowSpan: lastRow - m.s.r + 1,
+        colSpan: lastCol - m.s.c + 1,
+        text,
+      });
+    }
     for (let r = range.s.r; r <= range.e.r; r++) {
       for (let c = range.s.c; c <= range.e.c; c++) {
         if (covered.has(`${r}:${c}`)) continue;
@@ -130,17 +181,36 @@ async function readSheetFile(bytes: Uint8Array, name: string): Promise<string> {
 
 // ─── 붙여 넣은 표 (엑셀, 한글, 워드, 웹) ───
 
+/** 칸 안에서 줄을 바꾸는 태그 */
+const HTML_LINE_TAG_RE = /^(br|hr|p|div|li|ul|ol|table|tr|td|th|h[1-6]|pre|blockquote)$/;
+
+/** 칸의 글을 잇는다. 줄이 바뀌는 자리는 띄우고, 글자 꾸밈(span)은 그대로 잇는다 */
+function htmlCellText(el: Element): string {
+  let out = '';
+  el.childNodes.forEach((node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      out += node.nodeValue ?? '';
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const text = htmlCellText(node as Element);
+      out += HTML_LINE_TAG_RE.test((node as Element).localName) ? ` ${text} ` : text;
+    }
+  });
+  return out;
+}
+
 function tableElementToText(table: Element): string {
   const cells: GridCell[] = [];
   const taken = new Set<string>();
-  table.querySelectorAll('tr').forEach((tr, row) => {
+  const rows = table.querySelectorAll('tr');
+  rows.forEach((tr, row) => {
     let col = 0;
     tr.querySelectorAll(':scope > td, :scope > th').forEach((td) => {
       while (taken.has(`${row}:${col}`)) col += 1;
-      const rowSpan = Math.max(1, Number(td.getAttribute('rowspan')) || 1);
-      const colSpan = Math.max(1, Number(td.getAttribute('colspan')) || 1);
+      // 병합 수가 터무니없이 커도 멈추지 않게 표 안으로 줄인다
+      const rowSpan = Math.min(rows.length - row, Math.max(1, Number(td.getAttribute('rowspan')) || 1));
+      const colSpan = Math.min(MAX_SHEET_COLS, Math.max(1, Number(td.getAttribute('colspan')) || 1));
       for (let r = row; r < row + rowSpan; r++) for (let c = col; c < col + colSpan; c++) taken.add(`${r}:${c}`);
-      cells.push({ row, col, rowSpan, colSpan, text: (td as HTMLElement).textContent ?? '' });
+      cells.push({ row, col, rowSpan, colSpan, text: htmlCellText(td) });
       col += colSpan;
     });
   });
@@ -170,8 +240,22 @@ function descendants(el: Element, name: string): Element[] {
   return [...el.getElementsByTagName('*')].filter((child) => localName(child) === name);
 }
 
+/** 글자 대신 칸을 띄우는 표시. hwpx는 글 안에, docx는 글 옆에 놓인다 */
+const WORD_SPACE_TAGS = new Set(['br', 'cr', 'tab', 'lineBreak', 'nbSpace', 'fwSpace']);
+
+/**
+ * 글을 잇는다. 한 문단의 글 조각은 그대로 잇고, 문단과 줄바꿈 자리는 띄운다.
+ * 띄우지 않으면 한 칸에 두 줄로 적은 "김철수", "이영희"가 한 덩어리가 되어 이름으로 읽지 못한다.
+ */
 function wordText(el: Element): string {
-  return descendants(el, 't').map((t) => t.textContent ?? '').join('');
+  const name = localName(el);
+  if (WORD_SPACE_TAGS.has(name)) return ' ';
+  let out = '';
+  el.childNodes.forEach((node) => {
+    if (node.nodeType === Node.ELEMENT_NODE) out += wordText(node as Element);
+    else if (name === 't' && (node.nodeType === Node.TEXT_NODE || node.nodeType === Node.CDATA_SECTION_NODE)) out += node.nodeValue ?? '';
+  });
+  return name === 'p' ? `${out} ` : out;
 }
 
 /** hwpx의 표. 칸마다 주소와 병합 수가 적혀 있다 */

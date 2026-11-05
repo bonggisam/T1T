@@ -10,7 +10,7 @@ import { useDutyStore } from '../../store/dutyStore';
 import { useUsersStore } from '../../store/usersStore';
 import { countByTeacher, groupByDate } from '../../utils/dutyEntries';
 import {
-  collectPeriods, formatDutyDate, minutesText, parseDutyTable, parseMinutes,
+  collectPeriods, formatDutyDate, minutesText, parseDutyTable, parseMinutes, rangeOfPeriods,
   type DutyDraft,
 } from '../../utils/dutyTableParser';
 import { DUTY_FILE_ACCEPT, DutyFileError, isSlowFile, readDutyFile, tableHtmlToText } from '../../utils/dutyFileReader';
@@ -41,26 +41,13 @@ function periodTimesFrom(rows: DutyDraft[], classTimes: string[]): PeriodTimes {
   }
   // 줄에 이미 시각이 있으면 그 값을 쓴다 (저장된 표). 여러 교시 줄은 첫 교시 시작과 마지막 교시 끝만 알 수 있다.
   for (const row of rows) {
-    if (row.periods.length === 0 || row.startMin === null) continue;
+    if (row.periods.length === 0) continue;
     const first = Math.min(...row.periods);
     const last = Math.max(...row.periods);
-    if (first === last) {
-      out[first] = { start: row.startMin, end: row.endMin };
-    } else {
-      out[first] = { start: row.startMin, end: out[first]?.end ?? null };
-      out[last] = { start: out[last]?.start ?? null, end: row.endMin };
-    }
+    if (row.startMin !== null) out[first] = { ...out[first], start: row.startMin };
+    if (row.endMin !== null) out[last] = { ...out[last], end: row.endMin };
   }
   return out;
-}
-
-function applyPeriodTimes(rows: DutyDraft[], times: PeriodTimes): DutyDraft[] {
-  return rows.map((row) => {
-    if (row.periods.length === 0) return row;
-    const first = times[Math.min(...row.periods)];
-    const last = times[Math.max(...row.periods)];
-    return { ...row, startMin: first?.start ?? row.startMin, endMin: last?.end ?? row.endMin };
-  });
 }
 
 function toDrafts(table: DutyTable): DutyDraft[] {
@@ -86,7 +73,7 @@ export function DutyImportModal({ table = null, onClose }: DutyImportModalProps)
   const [text, setText] = useState('');
   const [rows, setRows] = useState<DutyDraft[]>(() => (table ? toDrafts(table) : []));
   const [skipped, setSkipped] = useState<string[]>([]);
-  const [parsedOnce, setParsedOnce] = useState(false);
+  const [unreadable, setUnreadable] = useState(false);
   const [openDate, setOpenDate] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [reading, setReading] = useState<string | null>(null);
@@ -94,8 +81,14 @@ export function DutyImportModal({ table = null, onClose }: DutyImportModalProps)
   const [readFromPhoto, setReadFromPhoto] = useState(false);
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  // 아래 내용을 손으로 고쳤는가. 다시 읽거나 닫으면 사라지므로 먼저 묻는다.
+  const edited = useRef(false);
+  // 아래 내용이 아직 저장된 표 그대로인가. 고치는 표를 새 글로 바꿀 때도 묻는다.
+  const showingSaved = useRef(!!table);
+  // 창 안에서 시작한 끌기가 창 밖에서 끝나도 바깥 칸을 누른 것으로 온다
+  const pressedInside = useRef(false);
 
-  useEscapeKey(onClose);
+  useEscapeKey(requestClose);
   useDisableClickThrough();
 
   // 시정표는 표의 학교 것을 먼저 쓴다. 시험 교시는 다를 수 있어 아래에서 고칠 수 있다.
@@ -107,7 +100,8 @@ export function DutyImportModal({ table = null, onClose }: DutyImportModalProps)
   }, [school, grids, ownClassTimes]);
   const [periodTimes, setPeriodTimes] = useState<PeriodTimes>(() => (table ? periodTimesFrom(toDrafts(table), []) : {}));
 
-  // 시정표를 아직 받지 못했으면 받아 온다. 받으면 교시 시각만 새로 채우고 고친 내용은 두어 둔다.
+  // 시정표를 아직 받지 못했으면 받아 온다. 받으면 시각이 빈 줄과 시정표로 채운 줄만 새로 채운다.
+  // 표에 적힌 시각과 담당자가 고친 시각, 이름, 지운 줄은 그대로 둔다.
   useEffect(() => {
     useComciganLinksStore.getState().loadGrids();
   }, []);
@@ -119,10 +113,13 @@ export function DutyImportModal({ table = null, onClose }: DutyImportModalProps)
       return;
     }
     if (table) return;
-    const cleared = rows.map((r) => (r.periods.length > 0 ? { ...r, startMin: null, endMin: null } : r));
-    const times = periodTimesFrom(cleared, classTimes);
-    setPeriodTimes(times);
-    setRows(applyPeriodTimes(cleared, times));
+    const filled = rows.map((r) => {
+      if (!r.autoTime && (r.startMin !== null || r.endMin !== null)) return r;
+      const range = rangeOfPeriods(r.periods, classTimes);
+      return range.startMin === null ? r : { ...r, ...range, autoTime: true };
+    });
+    setPeriodTimes(periodTimesFrom(filled, classTimes));
+    setRows(filled);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classKey]);
 
@@ -134,18 +131,39 @@ export function DutyImportModal({ table = null, onClose }: DutyImportModalProps)
     return names;
   }, [users, links]);
 
-  function parse(value: string, nextKind: string) {
-    const result = parseDutyTable(value, nextKind, { classTimes, labelNames, knownNames: [...knownNames] });
+  function hasUnsavedInput(): boolean {
+    if (edited.current || text.trim()) return true;
+    if (table) return !showingSaved.current || title !== table.title || school !== table.school || kind !== KIND_CHOICES[0];
+    return !!title.trim();
+  }
+
+  function requestClose() {
+    if (saving) return;
+    if (hasUnsavedInput() && !window.confirm('저장하지 않고 닫을까요?\n입력하거나 고친 내용이 사라집니다.')) return;
+    onClose();
+  }
+
+  /** 글을 표로 읽어 아래 내용을 바꾼다. 아래 내용을 그대로 두었으면 false */
+  function handleText(value: string): boolean {
+    const result = parseDutyTable(value, kind, { classTimes, labelNames, knownNames: [...knownNames] });
+    const readNothing = result.rows.length === 0;
+    // 고치는 표는 글이 표로 읽히지 않으면 아래 내용을 그대로 둔다. 한 글자 쳤다고 표가 사라지면 안 된다.
+    if (table && readNothing) {
+      setText(value);
+      setSkipped(result.skipped);
+      setUnreadable(!!value.trim());
+      return false;
+    }
+    if ((edited.current || showingSaved.current) && !window.confirm('표를 다시 읽을까요?\n아래 내용이 새로 읽은 내용으로 바뀌고, 아래에서 고친 내용은 사라집니다.')) return false;
+    edited.current = false;
+    showingSaved.current = false;
+    setText(value);
     setRows(result.rows);
     setSkipped(result.skipped);
     setPeriodTimes(periodTimesFrom(result.rows, classTimes));
-    setParsedOnce(value.trim().length > 0);
+    setUnreadable(readNothing && !!value.trim());
     setOpenDate(null);
-  }
-
-  function handleText(value: string) {
-    setText(value);
-    parse(value, kind);
+    return true;
   }
 
   /** 파일을 읽어 표 칸에 넣는다. 여러 장이면 이어 붙인다 */
@@ -172,11 +190,12 @@ export function DutyImportModal({ table = null, onClose }: DutyImportModalProps)
         problems.push(`${file.name}: ${err instanceof DutyFileError ? err.message : '파일을 읽지 못했습니다.'}`);
       }
     }
+    // 읽는 동안 창을 닫았으면 더 하지 않는다
+    if (!fileInput.current) return;
     setReading(null);
     setFileProblems(problems);
-    if (parts.length === 0) return;
+    if (parts.length === 0 || !handleText(parts.join('\n\n'))) return;
     setReadFromPhoto(photo);
-    handleText(parts.join('\n\n'));
     if (!title.trim()) setTitle(files[0].name.replace(/\.[^.]+$/, '').slice(0, 60));
   }
 
@@ -187,8 +206,7 @@ export function DutyImportModal({ table = null, onClose }: DutyImportModalProps)
     const table = html ? tableHtmlToText(html) : null;
     if (table) {
       e.preventDefault();
-      setReadFromPhoto(false);
-      handleText(table);
+      if (handleText(table)) setReadFromPhoto(false);
       return;
     }
     if (images.length > 0 && !e.clipboardData.getData('text/plain').trim()) {
@@ -211,14 +229,20 @@ export function DutyImportModal({ table = null, onClose }: DutyImportModalProps)
   }
 
   function updateRow(id: string, updates: Partial<DutyDraft>) {
+    edited.current = true;
     setRows((current) => current.map((r) => (r.id === id ? { ...r, ...updates } : r)));
   }
 
   function removeRow(id: string) {
-    setRows((current) => current.filter((r) => r.id !== id));
+    const next = rows.filter((r) => r.id !== id);
+    edited.current = true;
+    setRows(next);
+    // 칸에 보이던 시각의 줄이 없어질 수 있다. 저장된 표는 처음처럼 줄의 시각만 보여 준다.
+    setPeriodTimes(periodTimesFrom(next, table ? [] : classTimes));
   }
 
   function addRow(date: string) {
+    edited.current = true;
     setRows((current) => [...current, {
       id: `m${Date.now().toString(36)}${current.length}`,
       date,
@@ -234,18 +258,36 @@ export function DutyImportModal({ table = null, onClose }: DutyImportModalProps)
   }
 
   function renameAll(from: string, to: string) {
+    edited.current = true;
     setRows((current) => current.map((r) => (r.name === from ? { ...r, name: to } : r)));
   }
 
   function changePeriodTime(period: number, edge: 'start' | 'end', value: string) {
     const minutes = parseMinutes(value);
-    const next = { ...periodTimes, [period]: { ...periodTimes[period], [edge]: minutes } };
-    setPeriodTimes(next);
-    setRows((current) => applyPeriodTimes(current, next));
+    const previous = periodTimes[period]?.[edge] ?? null;
+    edited.current = true;
+    setPeriodTimes({ ...periodTimes, [period]: { ...periodTimes[period], [edge]: minutes } });
+    // 날짜마다 시각이 다를 수 있다. 칸에 보이던 시각과 같거나 시각이 없는 줄만 바꾼다.
+    setRows((current) => current.map((row) => {
+      if (row.periods.length === 0) return row;
+      if (edge === 'start') {
+        if (Math.min(...row.periods) !== period || (row.startMin !== previous && row.startMin !== null)) return row;
+        return { ...row, startMin: minutes, autoTime: false };
+      }
+      if (Math.max(...row.periods) !== period || (row.endMin !== previous && row.endMin !== null)) return row;
+      return { ...row, endMin: minutes, autoTime: false };
+    }));
   }
 
   const dayGroups = useMemo(() => groupByDate(rows), [rows]);
   const periods = useMemo(() => collectPeriods(rows), [rows]);
+  // 칸에는 교시마다 시각을 하나만 보여 주므로 날짜마다 다른 교시는 따로 알린다
+  const mixedPeriods = useMemo(() => periods.filter((period) => {
+    const timed = rows.filter((r) => r.periods.length > 0);
+    const starts = timed.filter((r) => Math.min(...r.periods) === period && r.startMin !== null).map((r) => r.startMin);
+    const ends = timed.filter((r) => Math.max(...r.periods) === period && r.endMin !== null).map((r) => r.endMin);
+    return new Set(starts).size > 1 || new Set(ends).size > 1;
+  }), [rows, periods]);
   const counts = useMemo(() => countByTeacher(rows.filter((r) => r.name)), [rows]);
   // 아는 이름이 없으면(연결표 전) 확인할 기준이 없으므로 표시하지 않는다
   const unknownNames = knownNames.size > 0 ? counts.filter((c) => !knownNames.has(c.name)) : [];
@@ -283,7 +325,8 @@ export function DutyImportModal({ table = null, onClose }: DutyImportModalProps)
   return (
     <div
       style={styles.overlay}
-      onClick={onClose}
+      onMouseDown={(e) => { pressedInside.current = e.target !== e.currentTarget; }}
+      onClick={(e) => { if (e.target === e.currentTarget && !pressedInside.current) requestClose(); }}
       onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
       onDragLeave={(e) => { if (e.relatedTarget === null) setDragging(false); }}
       onDrop={handleDrop}
@@ -298,7 +341,7 @@ export function DutyImportModal({ table = null, onClose }: DutyImportModalProps)
       >
         <div style={styles.header}>
           <h3 style={styles.title}>{table ? '시험감독 표 고치기' : '시험감독 표 올리기'}</h3>
-          <button onClick={onClose} style={styles.closeBtn} aria-label="닫기"><Ic name="x" gap={false} /></button>
+          <button onClick={requestClose} style={styles.closeBtn} aria-label="닫기"><Ic name="x" gap={false} /></button>
         </div>
 
         <div style={styles.scroll}>
@@ -376,9 +419,9 @@ export function DutyImportModal({ table = null, onClose }: DutyImportModalProps)
             표는 모든 선생님이 볼 수 있습니다. 시험 문제나 평가 자료, 개인 사유는 넣지 마세요. 파일은 이 PC 안에서 읽고, 읽어 낸 값만 저장합니다.
           </p>
 
-          {parsedOnce && rows.length === 0 && (
+          {unreadable && (
             <p style={styles.warnBox}>
-              표를 읽지 못했습니다. 날짜와 이름이 함께 있는 줄이 필요합니다. 예: 11/16(월) 1교시 1-1 김철수
+              표를 읽지 못했습니다.{rows.length > 0 && ' 아래 내용은 그대로 둡니다.'} 날짜와 이름이 함께 있는 줄이 필요합니다. 예: 11/16(월) 1교시 1-1 김철수
             </p>
           )}
 
@@ -412,6 +455,7 @@ export function DutyImportModal({ table = null, onClose }: DutyImportModalProps)
                       type="text"
                       list="duty-names"
                       defaultValue={name}
+                      onChange={() => { edited.current = true; }}
                       onBlur={(e) => { if (e.target.value.trim() && e.target.value !== name) renameAll(name, e.target.value.trim()); }}
                       aria-label={`${name} 이름 고치기`}
                       style={{ ...styles.input, width: 90 }}
@@ -427,6 +471,11 @@ export function DutyImportModal({ table = null, onClose }: DutyImportModalProps)
             <div style={styles.section}>
               <h4 style={styles.sectionTitle}>교시 시각</h4>
               <p style={styles.note}>달력 표시와 미리 알림에 씁니다. 시험 교시가 수업 시정표와 다르면 고쳐 주세요.</p>
+              {mixedPeriods.length > 0 && (
+                <p style={styles.note}>
+                  {mixedPeriods.map((p) => `${p}교시`).join(', ')}는 날짜마다 시각이 다릅니다. 칸을 고치면 보이는 시각과 같은 줄만 바뀝니다.
+                </p>
+              )}
               <div style={styles.nameGrid}>
                 {periods.map((period) => (
                   <div key={period} style={styles.periodRow}>
@@ -503,7 +552,7 @@ export function DutyImportModal({ table = null, onClose }: DutyImportModalProps)
 
         <div style={styles.actions}>
           {incomplete > 0 && <span style={styles.warnText}>이름이 빈 줄 {incomplete}개</span>}
-          <button type="button" onClick={onClose} style={styles.cancelBtn}>취소</button>
+          <button type="button" onClick={requestClose} style={styles.cancelBtn}>취소</button>
           <button type="button" onClick={handleSave} disabled={!canSave} style={{ ...styles.submitBtn, opacity: canSave ? 1 : 0.5 }}>
             {saving ? '저장 중...' : table ? '고친 내용 저장' : `${rows.length}건 저장`}
           </button>

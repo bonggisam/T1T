@@ -9,6 +9,7 @@ import { useWidgetStore } from '../store/widgetStore';
 import { getCurrentAndNext, getTimedPeriods } from '../utils/classPeriods';
 import { dutyTitle, dutyWhenText } from '../utils/dutyEntries';
 import { playNotificationSound, showDesktopNotification } from '../utils/notifications';
+import { isPersonalHidden } from '../store/privacyStore';
 
 const NOTIFIED_KEY = 't1t-duty-notified';
 /** 시작 몇 분 전에 알릴지 */
@@ -52,7 +53,7 @@ export function useDutyReminder(): void {
     if (!enabled || duties.length === 0) return undefined;
 
     const notify = (toast: string, title: string, body: string) => {
-      showToast(toast, 'info');
+      if (!isPersonalHidden()) showToast(toast, 'info');
       if (sound) playNotificationSound();
       showDesktopNotification(title, body, { immediate: true });
     };
@@ -61,13 +62,13 @@ export function useDutyReminder(): void {
       const now = new Date();
       const nowMin = now.getHours() * 60 + now.getMinutes();
       // 수업 중에는 넘긴다. 알린 것으로 치지 않아 쉬는 시간에 다시 확인한다.
-      if (getCurrentAndNext(getTimedPeriods(timetableData, now), now).current) return;
+      const currentClass = getCurrentAndNext(getTimedPeriods(timetableData, now), now).current;
 
       const today = format(now, 'yyyy-MM-dd');
       const notified = readNotified();
       let changed = false;
 
-      if (nowMin >= EVE_MIN) {
+      if (!currentClass && nowMin >= EVE_MIN) {
         const nextDay = addDays(now, now.getDay() === 5 ? 3 : 1);
         const nextStr = format(nextDay, 'yyyy-MM-dd');
         const key = `${nextStr}|eve`;
@@ -86,13 +87,15 @@ export function useDutyReminder(): void {
         const key = `${today}|${table.id}|${entry.id}`;
         if (notified.has(key)) continue;
         if (entry.startMin === null) {
-          if (nowMin < MORNING_MIN) continue;
+          if (currentClass || nowMin < MORNING_MIN) continue;
           notified.add(key);
           changed = true;
           notify(`오늘 ${dutyTitle(entry)}`, `오늘 ${dutyTitle(entry)}`, table.title);
         } else {
           const diff = entry.startMin - nowMin;
           if (diff <= 0 || diff > LEAD_MIN) continue;
+          // 수업이 먼저 끝나면 쉬는 시간에 알린다. 감독이 수업 중에 시작하면 쉬는 시간이 오지 않으니 지금 알린다
+          if (currentClass && currentClass.endMin <= entry.startMin) continue;
           notified.add(key);
           changed = true;
           notify(`${diff}분 후 ${dutyTitle(entry)}`, `${diff}분 후 ${dutyTitle(entry)}`, dutyWhenText(entry));

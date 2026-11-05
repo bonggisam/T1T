@@ -25,6 +25,8 @@ export interface DutyDraft {
   place: string;
   /** 어느 줄에서 읽었는지 (확인용, 저장하지 않음) */
   source: string;
+  /** 시정표로 채운 시각이다. 표에 적혔거나 담당자가 고친 시각과 달리 시정표가 바뀌면 따라간다 (저장하지 않음) */
+  autoTime?: boolean;
 }
 
 export type DutyTableShape = 'list' | 'date-columns' | 'period-columns' | 'room-columns' | 'none';
@@ -87,6 +89,12 @@ const MARK_TOKEN_RE = new RegExp(`^[(（[]?(${MARK_WORD})[)）\\]:：.]?$`);
 const MARK_FRONT_RE = new RegExp(`^[(（[]?\\s*(${MARK_WORD})\\s*[)）\\]:：.]\\s*(.+)$`);
 const MARK_TAIL_RE = new RegExp(`^(.+?)\\s*[(（[]\\s*(${MARK_WORD})\\s*[)）\\]]$`);
 const PERIOD_HEAD_RE = /^(교시|시간)$/;
+/** 머리글에 숫자로만 적은 교시: "1", "12". 학생 수처럼 큰 숫자는 교시가 아니다 */
+const BARE_PERIOD_RE = /^(?:[1-9]|1[0-5])$/;
+/** 줄 머리가 교시라고 말하는 칸: "교시", "고사실/교시". "1교시"는 줄의 값이지 머리글이 아니다 */
+const PERIOD_LEFT_RE = /^\D*교시\D*$/;
+/** 이름이 붙어 한 덩어리가 된 칸. 이름으로 읽지 못하므로 사람이 조용히 사라지지 않게 알린다 */
+const JOINED_NAMES_RE = /^[가-힣]{6,}$/;
 /** 사람을 가리킬 뿐 일의 이름은 아닌 열 머리글. 담당자가 고른 기본 종류를 쓴다 */
 const GENERIC_NAME_HEADER_RE = /^(이름|성명|교사|담당|담당자|담당교사|근무자|선생님?|감독|감독자|감독교사)$/;
 /** 사람을 가리키는 꼴이지만 일의 이름을 알 수 있는 열 머리글 */
@@ -384,7 +392,9 @@ function splitLines(text: string): string[][] {
     const line = tidyLine(raw);
     if (hasPipe) {
       const cells = line.split('|').map((c) => c.trim());
-      return cells.filter((c, i) => c || (i > 0 && i < cells.length - 1));
+      // 양 끝의 세로줄은 칸이 아니다. 앞에만 있으면 첫 칸이 빈 줄이다
+      const framed = !cells[0] && !cells[cells.length - 1];
+      return cells.filter((c, i) => c || (i > 0 && i < cells.length - 1) || (i === 0 && !framed));
     }
     const trimmed = line.trim();
     // "11/5 김철수  11/6 이영희"처럼 날짜로 시작해 날짜가 이어지면 낱말로 나눈다. 뒤에서 날짜마다 끊는다.
@@ -405,7 +415,7 @@ function splitLines(text: string): string[][] {
   });
 }
 
-function rangeOfPeriods(periods: number[], classTimes: string[]): { startMin: number | null; endMin: number | null } {
+export function rangeOfPeriods(periods: number[], classTimes: string[]): { startMin: number | null; endMin: number | null } {
   if (periods.length === 0) return { startMin: null, endMin: null };
   const starts = periodStartsOf(classTimes);
   const first = starts.get(Math.min(...periods));
@@ -423,8 +433,9 @@ class Collector {
   add(input: { date: string; when: When | null; name: string; kind: string; place: string; source: string }): void {
     const name = this.options.labelNames?.[input.name] ?? input.name;
     const periods = input.when?.periods ?? [];
-    const range = input.when && input.when.startMin !== null
-      ? { startMin: input.when.startMin, endMin: input.when.endMin }
+    const written = !!input.when && input.when.startMin !== null;
+    const range = written
+      ? { startMin: input.when!.startMin, endMin: input.when!.endMin }
       : rangeOfPeriods(periods, this.options.classTimes ?? []);
     const key = [input.date, periods.join(','), range.startMin, name, input.kind, input.place].join('|');
     if (this.seen.has(key)) return;
@@ -439,6 +450,7 @@ class Collector {
       kind: input.kind,
       place: input.place,
       source: input.source.length > 70 ? `${input.source.slice(0, 69)}…` : input.source,
+      autoTime: !written && range.startMin !== null,
     });
   }
 }
@@ -471,6 +483,42 @@ function axisOf(cell: string, base: Date): Axis | null {
   return null;
 }
 
+function barePeriodAxis(cell: string): Axis | null {
+  const text = cell.trim();
+  return BARE_PERIOD_RE.test(text) ? { when: { periods: [Number(text)], startMin: null, endMin: null } } : null;
+}
+
+function isBarePeriods(cells: string[]): boolean {
+  const filled = cells.map((c) => c.trim()).filter(Boolean);
+  return filled.length > 0 && filled.every((c) => BARE_PERIOD_RE.test(c));
+}
+
+/** "교시 | 1 | 2 | 3"처럼 왼쪽 머리글이 교시인 줄이면 숫자가 시작되는 칸을 돌려준다 */
+function barePeriodsFrom(row: string[]): number | null {
+  const from = row.findIndex((c) => BARE_PERIOD_RE.test(c.trim()));
+  if (from <= 0 || !isBarePeriods(row.slice(from))) return null;
+  return row.slice(0, from).some((c) => PERIOD_LEFT_RE.test(c.trim())) ? from : null;
+}
+
+/**
+ * 머리글 아래 줄의 숫자를 교시로 읽어도 되는가. 날짜 바로 아래 줄이거나 왼쪽 머리글이 교시면 교시다.
+ * 다음은 다른 번호다 (연번, 고사실 번호 등): 왼쪽 칸이 연번이나 장소라고 말하거나, 머리글에 이미 교시가 있거나, 아래 줄의 왼쪽 칸이 교시일 때.
+ * 위 줄과 같은 왼쪽 칸은 병합된 머리글이라 아무 뜻이 없다.
+ */
+function isBarePeriodRow(rows: string[][], index: number, first: number, columns: Map<number, Axis>, belowDate: boolean): boolean {
+  const upper = rows[index - 1] ?? [];
+  const left = rows[index].slice(0, first).map((c) => c.trim());
+  const says = left.filter((c, col) => c && c !== (upper[col] ?? '').trim());
+  const period = left.some((c) => PERIOD_LEFT_RE.test(c));
+  if (!isBarePeriods(rows[index].slice(first)) || left.some((c) => IGNORE_HEADER_RE.test(c))) return false;
+  if (!belowDate && !period) return false;
+  if (!period && says.some((c) => PLACE_HEADER_RE.test(c))) return false;
+  if ([...columns.values()].some((axis) => axis.when?.periods.length)) return false;
+  return !(rows[index + 1] ?? []).slice(0, first).some((c, col) => (
+    readWhen(c) || (BARE_PERIOD_RE.test(c.trim()) && PERIOD_LEFT_RE.test((upper[col] ?? '').trim()))
+  ));
+}
+
 function mergeAxis(upper: Axis | undefined, lower: Axis): Axis {
   return {
     date: lower.date ?? upper?.date,
@@ -482,7 +530,8 @@ function mergeAxis(upper: Axis | undefined, lower: Axis): Axis {
 /** 이 줄이 표의 머리글이면 열의 뜻을 돌려준다 */
 function readMatrixHead(rows: string[][], start: number, base: Date, known: Set<string>): MatrixHead | null {
   const row = rows[start];
-  const axes = row.map((cell) => axisOf(cell, base));
+  const bareFrom = barePeriodsFrom(row);
+  const axes = row.map((cell, col) => (bareFrom !== null && col >= bareFrom ? barePeriodAxis(cell) : axisOf(cell, base)));
   // 이름이 보이면 머리글이 아니라 데이터 줄이다
   if (row.some((cell, col) => cell && !axes[col] && isNameLike(cell, known))) return null;
 
@@ -496,7 +545,7 @@ function readMatrixHead(rows: string[][], start: number, base: Date, known: Set<
     first = roomCols[0];
     byRoom = true;
   } else if (timeCols.length >= 2 || (labelled && timeCols.length >= 1)) {
-    first = timeCols[0];
+    first = bareFrom ?? timeCols[0];
   } else {
     return null;
   }
@@ -525,13 +574,15 @@ function readMatrixHead(rows: string[][], start: number, base: Date, known: Set<
   for (let level = 0; level < 2 && dataFrom < rows.length; level++) {
     const sub = rows[dataFrom];
     const subAxes = new Map<number, Axis>();
+    const belowDate = level === 0 && [...columns.values()].some((axis) => axis.date);
+    const bare = isBarePeriodRow(rows, dataFrom, first, columns, belowDate);
     sub.forEach((cell, col) => {
-      const axis = col >= first ? axisOf(cell, base) : null;
+      const axis = col < first ? null : bare ? barePeriodAxis(cell) : axisOf(cell, base);
       if (axis) subAxes.set(col, axis);
     });
     if (subAxes.size === 0) break;
     if (sub.some((cell, col) => cell && !subAxes.has(col) && isNameLike(cell, known))) break;
-    if (sub.slice(0, first).some((cell) => cell.trim() && !LEFT_HEAD_RE.test(cell.trim()))) break;
+    if (sub.slice(0, first).some((cell) => cell.trim() && !LEFT_HEAD_RE.test(cell.trim()) && !PERIOD_LEFT_RE.test(cell.trim()))) break;
     const merged = new Map<number, Axis>();
     let carry: Axis | undefined;
     const last = Math.max(sub.length, ...[...columns.keys()].map((col) => col + 1));
@@ -667,6 +718,7 @@ function parseMatrix(
     }
 
     let found = 0;
+    let joined = false;
     for (const [col, axis] of head.columns) {
       const cell = (row[col] ?? '').trim();
       if (!cell) continue;
@@ -688,13 +740,15 @@ function parseMatrix(
         }
         continue;
       }
-      for (const name of namesIn(cell, known, false)) {
+      const names = namesIn(cell, known, false);
+      if (names.length === 0 && JOINED_NAMES_RE.test(cell)) joined = true;
+      for (const name of names) {
         out.add({ date, when, name: name.name, kind: kindOfMark(name.mark, rowKind || defaultKind), place, source });
         found += 1;
       }
     }
     // 칸이 하나뿐인 줄은 표 아래의 안내문이다
-    if (found === 0 && row.filter(Boolean).length > 1) skipped.push(source);
+    if ((found === 0 && row.filter(Boolean).length > 1) || (found > 0 && joined)) skipped.push(source);
     if (found > 0) {
       const axes = [...head.columns.values()];
       shape = axes.some((a) => a.date) ? 'date-columns' : axes.some((a) => a.room) ? 'room-columns' : 'period-columns';
@@ -834,8 +888,12 @@ function parseList(
     const place = columns.place !== null ? (row[columns.place] ?? '').trim() : '';
     const kindCell = columns.kind !== null ? (row[columns.kind] ?? '').trim() : '';
     let found = 0;
+    let joined = false;
     for (const nameColumn of columns.names) {
-      for (const person of namesIn(row[nameColumn.col] ?? '', known, columns.strictNames)) {
+      const cell = (row[nameColumn.col] ?? '').trim();
+      const people = namesIn(cell, known, columns.strictNames);
+      if (people.length === 0 && JOINED_NAMES_RE.test(cell)) joined = true;
+      for (const person of people) {
         out.add({
           date,
           when,
@@ -847,7 +905,7 @@ function parseList(
         found += 1;
       }
     }
-    if (found === 0) skipped.push(source);
+    if (found === 0 || joined) skipped.push(source);
   }
 }
 

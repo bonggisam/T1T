@@ -22,11 +22,33 @@ export interface MyDuty {
   entry: DutyEntry;
 }
 
-function normalize(name: string): string {
-  return name.replace(/\s+/g, '').replace(/(선생님|교사|쌤)$/, '');
+/** 이름 뒤의 설명: "홍길동(국어)" */
+const NAME_NOTE_RE = /[(（[][^)）\]]*[)）\]]$/;
+const JOB_TITLE = '(?:선생님?|교사|쌤|샘|부장|교감|교장|수석|주임|담임|실장|주무관|강사|코치|사서|기간제)';
+/** 띄어 쓴 직책: "홍길동 부장", "홍길동 교무부장". 마지막 낱말이 직책으로 끝나면 뗀다 */
+const SPACED_TITLE_RE = new RegExp(`\\s+\\S*${JOB_TITLE}$`);
+/** 붙여 쓴 직책: "홍길동부장". "이수석"처럼 이름일 수도 있어 세 글자가 남을 때만 뗀다 */
+const ATTACHED_TITLE_RE = new RegExp(`${JOB_TITLE}$`);
+
+function dropTail(text: string, tail: RegExp, keep: number): string {
+  const next = text.replace(tail, '').trim();
+  return next.replace(/\s+/g, '').length >= keep ? next : text;
 }
 
-function isOwnSchoolTable(table: DutyTable, me: DutyMe, links: DutyLabelLinks): boolean {
+/** 이름만 남긴다. 계정 이름과 표의 이름 뒤에 괄호나 직책이 붙을 수 있다 */
+function normalize(name: string): string {
+  let text = name.trim();
+  for (let before = ''; text !== before;) {
+    before = text;
+    text = dropTail(text, NAME_NOTE_RE, 1);
+    text = dropTail(text, SPACED_TITLE_RE, 2);
+    text = dropTail(text, ATTACHED_TITLE_RE, 3);
+  }
+  return text.replace(/\s+/g, '').replace(/(선생님|교사|쌤)$/, '');
+}
+
+/** 두 글자 표기를 볼 수 있는 표인가. 표기는 학교마다 다른 사람을 가리킬 수 있다 */
+function isOwnSchoolTable(table: Pick<DutyTable, 'school'>, me: DutyMe, links: DutyLabelLinks): boolean {
   if (table.school === 'all') return true;
   if (me.school !== 'taeseong_middle' && me.school !== 'taeseong_high') return true; // 전체 관리자는 학교가 없을 수 있다
   return table.school === me.school || (links.mine[table.school]?.length ?? 0) > 0;
@@ -48,13 +70,23 @@ export function isMyEntry(entry: Pick<DutyEntry, 'name'>, me: DutyMe, links: Dut
   return mine.startsWith(name);
 }
 
+/**
+ * 이 표의 이 줄이 내 차례인가. 달력과 표 화면이 같은 답을 내도록 여기서만 가른다.
+ * 전체 이름이 같으면 표를 어느 학교로 저장했든 나다. 담당자는 양교 표도 자기 학교로 저장하곤 한다.
+ * 학교는 여러 사람이 같을 수 있는 두 글자 표기를 가를 때만 쓴다.
+ */
+export function isMyDuty(table: Pick<DutyTable, 'school'>, entry: Pick<DutyEntry, 'name'>, me: DutyMe, links: DutyLabelLinks): boolean {
+  if (!isMyEntry(entry, me, links)) return false;
+  const name = normalize(entry.name);
+  return (name.length > 2 && name === normalize(me.name)) || isOwnSchoolTable(table, me, links);
+}
+
 export function findMyDuties(tables: DutyTable[], me: DutyMe | null, links: DutyLabelLinks): MyDuty[] {
   if (!me) return [];
   const out: MyDuty[] = [];
   for (const table of tables) {
-    if (!isOwnSchoolTable(table, me, links)) continue;
     for (const entry of table.entries) {
-      if (isMyEntry(entry, me, links)) out.push({ table, entry });
+      if (isMyDuty(table, entry, me, links)) out.push({ table, entry });
     }
   }
   return out.sort((a, b) => (

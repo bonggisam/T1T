@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { DutyEntry, DutyTable } from '@shared/types';
-import { canManageDutyTable, countByTeacher, dutyTitle, dutyWhenText, groupByDate, isMyEntry } from '../../utils/dutyEntries';
+import { canManageDutyTable, countByTeacher, dutyTitle, dutyWhenText, groupByDate, isMyDuty } from '../../utils/dutyEntries';
 import { useAuthStore } from '../../store/authStore';
 import { labelLinksFor, useComciganLinksStore } from '../../store/comciganLinksStore';
 import { useDutyStore, useMyDuties } from '../../store/dutyStore';
@@ -181,7 +181,7 @@ function TableDetail({ table }: { table: DutyTable }) {
   const today = format(new Date(), 'yyyy-MM-dd');
   const nearest = groups.find((g) => g.date >= today)?.date ?? groups[0]?.date;
 
-  const isMine = (entry: DutyEntry) => !!user && isMyEntry(entry, { id: user.id, name: user.name, school: user.school }, labelLinks);
+  const isMine = (entry: DutyEntry) => !!user && isMyDuty(table, entry, { id: user.id, name: user.name, school: user.school }, labelLinks);
 
   return (
     <>
