@@ -565,15 +565,30 @@ function setupIPC(): void {
 
   // 메뉴에서 수동 호출 — 사용자에게 명확한 피드백
   ipcMain.handle('updater:check', async () => {
+    let timer: NodeJS.Timeout | undefined;
     try {
       manualCheckInProgress = true;
-      const result = await autoUpdater.checkForUpdates();
-      manualCheckInProgress = false;
-      return { ok: true, version: result?.updateInfo?.version };
+      // 학교망에서 응답이 오지 않으면 끝없이 기다리게 되므로 시간을 정해 둔다
+      const result = await Promise.race([
+        autoUpdater.checkForUpdates(),
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(() => reject(new Error('GitHub 응답이 없습니다. 네트워크를 확인해 주세요')), UPDATE_CHECK_TIMEOUT_MS);
+        }),
+      ]);
+      // 개발 실행처럼 업데이트 기능이 꺼져 있으면 결과가 없다
+      if (!result) return { ok: false, error: '이 실행 환경에서는 업데이트를 확인할 수 없습니다' };
+      // version은 받을 새 버전이 있을 때만 준다. 이미 최신이어도 updateInfo에는 최신 버전이 들어 있다.
+      return {
+        ok: true,
+        latest: result.updateInfo.version,
+        version: result.isUpdateAvailable ? result.updateInfo.version : undefined,
+      };
     } catch (err: any) {
-      manualCheckInProgress = false;
       console.warn('[Updater] Manual check failed:', err);
       return { ok: false, error: err?.message || '업데이트 확인 실패 (네트워크 확인)' };
+    } finally {
+      if (timer) clearTimeout(timer);
+      manualCheckInProgress = false;
     }
   });
 
@@ -603,6 +618,8 @@ let manualCheckInProgress = false;
 // 다운로드 실패 자동 재시도 카운터 (update-available 시 리셋)
 let downloadRetries = 0;
 const MAX_DOWNLOAD_RETRIES = 3;
+/** 수동 확인에서 응답을 기다리는 시간 */
+const UPDATE_CHECK_TIMEOUT_MS = 30 * 1000;
 // macOS: 앱이 코드 서명되어 있지 않음(package.json build.mac.identity = "-").
 // Squirrel.Mac 자동 업데이트는 서명이 필수라 미서명 앱은 다운로드 단계에서 항상 실패한다.
 // → Mac은 자동 다운로드/설치를 끄고 "새 버전 있음 + 수동 다운로드" 안내만 한다.

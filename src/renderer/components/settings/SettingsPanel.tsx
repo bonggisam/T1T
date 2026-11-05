@@ -33,6 +33,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [autoLaunch, setAutoLaunch] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateNote, setUpdateNote] = useState('');
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
   const hasTimetable = useComciganStore((s) => !!s.config && !!s.timetableData);
@@ -251,30 +253,35 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             }}
           />
           <div style={styles.settingRow}>
-            <span style={styles.label}>업데이트 확인</span>
+            <span style={styles.label}>업데이트 확인 (현재 v{appVersion})</span>
             <button
+              disabled={checkingUpdate}
               onClick={async () => {
                 const { showToast } = await import('../common/Toast');
-                showToast('업데이트 확인 중…', 'info');
+                // 알림은 금방 사라지므로 결과를 단추 아래에도 남긴다
+                const report = (text: string, kind: 'info' | 'success' | 'error') => {
+                  setUpdateNote(text);
+                  showToast(text, kind);
+                };
+                setCheckingUpdate(true);
+                report('업데이트 확인 중…', 'info');
                 try {
                   const result = await window.electronAPI?.updaterCheck();
                   if (!result) {
-                    showToast('업데이트 응답 없음 — 수동 다운로드를 시도하세요', 'error');
-                    return;
-                  }
-                  if (!result.ok) {
-                    showToast(`${result.error} — 수동 다운로드 권장`, 'error');
-                    // 5초 후 자동으로 수동 다운로드 페이지 열기
+                    report('업데이트 응답 없음 — 수동 다운로드를 시도하세요', 'error');
+                  } else if (!result.ok) {
+                    report(`${result.error} — 수동 다운로드 페이지를 엽니다`, 'error');
                     setTimeout(() => window.electronAPI?.updaterOpenDownloadPage(), 3000);
-                    return;
-                  }
-                  if (result.version) {
-                    showToast(`새 버전 v${result.version} — 상단 배너에서 진행 상황 확인`, 'success');
+                  } else if (result.version) {
+                    report(`새 버전 v${result.version} — 상단 배너에서 진행 상황 확인`, 'success');
+                  } else {
+                    report(`최신 버전을 사용 중입니다 (v${result.latest ?? appVersion})`, 'success');
                   }
                 } catch (e: any) {
-                  showToast(`업데이트 확인 실패: ${e?.message || '알 수 없는 오류'} — 수동 다운로드 페이지를 엽니다`, 'error');
+                  report(`업데이트 확인 실패: ${e?.message || '알 수 없는 오류'} — 수동 다운로드 페이지를 엽니다`, 'error');
                   setTimeout(() => window.electronAPI?.updaterOpenDownloadPage(), 3000);
                 }
+                setCheckingUpdate(false);
               }}
               style={{
                 padding: '3px 10px',
@@ -283,12 +290,14 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 borderRadius: 6,
                 background: 'transparent',
                 color: 'var(--text-secondary)',
-                cursor: 'pointer',
+                cursor: checkingUpdate ? 'default' : 'pointer',
+                opacity: checkingUpdate ? 0.5 : 1,
               }}
             >
               확인
             </button>
           </div>
+          {updateNote && <p role="status" style={styles.privacyNote}>{updateNote}</p>}
           <div style={styles.settingRow}>
             <span style={styles.label}>수동 다운로드 (자동 안 될 때)</span>
             <button

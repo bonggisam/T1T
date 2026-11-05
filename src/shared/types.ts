@@ -334,7 +334,8 @@ export interface ElectronAPI {
   // Auto-updater
   updaterDownload: () => Promise<void>;
   updaterInstall: () => Promise<void>;
-  updaterCheck: () => Promise<{ ok: true; version?: string } | { ok: false; error: string }>;
+  /** version은 받을 새 버전이 있을 때만 있다. latest는 GitHub에 올라온 최신 버전이다. */
+  updaterCheck: () => Promise<{ ok: true; version?: string; latest?: string } | { ok: false; error: string }>;
   updaterOpenDownloadPage: () => Promise<{ ok: boolean; reason?: string }>;
   getAppVersion: () => Promise<string>;
   getAutoLaunch: () => Promise<boolean>;
