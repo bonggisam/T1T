@@ -6,6 +6,7 @@ import type { School } from '@shared/types';
 import { SCHOOL_LABELS } from '@shared/types';
 import { useWindowSize, WIDE_MIN } from '../../hooks/useWindowSize';
 import { ComciganCallButton } from '../common/ComciganCall';
+import { showToast } from '../common/Toast';
 import { useAuthStore } from '../../store/authStore';
 import { useCalendarStore } from '../../store/calendarStore';
 import { gridTargets, LINK_SCHOOLS, useComciganLinksStore } from '../../store/comciganLinksStore';
@@ -131,6 +132,10 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
     [people, hasMembers, school, grade, subject, query],
   );
   const chosen = useMemo(() => people.filter((p) => selected.has(p.key)), [people, selected]);
+  // 시정표를 받지 못한 학교의 수업은 시각을 몰라 계산에 넣을 수 없다. 모르면 공강으로 잘못 나온다
+  const unknownTimes = useMemo(() => chosen
+    .filter((p) => p.labels.some(({ school }) => !grids[school]?.classTimes?.length))
+    .map((p) => p.name), [chosen, grids]);
   const subjects = useMemo(() => subjectOptions(people, school), [people, school]);
 
   // 처음에는 나를 대상에 넣어 둔다
@@ -219,7 +224,13 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
   function loadGroup(name: string) {
     const group = groups.find((g) => g.name === name);
     if (!group) return;
-    setSelected(new Set(group.keys));
+    // 그사이 연결표가 바뀌면 없는 사람이 남는다. 화면의 "대상 N명"과 실제 계산 인원이 어긋나지 않게 뺀다
+    const known = new Set(people.map((p) => p.key));
+    const keys = group.keys.filter((key) => known.has(key));
+    if (keys.length < group.keys.length) {
+      showToast(`묶음의 ${group.keys.length - keys.length}명을 시간표에서 찾지 못해 뺐습니다`, 'info');
+    }
+    setSelected(new Set(keys));
     setPickedCell(null);
   }
 
@@ -381,6 +392,9 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
           {(wide || showPeople) && peoplePanel}
 
           <section style={wide ? styles.gridPaneWide : styles.gridPane} aria-label="공강 찾기">
+            {unknownTimes.length > 0 && (
+              <p style={styles.warn}>시정표를 받지 못해 {unknownTimes.join(', ')}의 수업을 계산에 넣지 못했습니다. 공강으로 보여도 수업이 있을 수 있습니다.</p>
+            )}
             <div style={styles.weekNav}>
               <button
                 type="button"

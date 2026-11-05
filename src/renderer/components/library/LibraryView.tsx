@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { isPageLoadFailure, WebFailNotice } from '../common/WebFailNotice';
 import { useUIStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
 import type { School } from '@shared/types';
@@ -6,7 +7,7 @@ import { Ic, type IconName } from '../common/Ic';
 
 const LIBRARY_URLS: Record<School, { url: string; label: string; icon: IconName }> = {
   taeseong_middle: {
-    url: 'https://read365.edunet.net/PureScreen/SchoolSearch?schoolName=%ED%83%9C%EC%84%B1%EC%A4%91%ED%95%99%EA%B5%90&provCode=J10&neisCode=J100000822',
+    url: 'https://read365.edunet.net/PureScreen/SchoolSearch?schoolName=%ED%83%9C%EC%84%B1%EC%A4%91%ED%95%99%EA%B5%90&provCode=J10&neisCode=J100003492',
     label: '태성중학교',
     icon: 'school',
   },
@@ -34,6 +35,8 @@ export function LibraryView({ onBack }: LibraryViewProps) {
   const target = LIBRARY_URLS[selectedSchool];
 
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const webviewContainerRef = useRef<HTMLDivElement>(null);
   const webviewRef = useRef<any>(null);
 
@@ -44,7 +47,11 @@ export function LibraryView({ onBack }: LibraryViewProps) {
     let mounted = true;
     const onStartLoad = () => { if (mounted) setLoading(true); };
     const onStopLoad = () => { if (mounted) setLoading(false); };
-    const onFailLoad = () => { if (mounted) setLoading(false); };
+    const onFailLoad = (e: any) => {
+      if (!mounted) return;
+      setLoading(false);
+      if (isPageLoadFailure(e)) setFailed(true);
+    };
 
     const webview = document.createElement('webview');
     webview.setAttribute('src', target.url);
@@ -68,7 +75,13 @@ export function LibraryView({ onBack }: LibraryViewProps) {
       webviewRef.current = null;
     };
     // 학교 변경 시 webview 재생성 (URL 변경 반영)
-  }, [target.url]);
+  }, [target.url, attempt]);
+
+  function retry() {
+    setFailed(false);
+    setLoading(true);
+    setAttempt((n) => n + 1);
+  }
 
   function handleRefresh() {
     if (webviewRef.current) {
@@ -133,6 +146,7 @@ export function LibraryView({ onBack }: LibraryViewProps) {
           <div style={styles.loadingProgress} />
         </div>
       )}
+      {failed && <WebFailNotice label="도서관" onRetry={retry} />}
       <div ref={webviewContainerRef} style={styles.webviewContainer} />
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { format, parseISO, addDays, isSameDay, isWithinInterval, isValid } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useAuthStore } from '../../store/authStore';
@@ -46,20 +46,25 @@ export function MealView({ onBack }: MealViewProps) {
   const [data, setData] = useState<MealData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestRef = useRef(0);
 
   const isDark = useDarkMode();
   const SCHOOL_OPTIONS = isDark ? SCHOOL_OPTIONS_DARK : SCHOOL_OPTIONS_LIGHT;
   const palette = SCHOOL_OPTIONS.find((s) => s.key === selectedSchool)!;
 
   async function load() {
+    // 학교나 주를 빨리 바꾸면 늦게 온 앞 요청이 지금 화면을 덮는다
+    const request = ++requestRef.current;
     setLoading(true);
     setError(null);
     try {
       const ymd = format(weekDate, 'yyyyMMdd');
       const res = await window.electronAPI?.schoolFetchMeal(selectedSchool, ymd);
+      if (request !== requestRef.current) return;
       if (!res) throw new Error('응답 없음');
       setData(res);
     } catch (err: any) {
+      if (request !== requestRef.current) return;
       console.error('[Meal] fetch failed:', err);
       setError(err?.message || '급식 정보를 가져올 수 없습니다');
       setData(null);

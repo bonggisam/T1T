@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { format, parseISO, isSameDay, isValid } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useAuthStore } from '../../store/authStore';
@@ -37,6 +37,7 @@ export function ScheduleView({ onBack }: ScheduleViewProps) {
   const [selectedSchool, setSelectedSchool] = useState<School>(defaultSchool);
   const [events, setEvents] = useState<SchoolScheduleItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const requestRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
 
   const isDark = useDarkMode();
@@ -44,13 +45,17 @@ export function ScheduleView({ onBack }: ScheduleViewProps) {
   const palette = SCHOOL_OPTIONS.find((s) => s.key === selectedSchool)!;
 
   async function load() {
+    // 학교를 빨리 바꾸면 늦게 온 앞 요청이 지금 화면을 덮는다
+    const request = ++requestRef.current;
     setLoading(true);
     setError(null);
     try {
       const res = await window.electronAPI?.schoolFetchSchedule(selectedSchool);
+      if (request !== requestRef.current) return;
       if (!res) throw new Error('응답 없음');
       setEvents(res.events);
     } catch (err: any) {
+      if (request !== requestRef.current) return;
       console.error('[Schedule] fetch failed:', err);
       setError(err?.message || '학사일정을 가져올 수 없습니다');
       setEvents([]);

@@ -95,7 +95,7 @@ const AFTER_SCHOOL_LENGTH_MIN = 60;
 /** 시각이 있어도 사람을 묶어 두지 않는 일정 */
 const NON_BLOCKING_CATEGORIES = new Set(['deadline', 'notice']);
 /** 관리자가 공유 일정으로 올리는 임시 휴일 */
-const DAY_OFF_RE = /재량\s*휴업|휴업일|임시\s*휴일|개교\s*기념일|방학/;
+const DAY_OFF_RE = /재량\s*휴업|휴업일|임시\s*휴일|개교\s*기념일|방학(?!\s*식)/;
 
 /** 추천 기준. 앞쪽일수록 먼저 따진다 */
 export const FINDER_CONDITIONS = ['모두 공강', '공유 일정 없음', '종일 일정 없는 날', '수업 시간 안', '연속 공강'] as const;

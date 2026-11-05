@@ -173,8 +173,8 @@ export async function fetchSchoolSchedule(schoolKey: SchoolKey): Promise<{
   }
 
   if (events.length === 0) {
-    const snippet = html.slice(0, 100).replace(/\s+/g, ' ');
-    throw shortError('학사일정', `일정 0건 — 학교 사이트 구조 변경 의심 (${html.length} bytes, 시작: ${snippet})`);
+    console.warn('[학사일정] 일정 0건, 시작:', html.slice(0, 100).replace(/\s+/g, ' '));
+    throw shortError('학사일정', `일정 0건 — 학교 사이트 구조 변경 의심 (${html.length} bytes)`);
   }
 
   return { events };
@@ -203,7 +203,9 @@ export async function fetchSchoolMeal(schoolKey: SchoolKey, dateYMD?: string): P
   // (dateYMD 미지정이면 seed 응답을 그대로 사용)
   let html = seed.body;
   if (dateYMD) {
-    const url = `${seedUrl}&schulCode=&ymd=${dateYMD}`;
+    // 사이트의 날짜 값은 schDt(YYYY-MM-DD)다. 예전 ymd는 무시되어 어느 주를 골라도 이번 주가 나왔다
+    const schDt = `${dateYMD.slice(0, 4)}-${dateYMD.slice(4, 6)}-${dateYMD.slice(6, 8)}`;
+    const url = `${seedUrl}&schDt=${schDt}`;
     let resp;
     try {
       resp = await httpRequest(url, {
@@ -225,11 +227,6 @@ export async function fetchSchoolMeal(schoolKey: SchoolKey, dateYMD?: string): P
     throw shortError('급식', `응답 본문 부족 (${html?.length || 0} bytes)`);
   }
 
-  // 주차 헤더
-  const weekMatch = html.match(/급식일\s*:\s*(\d{4})년(\d{2})월(\d{2})일\s*~\s*(\d{4})년(\d{2})월(\d{2})일/);
-  const weekStart = weekMatch ? `${weekMatch[1]}-${weekMatch[2]}-${weekMatch[3]}` : '';
-  const weekEnd = weekMatch ? `${weekMatch[4]}-${weekMatch[5]}-${weekMatch[6]}` : '';
-
   // 7일 날짜 헤더 — 다양한 br/공백 변형 대응
   const headerRe = /<th[^>]*scope=['"]col['"][^>]*>\s*([일월화수목금토])\s*<br[^>]*>\s*(\d{4}-\d{2}-\d{2})\s*<\/th>/g;
   const headers: Array<{ weekday: string; date: string }> = [];
@@ -238,8 +235,8 @@ export async function fetchSchoolMeal(schoolKey: SchoolKey, dateYMD?: string): P
     headers.push({ weekday: hm[1], date: hm[2] });
   }
   if (headers.length === 0) {
-    const snippet = html.slice(0, 100).replace(/\s+/g, ' ');
-    throw shortError('급식', `일자 헤더 0건 — 사이트 구조 변경 의심 (${html.length} bytes, 시작: ${snippet})`);
+    console.warn('[급식] 일자 헤더 0건, 시작:', html.slice(0, 100).replace(/\s+/g, ' '));
+    throw shortError('급식', `일자 헤더 0건 — 사이트 구조 변경 의심 (${html.length} bytes)`);
   }
 
   // tbody 내 td 파싱
@@ -249,7 +246,8 @@ export async function fetchSchoolMeal(schoolKey: SchoolKey, dateYMD?: string): P
     menu: [],
     calorie: '',
   }));
-  if (tbodyMatch) {
+  if (!tbodyMatch) throw shortError('급식', '메뉴 표를 찾지 못했습니다 — 사이트 구조 변경 의심');
+  {
     const tbody = tbodyMatch[1];
     const tdRe = /<td>([\s\S]*?)<\/td>/g;
     const tds: string[] = [];
@@ -257,6 +255,8 @@ export async function fetchSchoolMeal(schoolKey: SchoolKey, dateYMD?: string): P
     while ((tdm = tdRe.exec(tbody)) !== null) {
       tds.push(tdm[1]);
     }
+    // 식단이 없는 주는 "식단 데이터가 없습니다" 한 칸만 온다. 그 말도 칸도 없으면 사이트 형식이 바뀐 것이다
+    if (tds.length === 0 && !tbody.includes('없습니다')) throw shortError('급식', '메뉴 칸을 찾지 못했습니다 — 사이트 구조 변경 의심');
     for (let i = 0; i < days.length && i < tds.length; i++) {
       const td = tds[i];
       const calMatch = td.match(/fm_tit_p[^>]*>([^<]+)</);
@@ -273,5 +273,6 @@ export async function fetchSchoolMeal(schoolKey: SchoolKey, dateYMD?: string): P
     }
   }
 
-  return { weekStart, weekEnd, days };
+  // 기간은 표의 날짜에서 잡는다. 페이지의 "급식일" 문구는 학교마다 띄어쓰기가 달라 빈 값이 나왔다
+  return { weekStart: headers[0].date, weekEnd: headers[headers.length - 1].date, days };
 }
