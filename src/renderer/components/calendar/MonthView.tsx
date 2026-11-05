@@ -8,6 +8,8 @@ import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/notificationStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
+import { useVisiblePersonalEvents } from '../../hooks/useVisiblePersonalEvents';
+import { getHoliday } from '../../utils/holidays';
 import { useComciganStore } from '../../store/comciganStore';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
 import { showToast } from '../common/Toast';
@@ -71,8 +73,8 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
   const events = useVisibleEvents();
   const { user } = useAuthStore();
   const { notifications } = useNotificationStore();
-  const { allPersonalEvents, updatePersonalEvent } = usePersonalEventStore();
-  const personalEvents = allPersonalEvents();
+  const { updatePersonalEvent } = usePersonalEventStore();
+  const personalEvents = useVisiblePersonalEvents();
   const { getPeriodsForWeekday, config: comciganConfig } = useComciganStore();
 
   const dragRef = useRef<DragInfo | null>(null);
@@ -352,7 +354,8 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
           const dayPersonal = getPersonalEventsForDay(day);
           const dayOfWeek = day.getDay();
           const isCurrentWeek = isSameWeek(day, new Date(), { weekStartsOn: 0 });
-          const comciganPeriods = (isCurrentWeek && dayOfWeek >= 1 && dayOfWeek <= 5)
+          const holiday = getHoliday(day);
+          const comciganPeriods = (isCurrentWeek && dayOfWeek >= 1 && dayOfWeek <= 5 && !holiday)
             ? getPeriodsForWeekday(dayOfWeek) : [];
           // 공유 일정 → 개인 일정 → 시간표 순서로 칸 높이에 맞는 만큼만 그린다
           const totalItems = dayEvents.length + dayPersonal.length + comciganPeriods.length;
@@ -377,7 +380,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
               key={dayStr}
               data-day-str={dayStr}
               role="gridcell"
-              aria-label={format(day, 'yyyy년 M월 d일')}
+              aria-label={`${format(day, 'yyyy년 M월 d일')}${holiday ? ` ${holiday}` : ''}`}
               onClick={(e) => handleDayCellClick(e, day, dayStr)}
               style={{
                 padding: '2px 3px 1px',
@@ -385,7 +388,11 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                 borderRight: '1px solid var(--grid-line)',
                 borderBottom: '1px solid var(--grid-line)',
                 // 셀 배경: 투명 윈도우에서 마우스 이벤트 캡처 보장
-                background: today ? 'var(--today-bg)' : 'rgba(128,128,128,0.02)',
+                background: today
+                  ? 'var(--today-bg)'
+                  : holiday
+                    ? 'color-mix(in srgb, var(--weekend-text) 7%, transparent)'
+                    : 'rgba(128,128,128,0.02)',
                 // 오늘 셀: 배경색에 더해 안쪽 테두리로 한 번 더 강조 (투명 배경 위에서도 또렷하게)
                 ...(today && !selected ? { boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent)' } : {}),
                 opacity: inMonth ? 1 : 0.35,
@@ -403,14 +410,24 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
               }}
             >
               {/* 날짜 번호 */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 1, flexShrink: 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 3, marginBottom: 1, flexShrink: 0, minWidth: 0 }}>
                 <span style={{
                   fontSize: 11, fontWeight: 700, lineHeight: 1.1,
-                  color: dayOfWeek === 0 ? 'var(--weekend-text)' : dayOfWeek === 6 ? 'var(--accent)' : 'var(--text-primary)',
+                  color: dayOfWeek === 0 || holiday ? 'var(--weekend-text)' : dayOfWeek === 6 ? 'var(--accent)' : 'var(--text-primary)',
                   textShadow: 'var(--label-halo)',
+                  flexShrink: 0,
                 }}>
                   {format(day, 'd')}
                 </span>
+                {holiday && (
+                  <span title={holiday} style={{
+                    flex: 1, minWidth: 0, fontSize: 9, fontWeight: 600, lineHeight: 1.1,
+                    color: 'var(--weekend-text)', textShadow: 'var(--label-halo)',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {holiday}
+                  </span>
+                )}
                 {dayEvents.some((e) => unreadEventIds.has(e.id)) && (
                   <span style={{ fontSize: 7, fontWeight: 700, color: '#fff', background: '#E74C3C', borderRadius: 3, padding: '0 3px' }}>N</span>
                 )}

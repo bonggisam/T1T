@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  ChevronLeft, ChevronRight, Search, Printer, Share, List, BarChart3, Plus,
+  ChevronLeft, ChevronRight, Search, Printer, Share, List, BarChart3, Plus, ClipboardPaste,
   School as SchoolIcon, GraduationCap, Globe2,
 } from 'lucide-react';
 import { useCalendarStore } from '../../store/calendarStore';
@@ -15,6 +15,7 @@ import type { CalendarView, EventCategory, School } from '@shared/types';
 
 interface CalendarHeaderProps {
   onAddPersonalEvent?: () => void;
+  onPasteEvents?: () => void;
   onToggleSearch?: () => void;
   onPrint?: () => void;
   categoryFilter: EventCategory | 'all';
@@ -30,7 +31,7 @@ const CATEGORIES: { key: EventCategory | 'all'; label: string }[] = [
   { key: 'other', label: '기타' },
 ];
 
-export function CalendarHeader({ onAddPersonalEvent, onToggleSearch, onPrint, categoryFilter, setCategoryFilter }: CalendarHeaderProps) {
+export function CalendarHeader({ onAddPersonalEvent, onPasteEvents, onToggleSearch, onPrint, categoryFilter, setCategoryFilter }: CalendarHeaderProps) {
   const { currentMonth, view, setView, navigateMonth, setShowEventModal, setCurrentMonth, setSelectedDate } = useCalendarStore();
   const { user } = useAuthStore();
   const { viewingSchool, setViewingSchool } = useUIStore();
@@ -93,6 +94,16 @@ export function CalendarHeader({ onAddPersonalEvent, onToggleSearch, onPrint, ca
           오늘
         </button>
         <div style={styles.toolGroup}>
+          {onPasteEvents && (
+            <button
+              onClick={onPasteEvents}
+              style={styles.toolBtn}
+              aria-label="쪽지나 공문을 붙여 넣어 일정 만들기"
+              title="쪽지·공문을 붙여 넣어 일정 만들기 (달력에서 Ctrl+V)"
+            >
+              <ClipboardPaste size={14} strokeWidth={2.2} />
+            </button>
+          )}
           {onToggleSearch && (
             <button onClick={onToggleSearch} style={styles.toolBtn} aria-label="일정 검색" title="일정 검색">
               <Search size={14} strokeWidth={2.2} />

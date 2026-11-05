@@ -278,6 +278,11 @@ function createTray(): void {
   tray.on('click', () => toggleWindow());
 }
 
+/** 가리기 상태는 렌더러가 들고 있다. 창이 숨겨져 있어도 다음에 보일 때 가려져 있도록 신호만 보낸다. */
+function togglePersonalPrivacy(): void {
+  mainWindow?.webContents.send('privacy:toggle');
+}
+
 function updateTrayMenu(): void {
   if (!tray) return;
   const contextMenu = Menu.buildFromTemplate([
@@ -288,6 +293,10 @@ function updateTrayMenu(): void {
     {
       label: '창을 화면 안으로 가져오기',
       click: () => resetWindowPosition(),
+    },
+    {
+      label: '개인 일정 가리기/보이기 (Ctrl+Shift+H)',
+      click: () => togglePersonalPrivacy(),
     },
     {
       label: '항상 위',
@@ -1246,6 +1255,13 @@ app.whenReady().then(() => {
   });
   if (!clickThroughShortcutOk) {
     console.warn('[Shortcut] Failed to register Ctrl+Shift+X — may conflict with another app');
+  }
+
+  // Ctrl+Shift+H: 개인 일정 즉시 가리기/보이기. 발표나 수업 직전에 다른 프로그램을 쓰다가도 바로 눌러야 한다.
+  // 다른 프로그램이 먼저 잡고 있으면 제목 줄 눈 단추와 트레이 메뉴로 쓸 수 있다.
+  const privacyShortcutOk = globalShortcut.register('CommandOrControl+Shift+H', togglePersonalPrivacy);
+  if (!privacyShortcutOk) {
+    console.warn('[Shortcut] Failed to register Ctrl+Shift+H — may conflict with another app');
   }
 });
 

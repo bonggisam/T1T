@@ -10,10 +10,12 @@ import {
   describeWeather, gradePm10, gradePm25, worseGrade,
   readWeatherCache, isWeatherCacheFresh, loadWeather, WEATHER_REFRESH_MS, SCHOOL_LOCATION,
 } from '../../utils/weather';
-import { getTimedPeriods, getCurrentAndNext, formatClassLabel, formatMinutes } from '../../utils/classPeriods';
+import { getTimedPeriods, getCurrentAndNext, formatClassLabel, formatMinutes, isTimetableStale } from '../../utils/classPeriods';
 import { collectDDays, formatDDay } from '../../utils/dday';
+import { usePersonalHidden } from '../../store/privacyStore';
 
 const MAX_DDAY_CHIPS = 6;
+const NO_CUSTOM_DDAYS: never[] = [];
 
 /**
  * 오늘 화면 상단 위젯 — 날씨·미세먼지 / 지금·다음 수업 / D-Day.
@@ -114,6 +116,8 @@ function WeatherCard() {
 
 function NextClassCard() {
   const timetableData = useComciganStore((s) => s.timetableData);
+  const refreshing = useComciganStore((s) => s.loading);
+  const fetchTimetable = useComciganStore((s) => s.fetchTimetable);
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -124,6 +128,13 @@ function NextClassCard() {
   const periods = useMemo(() => getTimedPeriods(timetableData, now), [timetableData, now]);
   const { current, next, remaining } = getCurrentAndNext(periods, now);
   const nowMin = now.getHours() * 60 + now.getMinutes();
+
+  // 언제 받은 시간표인지 보여 준다. 오래되었으면 변경을 놓치고 있을 수 있다.
+  const checkedAt = timetableData ? new Date(timetableData.lastUpdated) : null;
+  const checkedLabel = checkedAt && !Number.isNaN(checkedAt.getTime())
+    ? format(checkedAt, checkedAt.toDateString() === now.toDateString() ? 'HH:mm' : 'M/d HH:mm')
+    : '알 수 없음';
+  const stale = !!timetableData && isTimetableStale(timetableData.lastUpdated, now);
 
   let body: React.ReactNode;
   if (periods.length === 0) {
@@ -160,8 +171,20 @@ function NextClassCard() {
     <div style={styles.card}>
       <div style={styles.cardHead}>
         <span style={styles.cardLabel}>내 수업 · {format(now, 'EEE요일', { locale: ko })}</span>
+        <button
+          onClick={() => { fetchTimetable(); }}
+          style={styles.iconBtn}
+          title="시간표 다시 확인"
+          aria-label="시간표 다시 확인"
+          disabled={refreshing}
+        >
+          <RefreshCw size={11} style={refreshing ? { animation: 'spin 1s linear infinite' } : undefined} />
+        </button>
       </div>
       {body}
+      <div style={{ ...styles.subRow, ...(stale ? styles.staleRow : {}) }}>
+        {stale ? `시간표를 확인하지 못했습니다 · ${checkedLabel} 기준` : `${checkedLabel} 확인`}
+      </div>
     </div>
   );
 }
@@ -169,13 +192,15 @@ function NextClassCard() {
 function DDayStrip() {
   const events = useVisibleEvents();
   const { customDDays, hiddenAutoDDays, addCustomDDay, removeCustomDDay, hideAutoDDay } = useWidgetStore();
+  // 직접 넣은 D-Day는 개인 내용이다. 학사일정에서 온 자동 D-Day만 남긴다.
+  const hidden = usePersonalHidden();
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
 
   const items = useMemo(
-    () => collectDDays(events, customDDays, hiddenAutoDDays).slice(0, MAX_DDAY_CHIPS),
-    [events, customDDays, hiddenAutoDDays],
+    () => collectDDays(events, hidden ? NO_CUSTOM_DDAYS : customDDays, hiddenAutoDDays).slice(0, MAX_DDAY_CHIPS),
+    [events, hidden, customDDays, hiddenAutoDDays],
   );
 
   const submit = () => {
@@ -186,7 +211,7 @@ function DDayStrip() {
 
   return (
     <div style={styles.ddayRow}>
-      {items.length === 0 && !adding && (
+      {items.length === 0 && (!adding || hidden) && (
         <span style={styles.muted}>다가오는 시험·방학 일정이 없어요</span>
       )}
       {items.map((d) => (
@@ -207,7 +232,7 @@ function DDayStrip() {
           </button>
         </span>
       ))}
-      {adding ? (
+      {hidden ? null : adding ? (
         <span style={styles.ddayForm}>
           <input
             autoFocus
@@ -301,6 +326,10 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 8,
     fontSize: 10,
     color: 'var(--text-secondary)',
+  },
+  staleRow: {
+    fontWeight: 600,
+    color: 'var(--danger, #EF4444)',
   },
   airBadge: {
     color: '#fff',

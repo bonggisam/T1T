@@ -13,14 +13,16 @@ import { EventLegend } from './EventLegend';
 import { SearchPanel } from './SearchPanel';
 import { PrintView } from './PrintView';
 import { PersonalEventDetail } from './PersonalEventDetail';
+import { PrivateContent } from '../common/PrivacyGuard';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import type { PersonalEvent } from '@shared/types';
 
 interface CalendarProps {
   onAddPersonalEvent?: () => void;
+  onPasteEvents?: () => void;
 }
 
-export function Calendar({ onAddPersonalEvent }: CalendarProps = {}) {
+export function Calendar({ onAddPersonalEvent, onPasteEvents }: CalendarProps = {}) {
   const { view } = useCalendarStore();
   const { categoryFilter, setCategoryFilter } = useUIStore();
   const [showSearch, setShowSearch] = useState(false);
@@ -41,6 +43,7 @@ export function Calendar({ onAddPersonalEvent }: CalendarProps = {}) {
     <div style={styles.container}>
       <CalendarHeader
         onAddPersonalEvent={onAddPersonalEvent}
+        onPasteEvents={onPasteEvents}
         onToggleSearch={() => setShowSearch(true)}
         onPrint={() => setShowPrint(true)}
         categoryFilter={categoryFilter}
@@ -58,7 +61,9 @@ export function Calendar({ onAddPersonalEvent }: CalendarProps = {}) {
       <EventLegend />
       {showSearch && <SearchPanel onClose={() => setShowSearch(false)} />}
       {selectedPersonal && (
-        <PersonalEventDetail event={selectedPersonal} onClose={() => setSelectedPersonal(null)} />
+        <PrivateContent>
+          <PersonalEventDetail event={selectedPersonal} onClose={() => setSelectedPersonal(null)} />
+        </PrivateContent>
       )}
     </div>
   );

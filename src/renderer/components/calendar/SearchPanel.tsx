@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useCalendarStore } from '../../store/calendarStore';
-import { usePersonalEventStore } from '../../store/personalEventStore';
+import { useVisiblePersonalEvents } from '../../hooks/useVisiblePersonalEvents';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { getSchoolTag, PERSONAL_SUFFIX } from '../../utils/calendarHelpers';
@@ -36,7 +36,7 @@ interface SearchPanelProps {
 export function SearchPanel({ onClose }: SearchPanelProps) {
   const { setSelectedDate, setView } = useCalendarStore();
   const events = useVisibleEvents();
-  const { personalEvents, externalEvents } = usePersonalEventStore();
+  const allPersonal = useVisiblePersonalEvents();
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -46,8 +46,6 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
 
   // ESC 키로 닫기 (캡처 우선)
   useEscapeKey(onClose);
-
-  const allPersonal = useMemo(() => [...personalEvents, ...externalEvents], [personalEvents, externalEvents]);
 
   const results = useMemo<SearchResult[]>(() => {
     const q = query.trim().toLowerCase();

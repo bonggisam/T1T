@@ -7,6 +7,8 @@ import { ko } from 'date-fns/locale';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
+import { useVisiblePersonalEvents } from '../../hooks/useVisiblePersonalEvents';
+import { getHoliday } from '../../utils/holidays';
 import { useComciganStore } from '../../store/comciganStore';
 import type { CalendarEvent, PersonalEvent, TeacherPeriod } from '@shared/types';
 import { showToast } from '../common/Toast';
@@ -44,8 +46,8 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
   const { selectedDate, setSelectedDate, setSelectedEvent, setShowEventDetail, setShowEventModal, updateEvent } = useCalendarStore();
   const events = useVisibleEvents();
   const { user } = useAuthStore();
-  const { allPersonalEvents, updatePersonalEvent } = usePersonalEventStore();
-  const personalEvents = allPersonalEvents();
+  const { updatePersonalEvent } = usePersonalEventStore();
+  const personalEvents = useVisiblePersonalEvents();
   const { getPeriodsForWeekday, timetableData, config: comciganConfig } = useComciganStore();
 
   const gridRef = useRef<HTMLDivElement>(null);
@@ -110,7 +112,10 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
   const comciganByDayHour = React.useMemo(() => {
     if (!isCurrentWeek || !comciganConfig || !timetableData) return new Map<string, TeacherPeriod[]>();
     const map = new Map<string, TeacherPeriod[]>();
+    const sunday = startOfWeek(new Date(), { weekStartsOn: 0 });
     for (const period of timetableData.teacherSchedule) {
+      // 공휴일에는 수업이 없다. weekday는 1=월이므로 일요일에서 그만큼 더하면 그 날짜다.
+      if (getHoliday(new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + period.weekday))) continue;
       const hour = period.startTime
         ? parseInt(period.startTime.split(':')[0], 10)
         : DEFAULT_PERIOD_START_HOURS[period.period] ?? -1;
@@ -281,14 +286,22 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
       {/* Day headers */}
       <div style={styles.headerRow}>
         <div style={styles.timeGutter}></div>
-        {days.map((day) => (
-          <div key={day.toISOString()} style={{ ...styles.dayHeader, ...(isToday(day) ? styles.todayHeader : {}) }}>
-            <span style={styles.dayName}>{format(day, 'EEE', { locale: ko })}</span>
-            <span style={{ ...styles.dayNum, ...(isToday(day) ? styles.todayNum : {}) }}>
-              {format(day, 'd')}
-            </span>
-          </div>
-        ))}
+        {days.map((day) => {
+          const holiday = getHoliday(day);
+          return (
+            <div key={day.toISOString()} style={{ ...styles.dayHeader, ...(isToday(day) ? styles.todayHeader : {}) }}>
+              <span style={styles.dayName}>{format(day, 'EEE', { locale: ko })}</span>
+              <span style={{
+                ...styles.dayNum,
+                ...(holiday ? { color: 'var(--weekend-text)' } : {}),
+                ...(isToday(day) ? styles.todayNum : {}),
+              }}>
+                {format(day, 'd')}
+              </span>
+              {holiday && <span style={styles.holidayName} title={holiday}>{holiday}</span>}
+            </div>
+          );
+        })}
       </div>
 
       {/* 종일 일정 — 시간 격자 밖에 두어 스크롤 위치와 상관없이 항상 보인다 */}
@@ -508,6 +521,7 @@ const styles: Record<string, React.CSSProperties> = {
   dayHeader: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 0', borderRight: '1px solid var(--grid-line)' },
   todayHeader: {},
   dayName: { fontSize: 10, color: 'var(--text-muted)' },
+  holidayName: { maxWidth: '100%', padding: '0 2px', fontSize: 9, fontWeight: 600, color: 'var(--weekend-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   dayNum: { fontSize: 14, fontWeight: 700, textShadow: 'var(--label-halo)' },
   todayNum: { background: 'var(--accent)', color: '#fff', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 },
   allDayRow: { display: 'grid', gridTemplateColumns: '40px repeat(7, 1fr)', gap: 1, borderBottom: '1px solid var(--grid-line)', flexShrink: 0, maxHeight: 84, overflowX: 'hidden', overflowY: 'auto' },

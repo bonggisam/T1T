@@ -6,6 +6,7 @@ import {
 import { ko } from 'date-fns/locale';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
+import { getHoliday } from '../../utils/holidays';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -79,15 +80,17 @@ export function YearView() {
                   const isCurrentMonth = isSameMonth(day, monthDate);
                   const today = isSameDay(day, new Date());
                   const hasEvt = hasEventOn(day);
+                  const holiday = getHoliday(day);
                   return (
                     <button
                       key={day.toISOString()}
-                      aria-label={format(day, 'yyyy년 M월 d일')}
+                      aria-label={`${format(day, 'yyyy년 M월 d일')}${holiday ? ` ${holiday}` : ''}`}
+                      title={holiday ?? undefined}
                       onClick={() => clickDay(day)}
                       style={{
                         ...styles.day,
                         color: !isCurrentMonth ? 'var(--text-muted)' :
-                               day.getDay() === 0 ? '#EF4444' :
+                               day.getDay() === 0 || holiday ? '#EF4444' :
                                day.getDay() === 6 ? '#3B82F6' : 'var(--text-primary)',
                         opacity: !isCurrentMonth ? 0.3 : 1,
                         background: today ? 'var(--accent)' : 'transparent',

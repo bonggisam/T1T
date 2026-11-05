@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useWidgetStore } from '../../store/widgetStore';
+import { useComciganStore } from '../../store/comciganStore';
 import { MIN_TRANSPARENCY, transparencyToOpacity } from '../../utils/windowOpacity';
 import { CalendarSyncSettings } from './CalendarSyncSettings';
 import { ComciganSettings } from './ComciganSettings';
@@ -45,6 +46,7 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
   const [saveMsg, setSaveMsg] = useState('');
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const hasTimetable = useComciganStore((s) => !!s.config && !!s.timetableData);
 
   useEffect(() => {
     window.electronAPI?.getAppVersion().then((v) => setAppVersion(v)).catch(() => {});
@@ -241,6 +243,23 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
         <Section title="🔔 알림 설정">
           <ToggleRow label="알림음" value={notifSound} onChange={setNotifSound} />
           <ToggleRow label="NEW 배지 표시" value={notifBadge} onChange={setNotifBadge} />
+        </Section>
+
+        {/* 수업 화면 보호 — 끄는 옵션 없이 항상 동작한다. 단축키는 잠시 숨기거나 보이게 할 뿐이다. */}
+        <Section title="🔒 수업 화면 보호">
+          <div style={styles.settingRow}>
+            <span style={styles.label}>가리기·보이기</span>
+            <kbd style={styles.shortcutKey}>Ctrl+Shift+H</kbd>
+          </div>
+          <p style={styles.privacyNote}>
+            내 수업 시간에는 시작 1분 전부터 끝날 때까지 개인 일정, 할 일, 직접 넣은 D-Day를 자동으로 가립니다.
+            이 동안 온 알림은 소리 없이 모았다가 가림이 풀리면 보여 줍니다.
+          </p>
+          {!hasTimetable && (
+            <p style={{ ...styles.privacyNote, color: 'var(--warning)' }}>
+              컴시간 시간표를 연결해야 자동으로 가립니다. 연결 전에는 단축키로만 가릴 수 있습니다.
+            </p>
+          )}
         </Section>
 
         {/* Today widgets — 이 PC에만 저장, 즉시 적용 */}
@@ -493,6 +512,21 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     fontWeight: 500,
     color: 'var(--text-primary)',
+  },
+  shortcutKey: {
+    fontSize: 11,
+    fontFamily: 'inherit',
+    padding: '1px 6px',
+    borderRadius: 4,
+    border: '1px solid var(--border-color)',
+    background: 'var(--bg-secondary)',
+    color: 'var(--text-primary)',
+  },
+  privacyNote: {
+    margin: 0,
+    fontSize: 11,
+    lineHeight: 1.5,
+    color: 'var(--text-muted)',
   },
   widgetSelect: {
     fontSize: 12,

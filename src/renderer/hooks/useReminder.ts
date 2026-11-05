@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
+import { format } from 'date-fns';
 import { useCalendarStore } from '../store/calendarStore';
 import { useAuthStore } from '../store/authStore';
+import { isPersonalHidden } from '../store/privacyStore';
 import { showToast } from '../components/common/Toast';
 import { playNotificationSound, showDesktopNotification } from '../utils/notifications';
 
@@ -57,7 +59,9 @@ export function useReminder() {
               ? `${Math.round(minutesBefore / 60)}시간`
               : `${minutesBefore}분`;
 
-          showToast(`⏰ ${timeLabel} 후: ${event.title}`, 'info');
+          // 가린 동안에는 화면에 띄우지 않는다. 알림은 나중에 보이므로 "N분 후" 대신 시작 시각으로 적는다.
+          const hidden = isPersonalHidden();
+          if (!hidden) showToast(`⏰ ${timeLabel} 후: ${event.title}`, 'info');
 
           if (user.settings?.notificationSound) {
             playNotificationSound();
@@ -65,7 +69,9 @@ export function useReminder() {
 
           showDesktopNotification(
             `⏰ 일정 알림`,
-            `${timeLabel} 후 "${event.title}" 시작`,
+            hidden
+              ? `${format(new Date(start), 'M/d HH:mm')} "${event.title}" 시작`
+              : `${timeLabel} 후 "${event.title}" 시작`,
           );
         }
       }

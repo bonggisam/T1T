@@ -221,6 +221,7 @@ export interface ElectronAPI {
   onClickThroughChanged: (callback: (enabled: boolean) => void) => () => void;
   /** 절전 복귀나 화면 잠금 해제 때 호출 */
   onSystemWoke: (callback: () => void) => () => void;
+  onPrivacyToggle: (callback: () => void) => () => void;
   setTrayBadge: (hasBadge: boolean) => Promise<void>;
   // Auto-updater
   updaterDownload: () => Promise<void>;

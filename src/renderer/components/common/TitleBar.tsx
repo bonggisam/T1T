@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   Calendar, CheckSquare, Building2, UtensilsCrossed, BookOpen,
-  Bell, Users, Settings, Sun, Moon, Pin, Minus, X,
+  Bell, Users, Settings, Sun, Moon, Pin, Minus, X, Eye, EyeOff,
   GraduationCap, School as SchoolIcon, Pencil, LogOut, CalendarDays, Phone, BookMarked,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/notificationStore';
 import { useComciganStore } from '../../store/comciganStore';
+import { usePersonalHidden, usePrivacyStore } from '../../store/privacyStore';
 import { useUIStore } from '../../store/uiStore';
 import { useDarkMode } from '../../hooks/useDarkMode';
 import { useHorizontalScroll } from '../../hooks/useHorizontalScroll';
@@ -92,8 +93,8 @@ export function TitleBar({
           <Calendar size={12} strokeWidth={2.2} style={{ marginRight: 3, verticalAlign: '-1px', color: 'var(--accent)' }} />
           T1T
         </button>
-        {/* 중앙: 기능 아이콘 */}
-        <div style={styles.widgetCenter}>
+        {/* 중앙: 기능 아이콘. 창이 좁으면 휠로 가로 스크롤한다 */}
+        <div ref={centerScrollRef} style={styles.widgetCenter}>
           {user && onToggleTodos && (
             <IconBtn Icon={CheckSquare} active={showTodos} onClick={onToggleTodos} title={showTodos ? '캘린더로' : '할 일'} compact />
           )}
@@ -138,10 +139,13 @@ export function TitleBar({
           )}
           <IconBtn Icon={BookOpen} active={showTimetable} onClick={toggleTimetable} title={showTimetable ? '시간표 숨기기' : '시간표 보기'} compact />
         </div>
-        {/* 우측: 편집 버튼 */}
-        <button onClick={handleToggleWidget} style={styles.editBtn} title="편집 모드 (Ctrl+Shift+C)">
-          <Pencil size={12} strokeWidth={2} style={{ marginRight: 4, verticalAlign: '-2px' }} />편집
-        </button>
+        {/* 우측: 개인 일정 가리기, 편집 버튼 */}
+        <div style={styles.widgetRight}>
+          {showSettingsBtn && user && <PrivacyToggle compact />}
+          <button onClick={handleToggleWidget} style={styles.editBtn} title="편집 모드 (Ctrl+Shift+C)">
+            <Pencil size={12} strokeWidth={2} style={{ marginRight: 4, verticalAlign: '-2px' }} />편집
+          </button>
+        </div>
       </div>
     );
   }
@@ -253,6 +257,7 @@ export function TitleBar({
 
       {/* 우측: 창 제어 */}
       <div style={styles.right}>
+        {showSettingsBtn && user && <PrivacyToggle />}
         <IconBtn Icon={Pin} onClick={handleToggleWidget} title="위젯 모드 (바탕 고정)" accent />
         <IconBtn Icon={Minus} onClick={() => window.electronAPI?.minimize()} title="최소화" />
         <button
@@ -308,6 +313,21 @@ function WidgetSchoolToggle({
     >
       {currentLabel}
     </button>
+  );
+}
+
+// 개인 일정 가리기. 스크롤되는 가운데 묶음 밖에 두어 창이 좁아도 항상 보인다.
+function PrivacyToggle({ compact }: { compact?: boolean }) {
+  const hidden = usePersonalHidden();
+  const toggle = usePrivacyStore((s) => s.toggle);
+  return (
+    <IconBtn
+      Icon={hidden ? EyeOff : Eye}
+      active={hidden}
+      onClick={toggle}
+      title={hidden ? '개인 일정 보이기 (Ctrl+Shift+H)' : '개인 일정 가리기 (Ctrl+Shift+H)'}
+      compact={compact}
+    />
   );
 }
 
@@ -373,7 +393,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   widgetBar: {
     display: 'grid',
-    gridTemplateColumns: '1fr auto 1fr',
+    gridTemplateColumns: 'auto minmax(0, 1fr) auto',
+    gap: 4,
     alignItems: 'center',
     padding: '6px 12px',
     flexShrink: 0,
@@ -382,11 +403,20 @@ const styles: Record<string, React.CSSProperties> = {
     borderBottom: '1px solid var(--grid-line)',
     background: 'rgba(128,128,128,0.08)',
   },
+  widgetRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+    justifySelf: 'end',
+  },
   widgetCenter: {
     display: 'flex',
     alignItems: 'center',
     gap: 2,
     justifySelf: 'center',
+    maxWidth: '100%',
+    overflowX: 'auto',
+    scrollbarWidth: 'none',
   },
   widgetTitle: {
     fontSize: 11,
@@ -484,6 +514,7 @@ const styles: Record<string, React.CSSProperties> = {
     height: 30,
   },
   iconBtnCompact: {
+    flexShrink: 0,
     background: 'transparent',
     border: 'none',
     cursor: 'pointer',
@@ -518,12 +549,14 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
     border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
     cursor: 'pointer',
-    padding: '5px 14px',
+    padding: '5px 10px',
     borderRadius: 8,
     fontSize: 13,
     fontWeight: 600,
     color: 'var(--accent)',
     justifySelf: 'end',
+    flexShrink: 0,
+    whiteSpace: 'nowrap',
   },
   closeBtn: {
     color: 'var(--danger)',

@@ -2,7 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isToday, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useCalendarStore } from '../../store/calendarStore';
-import { usePersonalEventStore } from '../../store/personalEventStore';
+import { useVisiblePersonalEvents } from '../../hooks/useVisiblePersonalEvents';
+import { getHoliday } from '../../utils/holidays';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { getCreatorTag, PERSONAL_SUFFIX } from '../../utils/calendarHelpers';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
@@ -24,10 +25,8 @@ interface PrintViewProps {
 export function PrintView({ onClose }: PrintViewProps) {
   const { currentMonth } = useCalendarStore();
   const events = useVisibleEvents();
-  const { personalEvents, externalEvents } = usePersonalEventStore();
+  const allPersonal = useVisiblePersonalEvents();
   const printRef = useRef<HTMLDivElement>(null);
-
-  const allPersonal = [...personalEvents, ...externalEvents];
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -135,10 +134,11 @@ export function PrintView({ onClose }: PrintViewProps) {
                     >
                       <div style={{
                         ...styles.dayNumber,
-                        color: di === 0 ? '#E74C3C' : di === 6 ? '#3498DB' : '#333',
+                        color: di === 0 || getHoliday(day) ? '#E74C3C' : di === 6 ? '#3498DB' : '#333',
                         fontWeight: today ? 800 : 500,
                       }}>
                         {format(day, 'd')}
+                        {getHoliday(day) && <span style={{ marginLeft: 4, fontSize: '0.8em', fontWeight: 500 }}>{getHoliday(day)}</span>}
                       </div>
                       {dayEvents.slice(0, 4).map((e) => (
                         <div key={e.id} style={styles.eventDot}>

@@ -8,6 +8,7 @@ import {
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { db } from './firebase';
+import { isPersonalHidden } from '../store/privacyStore';
 import type { NotificationType, School } from '@shared/types';
 
 /**
@@ -95,8 +96,10 @@ export async function notifyUser(
 /**
  * Play notification sound using Web Audio API.
  * Generates a pleasant two-tone chime — no external mp3 needed.
+ * 개인 일정을 가린 동안(수업 중, 발표 중)에는 교실 스피커로 나가지 않게 울리지 않는다.
  */
 export function playNotificationSound(): void {
+  if (isPersonalHidden()) return;
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     const now = ctx.currentTime;
@@ -119,10 +122,31 @@ export function playNotificationSound(): void {
   }
 }
 
+/** 가린 동안 온 알림. 프로젝터에 비치지 않게 모아 두었다가 가림이 풀리면 한 번에 보여 준다. */
+const deferredNotifications: Array<{ title: string; body: string }> = [];
+const MAX_SUMMARY_LINES = 4;
+
+export function flushDeferredNotifications(): void {
+  if (deferredNotifications.length === 0) return;
+  const items = deferredNotifications.splice(0);
+  if (items.length === 1) {
+    showDesktopNotification(items[0].title, items[0].body);
+    return;
+  }
+  const lines = items.slice(0, MAX_SUMMARY_LINES).map((item) => `${item.title}: ${item.body}`);
+  if (items.length > MAX_SUMMARY_LINES) lines.push(`외 ${items.length - MAX_SUMMARY_LINES}건`);
+  showDesktopNotification(`수업 중 온 알림 ${items.length}건`, lines.join('\n'));
+}
+
 /**
  * Show desktop notification (works in Electron)
+ * @param options.immediate 가린 동안에도 바로 띄운다. 곧 시작하는 수업 알림처럼 미루면 소용없는 것만 쓴다.
  */
-export function showDesktopNotification(title: string, body: string): void {
+export function showDesktopNotification(title: string, body: string, options?: { immediate?: boolean }): void {
+  if (!options?.immediate && isPersonalHidden()) {
+    deferredNotifications.push({ title, body });
+    return;
+  }
   // OS 알림은 막힐 수 있다: 서명 안 된 Mac 앱(Electron 42+), 방해 금지, 발표 중. 실패하면 앱 안에 표시한다.
   const fallback = () => {
     import('../components/common/Toast')

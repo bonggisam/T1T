@@ -26,6 +26,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('system:woke', listener);
     return () => ipcRenderer.removeListener('system:woke', listener);
   },
+  onPrivacyToggle: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('privacy:toggle', listener);
+    return () => ipcRenderer.removeListener('privacy:toggle', listener);
+  },
   onClickThroughChanged: (callback: (enabled: boolean) => void) => {
     const listener = (_event: any, enabled: boolean) => callback(enabled);
     ipcRenderer.on('click-through-changed', listener);

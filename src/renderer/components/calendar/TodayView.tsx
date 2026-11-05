@@ -3,7 +3,8 @@ import { format, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
-import { usePersonalEventStore } from '../../store/personalEventStore';
+import { useVisiblePersonalEvents } from '../../hooks/useVisiblePersonalEvents';
+import { getHoliday } from '../../utils/holidays';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { useTimelineScroll } from '../../hooks/useTimelineScroll';
 import type { PersonalEvent, CalendarEvent, User } from '@shared/types';
@@ -30,8 +31,7 @@ export function TodayView({ onAddPersonalEvent, onPersonalClick }: TodayViewProp
   const { setSelectedEvent, setShowEventDetail, setShowEventModal, setSelectedDate } = useCalendarStore();
   const { user } = useAuthStore();
   const events = useVisibleEvents();
-  const { allPersonalEvents } = usePersonalEventStore();
-  const personalEvents = allPersonalEvents();
+  const personalEvents = useVisiblePersonalEvents();
 
   const [days, setDays] = useState(1);
 
@@ -87,8 +87,9 @@ export function TodayView({ onAddPersonalEvent, onPersonalClick }: TodayViewProp
     return n;
   }, [dayEventsMap]);
 
+  const todayHoliday = days === 1 ? getHoliday(rangeStart) : null;
   const rangeLabel = days === 1
-    ? format(rangeStart, 'M월 d일 (EEE)', { locale: ko })
+    ? `${format(rangeStart, 'M월 d일 (EEE)', { locale: ko })}${todayHoliday ? ` ${todayHoliday}` : ''}`
     : `${format(rangeStart, 'M/d')} – ${format(dateRange[dateRange.length - 1], 'M/d')}`;
 
   return (
@@ -234,7 +235,7 @@ function DayTimeline({
   // 컴시간 시간표 (월=1...금=5)
   const { getPeriodsForWeekday, timetableData, config: comciganConfig } = useComciganStore();
   const dayWeekday = date.getDay() === 0 ? 7 : date.getDay();
-  const periodsForDay = (comciganConfig && timetableData && dayWeekday >= 1 && dayWeekday <= 5)
+  const periodsForDay = (comciganConfig && timetableData && dayWeekday >= 1 && dayWeekday <= 5 && !getHoliday(date))
     ? getPeriodsForWeekday(dayWeekday)
     : [];
 
@@ -630,13 +631,15 @@ const timelineStyles: Record<string, React.CSSProperties> = {
 
 function DateHeader({ date, count }: { date: Date; count: number }) {
   const today = isSameDay(date, new Date());
+  const holiday = getHoliday(date);
   return (
     <div style={styles.dateHeader}>
       <span style={{
         ...styles.dateHeaderMain,
-        color: today ? 'var(--accent)' : 'var(--text-primary)',
+        color: today ? 'var(--accent)' : holiday ? 'var(--weekend-text)' : 'var(--text-primary)',
       }}>
         {format(date, 'M/d (EEE)', { locale: ko })}
+        {holiday && ` ${holiday}`}
         {today && <span style={styles.todayBadge}>오늘</span>}
       </span>
       <span style={styles.dateHeaderCount}>{count}건</span>

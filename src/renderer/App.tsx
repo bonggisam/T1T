@@ -14,6 +14,9 @@ import { NotificationPanel } from './components/notifications/NotificationPanel'
 import { SettingsPanel } from './components/settings/SettingsPanel';
 import { AdminPanel } from './components/admin/AdminPanel';
 import { PersonalEventModal } from './components/calendar/PersonalEventModal';
+import { PasteEventsModal } from './components/calendar/PasteEventsModal';
+import { PrivacyBanner, PrivateContent, PrivateNotice } from './components/common/PrivacyGuard';
+import { TimetableChangeBanner } from './components/common/TimetableChangeBanner';
 import { TPassView } from './components/tpass/TPassView';
 import { OutingView } from './components/outing/OutingView';
 import { TodosView } from './components/todos/TodosView';
@@ -27,6 +30,9 @@ import { useUsersStore } from './store/usersStore';
 import { useUIStore } from './store/uiStore';
 import { useReminder } from './hooks/useReminder';
 import { useClassReminder } from './hooks/useClassReminder';
+import { useClassPrivacy } from './hooks/useClassPrivacy';
+import { isPersonalHidden } from './store/privacyStore';
+import { parseEventDrafts } from './utils/pasteEventParser';
 import { ScheduleView } from './components/schedule/ScheduleView';
 import { KeyphoneView } from './components/keyphone/KeyphoneView';
 import { LibraryView } from './components/library/LibraryView';
@@ -51,6 +57,8 @@ export function App() {
   type Tab = null | 'settings' | 'admin' | 'tpass' | 'outing' | 'todos' | 'reserv' | 'meal' | 'schedule' | 'keyphone' | 'library';
   const [activeTab, setActiveTab] = useState<Tab>(null);
   const [showPersonalModal, setShowPersonalModal] = useState(false);
+  // 붙여 넣기 창에 넣을 글. null이면 닫힘
+  const [pasteText, setPasteText] = useState<string | null>(null);
   const showSettings = activeTab === 'settings';
   const showAdmin = activeTab === 'admin';
   const showTPass = activeTab === 'tpass';
@@ -68,11 +76,40 @@ export function App() {
   // 일정 알림 리마인더
   useReminder();
   useClassReminder();
+  // 내 수업 시간에 개인 일정 자동 가리기, 단축키 처리
+  useClassPrivacy();
 
   useEffect(() => {
     const unsub = initialize();
     return unsub;
   }, [initialize]);
+
+  // 달력을 보는 중에 Ctrl+V를 누르면 붙여 넣기 창을 연다. 입력칸과 다른 창에서는 건드리지 않는다.
+  const canPasteEvents = user?.status === 'active' && activeTab === null;
+  useEffect(() => {
+    if (!canPasteEvents) return;
+    const onPaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      const calendar = useCalendarStore.getState();
+      if (calendar.showEventModal || calendar.showEventDetail || document.querySelector('[role="dialog"]')) return;
+      const text = e.clipboardData?.getData('text/plain') ?? '';
+      if (!text.trim()) return;
+      e.preventDefault();
+      if (isPersonalHidden()) {
+        showToast('개인 일정을 가린 동안에는 붙여 넣기를 열지 않습니다');
+        return;
+      }
+      const classTimes = useComciganStore.getState().timetableData?.classTimes ?? [];
+      if (parseEventDrafts(text, new Date(), classTimes).length === 0) {
+        showToast('붙여 넣은 글에서 날짜를 찾지 못했습니다');
+        return;
+      }
+      setPasteText(text);
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [canPasteEvents]);
 
   // 업데이트 후 첫 실행 감지 — 사용자에게 명확한 확인 토스트
   useEffect(() => {
@@ -350,6 +387,15 @@ export function App() {
     useCalendarStore.getState().setSelectedDate(new Date());
   }
 
+  // 개인 일정을 쓰는 창은 가린 동안 열지 않는다. 열려 있어도 표시되지 않아 눌러도 반응이 없어 보이기 때문이다.
+  function openPrivateForm(open: () => void) {
+    if (isPersonalHidden()) {
+      showToast('개인 일정을 가린 동안에는 열 수 없습니다. 위쪽의 "지금 보기"를 눌러 주세요');
+      return;
+    }
+    open();
+  }
+
   // 제목 줄 테마 버튼 — 바로 바꾸고 settings.theme에 저장. 저장에 실패하면 스토어가 되돌아가며 화면도 따라간다.
   function handleToggleTheme() {
     const next = theme === 'dark' ? 'light' : 'dark';
@@ -401,6 +447,8 @@ export function App() {
           오프라인 모드 — 캐시된 일정을 표시 중
         </div>
       )}
+      <PrivacyBanner />
+      <TimetableChangeBanner />
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         <ErrorBoundary key={activeTab || 'calendar'}>
           {showAdmin ? (
@@ -410,7 +458,9 @@ export function App() {
           ) : showOuting ? (
             <OutingView onBack={() => setActiveTab(null)} />
           ) : showTodos ? (
-            <TodosView onBack={() => setActiveTab(null)} />
+            <PrivateContent fallback={<PrivateNotice>할 일은 개인 내용이라 가렸습니다</PrivateNotice>}>
+              <TodosView onBack={() => setActiveTab(null)} />
+            </PrivateContent>
           ) : showReserv ? (
             <ReservView onBack={() => setActiveTab(null)} />
           ) : showMeal ? (
@@ -422,7 +472,11 @@ export function App() {
           ) : showLibrary ? (
             <LibraryView onBack={() => setActiveTab(null)} />
           ) : (
-            <Calendar key={dayKey} onAddPersonalEvent={() => setShowPersonalModal(true)} />
+            <Calendar
+              key={dayKey}
+              onAddPersonalEvent={() => openPrivateForm(() => setShowPersonalModal(true))}
+              onPasteEvents={() => openPrivateForm(() => setPasteText(''))}
+            />
           )}
         </ErrorBoundary>
         {/* 설정은 모달 오버레이로 표시 — 메인 콘텐츠를 가리지 않음 */}
@@ -433,7 +487,17 @@ export function App() {
         {showEventModal && <EventModal />}
         {showEventDetail && <EventDetail />}
         {showNotifications && <NotificationPanel />}
-        {showPersonalModal && <PersonalEventModal onClose={() => setShowPersonalModal(false)} />}
+        {/* 쓰는 중에 수업이 시작되면 글을 잃지 않고 표시만 끈다 */}
+        {showPersonalModal && (
+          <PrivateContent>
+            <PersonalEventModal onClose={() => setShowPersonalModal(false)} />
+          </PrivateContent>
+        )}
+        {pasteText !== null && (
+          <PrivateContent>
+            <PasteEventsModal initialText={pasteText} onClose={() => setPasteText(null)} />
+          </PrivateContent>
+        )}
       </div>
       <ToastContainer />
       <ResizeHandles />

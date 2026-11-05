@@ -4,6 +4,8 @@ import { ko } from 'date-fns/locale';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
+import { useVisiblePersonalEvents } from '../../hooks/useVisiblePersonalEvents';
+import { getHoliday } from '../../utils/holidays';
 import type { PersonalEvent } from '@shared/types';
 import { showToast } from '../common/Toast';
 import { formatEventTooltip, formatPersonalTooltip, getCreatorTag, canManageEvent, PERSONAL_SUFFIX, getPersonalEventDisplayColor } from '../../utils/calendarHelpers';
@@ -42,8 +44,8 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
   const events = useVisibleEvents();
   const { getPeriodsForWeekday, timetableData, config: comciganConfig } = useComciganStore();
   const { user } = useAuthStore();
-  const { allPersonalEvents, updatePersonalEvent, addPersonalEvent } = usePersonalEventStore();
-  const personalEvents = allPersonalEvents();
+  const { updatePersonalEvent, addPersonalEvent } = usePersonalEventStore();
+  const personalEvents = useVisiblePersonalEvents();
 
   const gridRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragInfo | null>(null);
@@ -127,7 +129,8 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
   // 컴시간 시간표 — 선택된 날짜의 요일 시간표 (월=1...금=5)
   const DEFAULT_PERIOD_START_HOURS: Record<number, number> = { 1: 9, 2: 10, 3: 11, 4: 12, 5: 13, 6: 14, 7: 15, 8: 16 };
   const dayWeekday = selectedDate.getDay() === 0 ? 7 : selectedDate.getDay();
-  const periodsForDay = (comciganConfig && timetableData && dayWeekday >= 1 && dayWeekday <= 5)
+  const holiday = getHoliday(selectedDate);
+  const periodsForDay = (comciganConfig && timetableData && dayWeekday >= 1 && dayWeekday <= 5 && !holiday)
     ? getPeriodsForWeekday(dayWeekday)
     : [];
   const periodsByHour = new Map<number, typeof periodsForDay>();
@@ -293,7 +296,10 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
   return (
     <div style={styles.container}>
       <div style={styles.dayLabel}>
-        {format(selectedDate, 'yyyy년 M월 d일 (EEEE)', { locale: ko })}
+        <span style={holiday ? { color: 'var(--weekend-text)' } : undefined}>
+          {format(selectedDate, 'yyyy년 M월 d일 (EEEE)', { locale: ko })}
+          {holiday && ` · ${holiday}`}
+        </span>
       </div>
 
       {allDayEvents.length + allDayPersonal.length > 0 && (
@@ -395,7 +401,7 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
                   const isOwner = canManageEvent(event, user);
                   const weekday = new Date(event.startDate).getDay();
                   const weekdayMon1 = weekday === 0 ? 7 : weekday;
-                  const periods = weekdayMon1 >= 1 && weekdayMon1 <= 5 ? getPeriodsForWeekday(weekdayMon1) : [];
+                  const periods = weekdayMon1 >= 1 && weekdayMon1 <= 5 && !holiday ? getPeriodsForWeekday(weekdayMon1) : [];
                   const overlaps = hasTimetableOverlap(event, periods);
                   return (
                     <div key={event.id}
