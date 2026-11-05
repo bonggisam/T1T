@@ -66,12 +66,21 @@ export interface FinderCell {
   state: FinderCellState;
 }
 
+export interface FinderSuggestion {
+  cell: FinderCell;
+  row: FinderRow;
+  /** 공강 말고 맞지 않는 조건. 화면에 그대로 보여 준다 */
+  misses: string[];
+}
+
 export interface FinderDay {
   date: Date;
   dateStr: string;
   /** 쉬는 날이면 그 이름 */
   offReason: string | null;
   allDayTitles: string[];
+  /** 그 시간을 묶는 종일 일정. 마감과 공지는 빠진다 */
+  blockingAllDayTitles: string[];
 }
 
 export interface FinderWeek {
@@ -87,6 +96,14 @@ const AFTER_SCHOOL_LENGTH_MIN = 60;
 const NON_BLOCKING_CATEGORIES = new Set(['deadline', 'notice']);
 /** 관리자가 공유 일정으로 올리는 임시 휴일 */
 const DAY_OFF_RE = /재량\s*휴업|휴업일|임시\s*휴일|개교\s*기념일|방학/;
+
+/** 추천 기준. 앞쪽일수록 먼저 따진다 */
+export const FINDER_CONDITIONS = ['모두 공강', '공유 일정 없음', '종일 일정 없는 날', '수업 시간 안', '연속 공강'] as const;
+export const SUGGESTION_LIMIT = 5;
+/** 조건이 같으면 여러 날에 고르게 고른다 */
+const MAX_SUGGESTIONS_PER_DAY = 2;
+/** 이 안에서 이어지면 연속 공강으로 친다. 점심시간은 넘지 않는다 */
+const CONTINUOUS_GAP_MIN = 15;
 
 const koCompare = (a: string, b: string) => a.localeCompare(b, 'ko');
 
@@ -233,7 +250,13 @@ export function computeFinderWeek({ monday, rows, people, grids, events, now }: 
     const allDay = today.filter((e) => e.allDay);
     const offEvent = allDay.find((e) => DAY_OFF_RE.test(e.title));
     const offReason = getHoliday(date) ?? offEvent?.title ?? null;
-    days.push({ date, dateStr, offReason, allDayTitles: allDay.map((e) => e.title) });
+    days.push({
+      date,
+      dateStr,
+      offReason,
+      allDayTitles: allDay.map((e) => e.title),
+      blockingAllDayTitles: allDay.filter((e) => !NON_BLOCKING_CATEGORIES.has(e.category)).map((e) => e.title),
+    });
 
     const timed = today.filter((e) => !e.allDay && !NON_BLOCKING_CATEGORIES.has(e.category));
     for (const row of rows) {
@@ -265,4 +288,79 @@ export function computeFinderWeek({ monday, rows, people, grids, events, now }: 
   }
   free.sort((a, b) => a.start.getTime() - b.start.getTime());
   return { days, cells, free };
+}
+
+function firstWithMore(titles: string[]): string {
+  return titles.length > 1 ? `${titles[0]} 외 ${titles.length - 1}건` : titles[0];
+}
+
+/**
+ * 고른 요일에서 공강 추천을 고른다. FINDER_CONDITIONS 순서로 따지고, 같으면 빠른 시간을 앞에 둔다.
+ * 모두 되는 시간이 모자라면 가장 많이 되는 시간으로 채운다. 아무도 되지 않는 칸은 넣지 않는다.
+ * 수업 중인 사람은 인원수만 쓴다. 누구인지는 넘기지 않는다.
+ */
+export function suggestSlots(
+  week: FinderWeek,
+  rows: FinderRow[],
+  weekdays: ReadonlySet<number>,
+  limit: number = SUGGESTION_LIMIT,
+): FinderSuggestion[] {
+  const ranked: Array<FinderSuggestion & { order: number[] }> = [];
+  week.days.forEach((day, dayIndex) => {
+    if (!weekdays.has(dayIndex + 1)) return;
+    rows.forEach((row, rowIndex) => {
+      const cell = week.cells[cellKey(day.dateStr, row.key)];
+      if (!cell || cell.state === 'past' || cell.state === 'off' || cell.busy >= cell.total) return;
+      const isFree = (other?: FinderRow) => !!other && week.cells[cellKey(day.dateStr, other.key)]?.state === 'free';
+      const before = rows[rowIndex - 1];
+      const after = rows[rowIndex + 1];
+      const continuous = cell.busy === 0 && (
+        (isFree(before) && row.startMin - before.endMin <= CONTINUOUS_GAP_MIN)
+        || (isFree(after) && after.startMin - row.endMin <= CONTINUOUS_GAP_MIN)
+      );
+      const misses: string[] = [];
+      if (cell.conflicts.length > 0) misses.push(`일정 겹침: ${firstWithMore(cell.conflicts.map((c) => c.title))}`);
+      if (day.blockingAllDayTitles.length > 0) misses.push(`종일 일정: ${firstWithMore(day.blockingAllDayTitles)}`);
+      if (row.kind === 'after') misses.push('방과후');
+      if (!continuous) misses.push('연속 공강 아님');
+      ranked.push({
+        cell,
+        row,
+        misses,
+        order: [
+          cell.busy,
+          Number(cell.conflicts.length > 0),
+          Number(day.blockingAllDayTitles.length > 0),
+          Number(row.kind === 'after'),
+          Number(!continuous),
+          cell.start.getTime(),
+        ],
+      });
+    });
+  });
+  ranked.sort((a, b) => {
+    const at = a.order.findIndex((value, i) => value !== b.order[i]);
+    return at < 0 ? 0 : a.order[at] - b.order[at];
+  });
+
+  // 수업 인원과 일정 겹침이 같은 칸끼리는 한 날에 몰리지 않게 고른다
+  const picked: FinderSuggestion[] = [];
+  const perDay = new Map<string, number>();
+  for (let i = 0; i < ranked.length && picked.length < limit;) {
+    let end = i;
+    while (end < ranked.length && ranked[end].order[0] === ranked[i].order[0] && ranked[end].order[1] === ranked[i].order[1]) end++;
+    const held: FinderSuggestion[] = [];
+    for (const item of ranked.slice(i, end)) {
+      const count = perDay.get(item.cell.date) ?? 0;
+      if (count < MAX_SUGGESTIONS_PER_DAY) {
+        picked.push(item);
+        perDay.set(item.cell.date, count + 1);
+      } else {
+        held.push(item);
+      }
+    }
+    picked.push(...held);
+    i = end;
+  }
+  return picked.slice(0, limit).map(({ cell, row, misses }) => ({ cell, row, misses }));
 }

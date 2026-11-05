@@ -11,7 +11,7 @@ import { useCalendarStore } from '../../store/calendarStore';
 import { gridTargets, LINK_SCHOOLS, useComciganLinksStore } from '../../store/comciganLinksStore';
 import { useComciganStore } from '../../store/comciganStore';
 import {
-  buildFinderRows, buildPeople, cellKey, computeFinderWeek, matchesFilter, subjectOptions,
+  buildFinderRows, buildPeople, cellKey, computeFinderWeek, FINDER_CONDITIONS, matchesFilter, subjectOptions, suggestSlots,
   type FinderCell, type FinderPerson, type FinderRow,
 } from '../../utils/meetingFinder';
 
@@ -23,6 +23,7 @@ import {
 const GROUPS_KEY = 't1t-meeting-groups';
 const NAMES_IN_DESCRIPTION = 30;
 const SCHOOL_SHORT: Record<School, string> = { taeseong_middle: '중', taeseong_high: '고' };
+const WEEKDAYS = ['월', '화', '수', '목', '금'];
 
 interface SavedGroup {
   name: string;
@@ -77,10 +78,10 @@ function describeCell(cell: FinderCell): string {
   return `대상 ${cell.total}명 모두 수업이 없습니다.`;
 }
 
-/** 회의 시간 찾기: 고른 교사들이 모두 수업이 없는 교시를 주간 격자로 보여 준다 */
+/** 회의 시간 찾기: 회원과 요일을 고르면 공강을 추천한다. 모든 칸은 주간 격자로도 볼 수 있다 */
 export function MeetingFinderView({ onBack }: { onBack: () => void }) {
   const user = useAuthStore((s) => s.user);
-  // 공유 일정만 쓴다. 이 값에는 내 감독·당직 차례도 들어 있지 않다.
+  // 공유 일정만 쓴다. 이 값에는 내 시험감독 차례도 들어 있지 않다.
   const events = useCalendarStore((s) => s.events);
   const openEventDraft = useCalendarStore((s) => s.openEventDraft);
   const links = useComciganLinksStore((s) => s.links);
@@ -103,6 +104,8 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pickedCell, setPickedCell] = useState<string | null>(null);
+  const [weekdays, setWeekdays] = useState<Set<number>>(() => new Set([1, 2, 3, 4, 5]));
+  const [showGrid, setShowGrid] = useState(false);
   const [showPeople, setShowPeople] = useState(true);
   const [groups, setGroups] = useState<SavedGroup[]>(readGroups);
   const [groupName, setGroupName] = useState('');
@@ -121,13 +124,14 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
   const availableSchools = LINK_SCHOOLS.filter((s) => grids[s]);
   // 고른 학교의 시간표를 받지 못했으면 받은 학교를 모두 보여 준다. 목록이 빈 채 멈추지 않게 한다.
   const school = pickedSchool && grids[pickedSchool] ? pickedSchool : null;
+  // 가입해 시간표가 연결된 회원만 고른다. 그 학교 연결표가 아직 없으면 컴시간 표기로 고를 수 있게 둔다.
+  const hasMembers = useMemo(() => people.some((p) => p.userId && matchesFilter(p, { school })), [people, school]);
   const filtered = useMemo(
-    () => people.filter((p) => matchesFilter(p, { school, grade, subject, query })),
-    [people, school, grade, subject, query],
+    () => people.filter((p) => (!hasMembers || p.userId) && matchesFilter(p, { school, grade, subject, query })),
+    [people, hasMembers, school, grade, subject, query],
   );
   const chosen = useMemo(() => people.filter((p) => selected.has(p.key)), [people, selected]);
   const subjects = useMemo(() => subjectOptions(people, school), [people, school]);
-  const hasUnlinked = people.some((p) => !p.userId);
 
   // 처음에는 나를 대상에 넣어 둔다
   const myKey = user ? `u:${user.id}` : null;
@@ -157,6 +161,11 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
     return computeFinderWeek({ monday, rows, people: chosen, grids, events, now });
   }, [monday, rows, chosen, grids, events, now]);
 
+  const suggestions = useMemo(
+    () => (week && rows ? suggestSlots(week, rows, weekdays) : []),
+    [week, rows, weekdays],
+  );
+
   const picked = week && pickedCell ? week.cells[pickedCell] ?? null : null;
   const pickedRow = picked && rows ? rows.find((r) => r.key === picked.rowKey) ?? null : null;
   const pickedDay = picked && week ? week.days.find((d) => d.dateStr === picked.date) ?? null : null;
@@ -169,6 +178,24 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
       return next;
     });
     setPickedCell(null);
+  }
+
+  function toggleWeekday(day: number) {
+    setWeekdays((current) => {
+      const next = new Set(current);
+      if (next.has(day)) next.delete(day);
+      else next.add(day);
+      return next;
+    });
+    setPickedCell(null);
+  }
+
+  /** 고를 수 없는 요일이면 그 까닭을 돌려준다 */
+  function closedReason(index: number): string | null {
+    const day = week?.days[index];
+    if (!week || !day || !rows) return null;
+    if (day.offReason) return day.offReason;
+    return rows.every((r) => week.cells[cellKey(day.dateStr, r.key)]?.state === 'past') ? '지난 날' : null;
   }
 
   function selectAllFiltered() {
@@ -219,6 +246,19 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
 
   const noSource = linksLoaded && gridTargets(links, ownConfig).length === 0;
 
+  const pickedLines = picked && pickedDay && (
+    <>
+      <p style={styles.detailLine}>{describeCell(picked)}</p>
+      {picked.conflicts.length > 0 && (
+        <p style={styles.detailLine}>겹치는 공유 일정: {picked.conflicts.map((c) => c.title).join(', ')}</p>
+      )}
+      {pickedDay.allDayTitles.length > 0 && (
+        <p style={styles.detailLine}>그날 종일 일정: {pickedDay.allDayTitles.join(', ')}</p>
+      )}
+      <button type="button" style={styles.primaryBtn} onClick={() => createEvent(picked)}>이 시간으로 공유 일정 만들기</button>
+    </>
+  );
+
   const peoplePanel = (
     <section style={wide ? styles.peopleWide : styles.people} aria-label="회의 대상">
       <div style={styles.filterRow}>
@@ -264,6 +304,11 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
           <PersonRow key={person.key} person={person} checked={selected.has(person.key)} onToggle={togglePerson} />
         ))}
       </div>
+      {!wide && (
+        <button type="button" style={styles.foldDone} disabled={selected.size === 0} onClick={() => setShowPeople(false)}>
+          {selected.size}명으로 공강 찾기
+        </button>
+      )}
       <div style={styles.groupRow}>
         {groups.length > 0 && (
           <select value="" onChange={(e) => loadGroup(e.target.value)} style={styles.select} aria-label="저장한 묶음 불러오기">
@@ -335,7 +380,7 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
           )}
           {(wide || showPeople) && peoplePanel}
 
-          <section style={wide ? styles.gridPaneWide : styles.gridPane} aria-label="주간 격자">
+          <section style={wide ? styles.gridPaneWide : styles.gridPane} aria-label="공강 찾기">
             <div style={styles.weekNav}>
               <button
                 type="button"
@@ -358,26 +403,86 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
               >
                 <ChevronRight size={15} />
               </button>
-              {week && (
-                <span style={styles.summary}>
-                  {week.free.length > 0 ? (
-                    <>
-                      모두 되는 칸 {week.free.length}개 ·{' '}
-                      <button type="button" style={styles.linkBtn} onClick={() => setPickedCell(week.free[0].key)}>
-                        가장 빠른 때 {format(week.free[0].start, 'M/d(EEE) HH:mm', { locale: ko })}
-                      </button>
-                    </>
-                  ) : '이번 주에는 모두 되는 칸이 없습니다'}
-                </span>
-              )}
+              <div className="seg" role="group" aria-label="요일" style={styles.weekdays}>
+                {WEEKDAYS.map((label, index) => {
+                  const closed = closedReason(index);
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      aria-pressed={!closed && weekdays.has(index + 1)}
+                      disabled={!!closed}
+                      title={`${format(addDays(monday, index), 'M월 d일')} ${label}요일${closed ? ` (${closed})` : ''}`}
+                      style={closed ? styles.weekdayClosed : undefined}
+                      onClick={() => toggleWeekday(index + 1)}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {!rows ? (
               <p style={styles.note}>시정표를 받지 못해 칸을 만들 수 없습니다. 시간표를 다시 받아 주세요.</p>
             ) : chosen.length === 0 ? (
-              <p style={styles.hint}>대상을 고르면 모두 수업이 없는 교시를 보여 드립니다.</p>
+              <p style={styles.hint}>회원을 고르면 공강을 찾아 드립니다.</p>
             ) : week && (
               <>
+                <div style={styles.suggestHead}>
+                  <strong style={styles.suggestTitle}>추천 공강{suggestions.length > 0 ? ` ${suggestions.length}곳` : ''}</strong>
+                  <button type="button" style={styles.linkBtn} aria-expanded={showGrid} onClick={() => setShowGrid((v) => !v)}>
+                    {showGrid ? '전체 표 접기' : '전체 표 보기'}
+                  </button>
+                </div>
+                {suggestions.length === 0 ? (
+                  <p style={styles.hint}>
+                    {weekdays.size === 0 ? '요일을 하나 이상 골라 주세요.' : '고른 요일에는 공강이 없습니다. 다른 요일이나 다음 주를 골라 보세요.'}
+                  </p>
+                ) : (
+                  <>
+                    {suggestions[0].cell.busy > 0 && (
+                      <p style={styles.warn}>고른 요일에는 모두 되는 시간이 없어 가장 많이 되는 시간을 보여 드립니다.</p>
+                    )}
+                    <ol style={styles.slotList}>
+                      {suggestions.map(({ cell, row, misses }, index) => {
+                        const open = pickedCell === cell.key;
+                        return (
+                          <li key={cell.key} style={styles.slot}>
+                            <button
+                              type="button"
+                              style={styles.slotBtn}
+                              aria-expanded={open}
+                              onClick={() => setPickedCell(open ? null : cell.key)}
+                            >
+                              <b style={styles.slotRank}>{index + 1}</b>
+                              <span style={styles.slotMain}>
+                                <strong style={styles.slotTime}>
+                                  {format(cell.start, 'M/d(EEE)', { locale: ko })} {row.label}{' '}
+                                  <span style={styles.slotClock}>{format(cell.start, 'HH:mm')}~{format(cell.end, 'HH:mm')}</span>
+                                </strong>
+                                <small style={styles.slotNote}>
+                                  {misses.length > 0 ? misses.join(' · ') : `${FINDER_CONDITIONS.length}가지 조건 모두 맞음`}
+                                </small>
+                              </span>
+                              <span style={cell.busy > 0 ? styles.slotBusy : styles.slotFree}>
+                                {cell.busy > 0 ? `${cell.busy}명 수업` : cell.total > 1 ? '모두 공강' : '공강'}
+                              </span>
+                            </button>
+                            {open && <div style={styles.slotDetail} aria-live="polite">{pickedLines}</div>}
+                          </li>
+                        );
+                      })}
+                    </ol>
+                    <p style={styles.note}>추천 기준 (앞쪽 우선): {FINDER_CONDITIONS.join(', ')}</p>
+                  </>
+                )}
+
+                {showGrid && (
+                  <>
+                    <span style={styles.summary}>
+                      {week.free.length > 0 ? `모두 되는 칸 ${week.free.length}개` : '이번 주에는 모두 되는 칸이 없습니다'}
+                    </span>
                 <div style={styles.gridScroll}>
                   <div style={styles.grid} role="table" aria-label="교시별 가능 여부">
                     <div style={styles.corner} />
@@ -420,27 +525,24 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
                   </div>
                 </div>
 
-                {picked && pickedRow && pickedDay && (
+                {picked && pickedRow && !suggestions.some((s) => s.cell.key === picked.key) && (
                   <div style={styles.detail} aria-live="polite">
                     <strong style={styles.detailTitle}>
                       {format(picked.start, 'M월 d일 (EEE)', { locale: ko })} {pickedRow.label} {format(picked.start, 'HH:mm')}~{format(picked.end, 'HH:mm')}
                     </strong>
-                    <p style={styles.detailLine}>{describeCell(picked)}</p>
-                    {picked.conflicts.length > 0 && (
-                      <p style={styles.detailLine}>겹치는 공유 일정: {picked.conflicts.map((c) => c.title).join(', ')}</p>
-                    )}
-                    {pickedDay.allDayTitles.length > 0 && (
-                      <p style={styles.detailLine}>그날 종일 일정: {pickedDay.allDayTitles.join(', ')}</p>
-                    )}
-                    <button type="button" style={styles.primaryBtn} onClick={() => createEvent(picked)}>이 시간으로 공유 일정 만들기</button>
+                    {pickedLines}
                   </div>
+                )}
+                  </>
                 )}
               </>
             )}
 
             <div style={styles.notes}>
               {linksDenied && <p style={styles.warn}>연결표를 읽지 못해 컴시간 표기로 보여 드립니다. 서버 규칙 적용 여부를 관리자에게 확인해 주세요.</p>}
-              {!linksDenied && hasUnlinked && <p style={styles.note}>이름 대신 두 글자로 보이는 분은 아직 계정과 연결되지 않은 컴시간 표기입니다.</p>}
+              {!linksDenied && (hasMembers
+                ? <p style={styles.note}>가입해 시간표가 연결된 회원만 보입니다.</p>
+                : <p style={styles.note}>아직 계정과 연결되지 않아 컴시간 표기로 보입니다. 관리자 &gt; 컴시간 연결에서 저장하면 회원 이름으로 나옵니다.</p>)}
               {gridError && people.length > 0 && (
                 <p style={styles.warn}>{gridError} <ComciganCallButton style={{ marginLeft: 4 }} /></p>
               )}
@@ -459,7 +561,7 @@ function PersonRow({ person, checked, onToggle }: { person: FinderPerson; checke
   const subjects = [...new Set(person.labels.flatMap((l) => l.subjects))].slice(0, 3).join(', ');
   const schools = person.labels.map((l) => SCHOOL_SHORT[l.school]).join('·');
   return (
-    <label style={styles.person}>
+    <label style={checked ? styles.personOn : styles.person}>
       <input type="checkbox" checked={checked} onChange={() => onToggle(person.key)} />
       <span style={styles.personName}>{person.name}</span>
       <small style={styles.personMeta}>{schools}{subjects ? ` · ${subjects}` : ''}</small>
@@ -615,7 +717,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
   },
   list: {
-    maxHeight: 176,
+    maxHeight: 132,
     overflowY: 'auto',
     border: '1px solid var(--border-subtle)',
     borderRadius: 8,
@@ -637,6 +739,16 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 6,
     cursor: 'pointer',
     fontSize: 'var(--fs-body)',
+  },
+  personOn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '3px 6px',
+    borderRadius: 6,
+    cursor: 'pointer',
+    fontSize: 'var(--fs-body)',
+    background: 'var(--accent-soft)',
   },
   personName: {
     fontWeight: 600,
@@ -692,8 +804,118 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-primary)',
     fontVariantNumeric: 'tabular-nums',
   },
+  weekdays: {
+    marginLeft: 'auto',
+  },
+  weekdayClosed: {
+    opacity: 0.35,
+    cursor: 'default',
+    textDecoration: 'line-through',
+  },
+  foldDone: {
+    padding: '5px 10px',
+    border: 'none',
+    borderRadius: 7,
+    background: 'var(--accent)',
+    color: 'var(--on-accent)',
+    fontFamily: 'inherit',
+    fontSize: 'var(--fs-body)',
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  suggestHead: {
+    display: 'flex',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  suggestTitle: {
+    fontSize: 'var(--fs-control)',
+    color: 'var(--text-primary)',
+  },
+  slotList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+    margin: 0,
+    padding: 0,
+    listStyle: 'none',
+  },
+  slot: {
+    border: '1px solid var(--border-subtle)',
+    borderRadius: 8,
+    background: 'var(--bg-secondary)',
+    overflow: 'hidden',
+  },
+  slotBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    width: '100%',
+    padding: '6px 10px',
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--text-primary)',
+    fontFamily: 'inherit',
+    textAlign: 'left',
+    cursor: 'pointer',
+  },
+  slotRank: {
+    flexShrink: 0,
+    width: 18,
+    fontSize: 'var(--fs-control)',
+    color: 'var(--accent)',
+    textAlign: 'center',
+  },
+  slotMain: {
+    flex: 1,
+    minWidth: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 1,
+  },
+  slotTime: {
+    fontSize: 'var(--fs-body)',
+    color: 'var(--text-primary)',
+  },
+  slotClock: {
+    fontWeight: 500,
+    color: 'var(--text-secondary)',
+    fontVariantNumeric: 'tabular-nums',
+  },
+  slotNote: {
+    fontSize: 'var(--fs-label)',
+    lineHeight: 1.3,
+    color: 'var(--text-muted)',
+  },
+  slotFree: {
+    flexShrink: 0,
+    padding: '1px 6px',
+    borderRadius: 6,
+    background: 'var(--success-soft)',
+    color: 'var(--text-primary)',
+    fontSize: 'var(--fs-label)',
+    fontWeight: 700,
+    whiteSpace: 'nowrap',
+  },
+  slotBusy: {
+    flexShrink: 0,
+    padding: '1px 6px',
+    borderRadius: 6,
+    background: 'color-mix(in srgb, var(--warning) 22%, transparent)',
+    color: 'var(--text-primary)',
+    fontSize: 'var(--fs-label)',
+    fontWeight: 700,
+    whiteSpace: 'nowrap',
+  },
+  slotDetail: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 3,
+    padding: '0 10px 8px 36px',
+  },
   summary: {
-    marginLeft: 8,
     fontSize: 'var(--fs-label)',
     color: 'var(--text-secondary)',
   },
