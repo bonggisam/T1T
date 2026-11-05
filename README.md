@@ -56,7 +56,11 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=...
 VITE_FIREBASE_APP_ID=...
 GOOGLE_CLIENT_ID=...        # Google Calendar OAuth (선택)
 GOOGLE_REDIRECT_URI=...     # OAuth 콜백 URL (선택)
+VITE_TPASS_URL="..."        # TPass 페이지 주소 (비우면 안내 화면 표시)
+VITE_OUTING_URL="..."       # 외출 신청 기본 주소 (비우면 안내 화면 표시)
 ```
+
+`.env` 값은 커밋되지 않지만 빌드하면 설치 파일에 들어갑니다. 설치 파일은 풀어서 읽을 수 있으므로 비밀번호 같은 비밀값은 `.env`로 주입하지 마세요.
 
 ## 📜 라이선스
 

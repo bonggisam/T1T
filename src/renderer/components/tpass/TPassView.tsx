@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-const TPASS_URL = 'https://script.google.com/macros/s/AKfycbzAkY37jTDVAeUfmPtA9uMjyle0pAH3_vFyqTal7RbF0dX_-ATYuALGEWH0O1NWdjT3/exec';
+// 주소는 빌드 시 .env의 VITE_TPASS_URL에서 주입한다. 저장소에는 값을 두지 않는다.
+// 주입된 값은 설치 파일에서 꺼낼 수 있으므로, 실제 접근 통제는 Apps Script 쪽 권한으로 한다.
+const TPASS_URL = import.meta.env.VITE_TPASS_URL || '';
 
 interface TPassViewProps {
   onBack: () => void;
@@ -31,33 +33,6 @@ export function TPassView({ onBack }: TPassViewProps) {
     webview.addEventListener('did-stop-loading', onStopLoad);
     webview.addEventListener('did-fail-load', onFailLoad);
 
-    // 페이지 로드 완료 후 자동 로그인 — main 프로세스에서 iframe 내부에 직접 주입
-    // (TPass는 Google Apps Script로, 실제 폼은 sandbox iframe 내부에 있어
-    //  webview.executeJavaScript로는 접근 불가 — IPC로 main 프로세스가 처리)
-    const onDomReady = () => {
-      try {
-        const id = (webview as any).getWebContentsId();
-        if (typeof id !== 'number') {
-          console.warn('[TPass] webContentsId not available');
-          return;
-        }
-        // iframe 로드 + Apps Script 초기화 시간 확보 → 약간 대기 후 호출
-        // (main 프로세스 내부에도 12회 재시도 폴링 있음)
-        setTimeout(() => {
-          window.electronAPI?.tpassAutoLogin(id).then((res) => {
-            if (!res?.ok) {
-              console.warn('[TPass] auto-login result:', res);
-            } else {
-              console.log('[TPass] auto-login OK (attempt', res.attempt, ')');
-            }
-          }).catch((e) => console.warn('[TPass] auto-login error:', e));
-        }, 800);
-      } catch (e) {
-        console.warn('[TPass] dom-ready handler error:', e);
-      }
-    };
-    webview.addEventListener('dom-ready', onDomReady);
-
     container.appendChild(webview);
     webviewRef.current = webview;
 
@@ -66,7 +41,6 @@ export function TPassView({ onBack }: TPassViewProps) {
       webview.removeEventListener('did-start-loading', onStartLoad);
       webview.removeEventListener('did-stop-loading', onStopLoad);
       webview.removeEventListener('did-fail-load', onFailLoad);
-      webview.removeEventListener('dom-ready', onDomReady);
       if (webview.parentNode) webview.parentNode.removeChild(webview);
       webviewRef.current = null;
     };
@@ -94,12 +68,18 @@ export function TPassView({ onBack }: TPassViewProps) {
           🔄
         </button>
       </div>
-      {loading && (
+      {TPASS_URL && loading && (
         <div style={styles.loadingBar}>
           <div style={styles.loadingProgress} />
         </div>
       )}
-      <div ref={webviewContainerRef} style={styles.webviewContainer} />
+      {TPASS_URL ? (
+        <div ref={webviewContainerRef} style={styles.webviewContainer} />
+      ) : (
+        <div style={styles.emptyState}>
+          이 버전에는 TPass 주소가 설정되어 있지 않습니다. 관리자에게 문의해 주세요.
+        </div>
+      )}
     </div>
   );
 }
@@ -161,5 +141,15 @@ const styles: Record<string, React.CSSProperties> = {
   webviewContainer: {
     flex: 1,
     overflow: 'hidden',
+  },
+  emptyState: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    fontSize: 13,
+    color: 'var(--text-muted)',
+    textAlign: 'center',
   },
 };

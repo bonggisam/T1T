@@ -2,16 +2,21 @@ import React, { useState, useRef, useEffect } from 'react';
 
 /**
  * 학생 외출 신청 현황 뷰 — webview 기반.
- * 기본 URL은 TPass와 동일하나 localStorage 'tonet-outing-url' 로 학교별 외출 신청 페이지로 변경 가능.
- * 설정 → 외출 신청 URL 항목에서 변경 (또는 콘솔에서 localStorage.setItem('tonet-outing-url', '...') )
+ * 기본 URL은 빌드 시 .env의 VITE_OUTING_URL에서 주입한다. 저장소에는 값을 두지 않는다.
+ * 주입된 값은 설치 파일에서 꺼낼 수 있으므로, 실제 접근 통제는 문서의 공유 권한으로 한다.
+ * 화면의 ⚙️ 설정에서 기기별 URL로 바꿀 수 있다 (localStorage 'tonet-outing-url').
  */
-const DEFAULT_OUTING_URL = 'https://docs.google.com/spreadsheets/d/1nDKEyspMHUHglbCZECpm_1_GAwzMSm7bXC2jM5KPRYY/edit?gid=721661329#gid=721661329';
+const DEFAULT_OUTING_URL = import.meta.env.VITE_OUTING_URL || '';
 const STORAGE_KEY = 'tonet-outing-url';
 
-function getOutingUrl(): string {
+function getSavedOutingUrl(): string {
   try {
-    return localStorage.getItem(STORAGE_KEY) || DEFAULT_OUTING_URL;
-  } catch { return DEFAULT_OUTING_URL; }
+    return localStorage.getItem(STORAGE_KEY) || '';
+  } catch { return ''; }
+}
+
+function getOutingUrl(): string {
+  return getSavedOutingUrl() || DEFAULT_OUTING_URL;
 }
 
 function saveOutingUrl(url: string): void {
@@ -71,7 +76,8 @@ export function OutingView({ onBack }: OutingViewProps) {
   }
 
   function openSettings() {
-    setDraftUrl(url);
+    // 기본 주소는 화면에 드러내지 않고, 사용자가 직접 저장한 주소만 채운다.
+    setDraftUrl(getSavedOutingUrl());
     setShowSettings(true);
   }
 
@@ -105,12 +111,19 @@ export function OutingView({ onBack }: OutingViewProps) {
           🔄
         </button>
       </div>
-      {loading && (
+      {url && loading && (
         <div style={styles.loadingBar}>
           <div style={styles.loadingProgress} />
         </div>
       )}
-      <div ref={webviewContainerRef} style={styles.webviewContainer} />
+      {url ? (
+        <div ref={webviewContainerRef} style={styles.webviewContainer} />
+      ) : (
+        <div style={styles.emptyState}>
+          <span>외출 신청 URL이 설정되어 있지 않습니다.</span>
+          <button onClick={openSettings} style={styles.saveBtn}>URL 설정</button>
+        </div>
+      )}
 
       {/* URL 설정 모달 */}
       {showSettings && (
@@ -118,13 +131,13 @@ export function OutingView({ onBack }: OutingViewProps) {
           <div className="glass-solid" style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <h3 style={styles.modalTitle}>외출 신청 URL 설정</h3>
             <p style={styles.modalDesc}>
-              학교에서 사용하는 외출 신청 시스템 URL을 입력하세요. 비워두면 기본값 사용.
+              학교에서 사용하는 외출 신청 시스템 URL을 입력하세요.{DEFAULT_OUTING_URL && ' 비워두면 기본값 사용.'}
             </p>
             <input
               type="url"
               value={draftUrl}
               onChange={(e) => setDraftUrl(e.target.value)}
-              placeholder={DEFAULT_OUTING_URL}
+              placeholder="https://"
               style={styles.input}
               autoFocus
             />
@@ -163,6 +176,10 @@ const styles: Record<string, React.CSSProperties> = {
     animation: 'tpass-loading 1.2s ease-in-out infinite', borderRadius: 2,
   },
   webviewContainer: { flex: 1, overflow: 'hidden' },
+  emptyState: {
+    flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+    gap: 12, padding: 24, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center',
+  },
   modalOverlay: {
     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
     display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
