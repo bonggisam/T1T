@@ -5,8 +5,9 @@ import { useCalendarStore } from '../../store/calendarStore';
 
 /**
  * 제목 줄의 날짜 이동. 보기에 맞는 단위로 움직인다: 주 화면은 한 주, 일 화면은 하루, 나머지는 한 달.
+ * compact면 날짜를 줄이고 연도와 오늘 단추를 뺀다. dayYear는 날짜가 긴 일 화면에 연도를 넣을 자리가 있는지다.
  */
-export function CalendarNav({ compact }: { compact?: boolean }) {
+export function CalendarNav({ compact, dayYear }: { compact?: boolean; dayYear?: boolean }) {
   const {
     view, currentMonth, selectedDate,
     navigateMonth, setCurrentMonth, setSelectedDate,
@@ -34,6 +35,10 @@ export function CalendarNav({ compact }: { compact?: boolean }) {
 
   const base = view === 'week' || view === 'day' ? selectedDate : currentMonth;
   const unit = view === 'week' ? '주' : view === 'day' ? '일' : view === 'year' ? '해' : '달';
+  const labelFormat = view === 'year'
+    ? (compact ? 'yyyy' : 'yyyy년')
+    : view === 'day' ? (compact ? 'M.d' : 'M월 d일') : 'M월';
+  const showYear = !compact && view !== 'year' && (view !== 'day' || dayYear);
 
   return (
     <div style={styles.nav}>
@@ -41,8 +46,8 @@ export function CalendarNav({ compact }: { compact?: boolean }) {
         <ChevronLeft size={16} strokeWidth={2.4} />
       </button>
       <strong style={styles.label} aria-live="polite">
-        {view === 'year' ? format(base, 'yyyy년') : view === 'day' ? format(base, 'M월 d일') : format(base, 'M월')}
-        {view !== 'year' && !compact && <small style={styles.year}>{format(base, 'yyyy')}</small>}
+        {format(base, labelFormat)}
+        {showYear && <small style={styles.year}>{format(base, 'yyyy')}</small>}
       </strong>
       <button onClick={() => step(1)} style={styles.arrow} aria-label={`다음 ${unit}`} title={`다음 ${unit}`}>
         <ChevronRight size={16} strokeWidth={2.4} />

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Bell, Calendar, CheckSquare, Eye, EyeOff, LayoutGrid, Minus, Pencil, Phone, Pin, Search, Settings,
+  Bell, Calendar, CheckSquare, DoorOpen, Eye, EyeOff, LayoutGrid, Minus, Pencil, Phone, Pin, Search, Settings,
   UtensilsCrossed, X,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
@@ -12,8 +12,22 @@ import { useWindowSize, WIDE_MIN } from '../../hooks/useWindowSize';
 import { CalendarNav } from '../calendar/CalendarNav';
 import { ToolMenu, type ToolTab } from './ToolMenu';
 
-/** 이보다 좁으면 제목 줄의 글자를 줄여 단추가 밀려나지 않게 한다 */
-const COMPACT_MAX = 400;
+/*
+ * 제목 줄에 글자와 단추를 얼마나 넣을지 정하는 폭. 보기마다 실제 화면을 재서 정했다.
+ * 편집 모드는 고정, 최소화, 종료 단추가 편집 단추보다 넓어 그만큼 덜 남고,
+ * 달력 화면이 아니면 날짜 이동이 없어 그만큼 더 남는다.
+ */
+const EDIT_BUTTONS_EXTRA = 31;
+const NAV_WIDTH = 160;
+/** 일 보기는 날짜가 길어 이보다 좁으면 연도를 뺀다 */
+const DAY_YEAR_MIN = 448;
+/** 이보다 좁으면 T1T 글자를 뺀다 */
+const WORDMARK_MIN = 416;
+/** 이보다 좁으면 날짜를 줄이고 오늘과 편집 글자를 뺀다 */
+const COMPACT_MAX = 388;
+/** 이보다 좁으면 달력 이동과 겹치므로 외출은 도구 모음에서만 연다 */
+const OUTING_MIN_WIDGET = 295;
+const OUTING_MIN_EDIT = 350;
 const TOOL_MENU_WIDTH = 300;
 
 interface TitleBarProps {
@@ -33,8 +47,8 @@ interface TitleBarProps {
 }
 
 /**
- * 제목 줄. 날짜 이동, 개인 일정 가리기, 알림, 도구 모음을 한 줄에 둔다.
- * 알림은 창이 좁아도 항상 보이고, 나머지 도구는 이름이 붙은 도구 모음 안에 있다.
+ * 제목 줄. 날짜 이동, 외출, 개인 일정 가리기, 알림, 도구 모음을 한 줄에 둔다.
+ * 외출과 알림은 창이 좁아도 보이고, 나머지 도구는 이름이 붙은 도구 모음 안에 있다.
  */
 export function TitleBar({
   onToggleSettings, onToggleAdmin, showSettingsBtn, showAdminBtn,
@@ -48,9 +62,11 @@ export function TitleBar({
   const { width } = useWindowSize();
   const menu = usePopover();
   const signedIn = showSettingsBtn && !!user;
-  const compact = width < COMPACT_MAX;
-  const wide = width >= WIDE_MIN;
   const calendarVisible = signedIn && activeTab === null;
+  const room = width - (widgetMode ? 0 : EDIT_BUTTONS_EXTRA) + (calendarVisible ? 0 : NAV_WIDTH);
+  const compact = room < COMPACT_MAX;
+  const wide = width >= WIDE_MIN;
+  const showOuting = width >= (widgetMode ? OUTING_MIN_WIDGET : OUTING_MIN_EDIT);
 
   useEffect(() => {
     window.electronAPI?.getWidgetMode().then((v) => setWidgetMode(v)).catch(() => {});
@@ -71,10 +87,10 @@ export function TitleBar({
       <div className="titlebar" style={styles.bar}>
         <button onClick={onGoHome} style={styles.home} title="메인 달력으로" aria-label="메인 달력">
           <Calendar size={16} strokeWidth={2.2} color="var(--accent)" />
-          {!compact && <span style={styles.title}>T1T</span>}
+          {room >= WORDMARK_MIN && <span style={styles.title}>T1T</span>}
         </button>
 
-        {calendarVisible && <CalendarNav compact={compact} />}
+        {calendarVisible && <CalendarNav compact={compact} dayYear={room >= DAY_YEAR_MIN} />}
 
         <span style={styles.spacer} />
 
@@ -83,6 +99,15 @@ export function TitleBar({
             <IconBtn Icon={CheckSquare} active={activeTab === 'todos'} onClick={() => onOpenTab('todos')} title="할 일" />
             <IconBtn Icon={UtensilsCrossed} active={activeTab === 'meal'} onClick={() => onOpenTab('meal')} title="급식" />
             <IconBtn Icon={Phone} active={activeTab === 'keyphone'} onClick={() => onOpenTab('keyphone')} title="키폰" />
+          </>
+        )}
+
+        {signedIn && showOuting && onOpenTab && (
+          <IconBtn Icon={DoorOpen} active={activeTab === 'outing'} onClick={() => onOpenTab('outing')} title="외출" />
+        )}
+
+        {signedIn && wide && onOpenTab && (
+          <>
             <span style={styles.separator} />
             <IconBtn
               Icon={Search}
