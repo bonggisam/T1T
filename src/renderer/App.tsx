@@ -405,22 +405,10 @@ export function App() {
         onToggleAdmin={() => toggle('admin')}
         showSettingsBtn={true}
         showAdminBtn={isAdmin}
-        onToggleTPass={() => toggle('tpass')}
-        showTPass={showTPass}
-        onToggleOuting={() => toggle('outing')}
-        showOuting={showOuting}
-        onToggleTodos={() => toggle('todos')}
-        showTodos={showTodos}
-        onToggleReserv={() => toggle('reserv')}
-        showReserv={showReserv}
-        onToggleMeal={() => toggle('meal')}
-        showMeal={showMeal}
-        onToggleSchedule={() => toggle('schedule')}
-        showSchedule={showSchedule}
-        onToggleKeyphone={() => toggle('keyphone')}
-        showKeyphone={showKeyphone}
-        onToggleLibrary={() => toggle('library')}
-        showLibrary={showLibrary}
+        activeTab={activeTab}
+        onOpenTab={toggle}
+        onOpenCalendar={() => setActiveTab(null)}
+        onPasteEvents={() => openPrivateForm(() => { setActiveTab(null); setPasteText(''); })}
         theme={theme}
         onToggleTheme={handleToggleTheme}
         onGoHome={goHome}
@@ -467,7 +455,6 @@ export function App() {
             <Calendar
               key={dayKey}
               onAddPersonalEvent={() => openPrivateForm(() => setShowPersonalModal(true))}
-              onPasteEvents={() => openPrivateForm(() => setPasteText(''))}
             />
           )}
         </ErrorBoundary>

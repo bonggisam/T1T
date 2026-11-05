@@ -104,6 +104,15 @@
   --tint-neutral-mid: rgba(128, 128, 128, 0.08);
   --tint-neutral-strong: rgba(128, 128, 128, 0.1);
 
+  /* 일정 칩: 학교별 띠색과 글자색. 대비는 시안에서 맑은 바탕과 사진 바탕으로 확인한 값이다 */
+  --chip-tint: 15%;
+  --fam-mid: #0E9F6E;
+  --fam-mid-ink: #065F46;
+  --fam-high: #7C3AED;
+  --fam-high-ink: #4C1D95;
+  --fam-all: #2563EB;
+  --fam-all-ink: #1E3A8A;
+
   /* 글자 크기 */
   --fs-micro: 8px;
   --fs-tiny: 9px;
@@ -148,6 +157,13 @@
   --focus-ring: 0 0 0 3px rgba(91, 141, 255, 0.28);
   --label-halo: 0 0 5px rgba(0, 0, 0, 0.6);
   --plate-rgb: 17 19 24;
+  --chip-tint: 24%;
+  --fam-mid: #34D399;
+  --fam-mid-ink: #A7F3D0;
+  --fam-high: #A78BFA;
+  --fam-high-ink: #DDD6FE;
+  --fam-all: #60A5FA;
+  --fam-all-ink: #BFDBFE;
   --school-middle-ink: #34D399;
   --school-high-ink: #C4B5FD;
   --school-middle-tint: rgba(52, 211, 153, 0.18);
@@ -215,16 +231,6 @@ html, body, #root {
   box-shadow: 0 8px 32px var(--shadow-color);
 }
 
-/* 가로 스크롤 줄 — 끝이 잘려 보이면 페이드로 "더 있음"을 알림 */
-.scroll-fade-x {
-  scrollbar-width: none;
-  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
-  mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
-}
-.scroll-fade-x::-webkit-scrollbar {
-  display: none;
-}
-
 /* Title bar drag region */
 .titlebar {
   -webkit-app-region: drag;
@@ -236,6 +242,118 @@ html, body, #root {
 .glass:hover .titlebar {
   opacity: 1 !important;
 }
+
+/* 일정 칩 — 연한 바탕과 왼쪽 띠. 색은 --c-base, --c-ink로 받는다 */
+.ev {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin: 0 2px;
+  padding: 0 5px 0 7px;
+  overflow: hidden;
+  border: none;
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: var(--schedule-font-size);
+  font-weight: 600;
+  line-height: 1.45;
+  white-space: nowrap;
+  text-align: left;
+  background: color-mix(in oklab, var(--c-base) var(--chip-tint), transparent);
+  color: var(--c-ink);
+  box-shadow: inset 3px 0 0 var(--c-base);
+}
+.ev:hover { background: color-mix(in oklab, var(--c-base) calc(var(--chip-tint) + 8%), transparent); }
+.ev.dragging { opacity: 0.4; }
+.ev .ltr { flex: none; font-size: 0.85em; font-weight: 800; opacity: 0.9; }
+.ev .tm { flex: none; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ev .tt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* 지난주나 다음 주로 이어지는 쪽은 모서리를 닫지 않아 막대가 이어져 보인다 */
+.ev.cl { margin-left: 0; padding-left: 5px; border-top-left-radius: 0; border-bottom-left-radius: 0; box-shadow: none; }
+.ev.cr { margin-right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+
+/* 좁은 창의 월 칸 색 막대 */
+.bar { pointer-events: none; align-self: center; height: 3.5px; margin: 0 5px; border-radius: 2px; background: var(--c-base); }
+.bar.cl { margin-left: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.bar.cr { margin-right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+/* 개인 일정은 속이 빈 막대로 구분한다 */
+.bar.lock { background: transparent; box-shadow: inset 0 0 0 1px var(--c-base); }
+
+/* 월 칸 */
+.cal-cell { position: relative; border: none; padding: 0; background: transparent; cursor: pointer; }
+.cal-cell:not(:first-child) { box-shadow: inset 1px 0 0 var(--border-subtle); }
+.cal-cell.weekend { background: var(--tint-neutral); }
+.cal-cell.holiday { background: color-mix(in srgb, var(--weekend-text) 7%, transparent); }
+.cal-cell:hover { background: var(--bg-hover); }
+.cal-cell.selected { background: var(--accent-soft); }
+.cal-cell.drop { background: color-mix(in srgb, var(--accent) 20%, transparent); outline: 2px dashed var(--accent); outline-offset: -2px; }
+
+/* 팝오버 메뉴 */
+.menu-pop {
+  position: fixed;
+  z-index: 300;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-modal);
+  box-shadow: 0 12px 32px var(--shadow-color);
+}
+.tool-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; }
+.tool-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 2px 6px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+.tool-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.tool-btn.on { background: var(--accent-soft); color: var(--accent); }
+.seg { display: flex; gap: 1px; }
+.seg button {
+  padding: 3px 9px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: var(--fs-control);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.seg button:hover { background: var(--bg-hover); color: var(--text-primary); }
+.seg button[aria-pressed='true'] { background: var(--accent-soft); color: var(--accent); }
+
+/* 줄 하나로 된 일정 목록 */
+.ag-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--fs-control);
+  text-align: left;
+  cursor: pointer;
+}
+.ag-row:hover { background: var(--bg-hover); }
+.ag-row.static { cursor: default; }
+.ag-row.static:hover { background: transparent; }
 
 /* Animations */
 @keyframes fadeIn {

@@ -256,16 +256,35 @@ function titleFrom(rest: string, heading: string): string {
   return rest;
 }
 
-/**
- * @param classTimes 컴시간 교시 시각 ("1교시(09:00)"). "3교시" 같은 표현을 시각으로 바꾸는 데 쓴다.
- */
-export function parseEventDrafts(text: string, base: Date = new Date(), classTimes: string[] = []): ParsedDraft[] {
-  if (!text || !text.trim()) return [];
+function periodStartsOf(classTimes: string[]): Map<number, number> {
   const periodStarts = new Map<number, number>();
   classTimes.forEach((entry, i) => {
     const m = entry.match(/(\d{1,2}):(\d{2})/);
     if (m) periodStarts.set(i + 1, Number(m[1]) * 60 + Number(m[2]));
   });
+  return periodStarts;
+}
+
+/**
+ * 칸에 바로 입력한 글에서 시각을 뽑는다. "3시 회의", "3교시 공개수업", "회의"
+ * @returns startMin이 null이면 시각이 없는 종일 일정이다
+ */
+export function parseInlineTitle(
+  text: string,
+  classTimes: string[] = [],
+): { title: string; startMin: number | null; endMin: number | null } {
+  const time = findTime(text, periodStartsOf(classTimes));
+  if (!time) return { title: text.trim(), startMin: null, endMin: null };
+  const title = cleanTitle(text.replace(time.text, ' ')) || text.trim();
+  return { title, startMin: time.startMin, endMin: time.endMin ?? time.startMin + 60 };
+}
+
+/**
+ * @param classTimes 컴시간 교시 시각 ("1교시(09:00)"). "3교시" 같은 표현을 시각으로 바꾸는 데 쓴다.
+ */
+export function parseEventDrafts(text: string, base: Date = new Date(), classTimes: string[] = []): ParsedDraft[] {
+  if (!text || !text.trim()) return [];
+  const periodStarts = periodStartsOf(classTimes);
 
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   // 제목 후보: 날짜가 없는 첫 줄. "[교무부] 성적 입력 안내" 같은 쪽지 머리말이다

@@ -9,6 +9,9 @@ import { useAuthStore } from '../../store/authStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useVisiblePersonalEvents } from '../../hooks/useVisiblePersonalEvents';
 import { getHoliday } from '../../utils/holidays';
+import { buildPeriodRows } from '../../utils/periodRows';
+import { personalChipVars, sharedChipVars, tintStyle } from '../../utils/eventColors';
+import { PeriodWeek } from './PeriodWeek';
 import { useComciganStore } from '../../store/comciganStore';
 import type { CalendarEvent, PersonalEvent, TeacherPeriod } from '@shared/types';
 import { showToast } from '../common/Toast';
@@ -43,7 +46,14 @@ interface WeekViewProps {
   onPersonalClick?: (pe: PersonalEvent) => void;
 }
 
-export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps) {
+/** 시정표가 있으면 교시 표로, 컴시간을 연결하지 않았으면 시간 눈금으로 보여 준다 */
+export function WeekView(props: WeekViewProps) {
+  const config = useComciganStore((s) => s.config);
+  const classTimes = useComciganStore((s) => s.timetableData?.classTimes);
+  return config && buildPeriodRows(classTimes) ? <PeriodWeek {...props} /> : <HourWeekView {...props} />;
+}
+
+function HourWeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps) {
   const { selectedDate, setSelectedDate, setSelectedEvent, setShowEventDetail, setShowEventModal, updateEvent } = useCalendarStore();
   const events = useVisibleEvents();
   const { user } = useAuthStore();
@@ -332,7 +342,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
                         setShowEventDetail(true);
                       }}
                       style={{
-                        ...styles.eventBlock, background: event.adminColor,
+                        ...styles.eventBlock, ...tintStyle(sharedChipVars(event)),
                         cursor: isOwner ? 'grab' : 'pointer',
                         opacity: dragRef.current?.eventId === event.id ? 0.4 : 1,
                       }}
@@ -355,7 +365,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
                         onPersonalClick?.(pe);
                       }}
                       style={{
-                        ...styles.eventBlock, background: getPersonalEventDisplayColor(pe, user?.profileColor), opacity: 0.85,
+                        ...styles.eventBlock, ...tintStyle(personalChipVars(pe, user?.profileColor)),
                         borderLeft: '2px solid var(--event-edge)',
                         cursor: canDrag ? 'grab' : 'pointer',
                       }}
@@ -438,7 +448,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
                           onMouseDown={(e) => handleEventMouseDown(e, event.id, 'shared', dayIdx, hour)}
                           onClick={() => { setSelectedEvent(event); setShowEventDetail(true); }}
                           style={{
-                            ...styles.eventBlock, background: event.adminColor,
+                            ...styles.eventBlock, ...tintStyle(sharedChipVars(event)),
                             cursor: isOwner ? 'grab' : 'pointer',
                             opacity: dragRef.current?.eventId === event.id ? 0.4 : 1,
                           }}
@@ -463,7 +473,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
                             onPersonalClick?.(pe);
                           }}
                           style={{
-                            ...styles.eventBlock, background: getPersonalEventDisplayColor(pe, user?.profileColor), opacity: 0.85,
+                            ...styles.eventBlock, ...tintStyle(personalChipVars(pe, user?.profileColor)),
                             borderLeft: '2px solid var(--event-edge)',
                             cursor: canDrag ? 'grab' : 'pointer',
                           }}
@@ -534,7 +544,7 @@ const styles: Record<string, React.CSSProperties> = {
   timeLabel: { fontSize: 'var(--fs-tiny)', color: 'var(--text-muted)' },
   hourCell: { padding: 1, overflow: 'hidden', borderRight: '1px solid var(--grid-line)' },
   eventBlock: { borderRadius: 3, padding: '1px 4px', marginBottom: 1, cursor: 'pointer' },
-  eventText: { fontSize: 'var(--schedule-font-size)', color: 'var(--on-event)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', textShadow: '0 0 2px rgba(0,0,0,0.3)' },
+  eventText: { fontSize: 'var(--schedule-font-size)', color: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', textShadow: '0 0 2px rgba(0,0,0,0.3)' },
   comciganBlock: { borderRadius: 3, padding: '1px 4px', marginBottom: 1, background: 'var(--comcigan-bg)', cursor: 'default' },
   comciganText: { fontSize: 'var(--schedule-font-size)', fontWeight: 600, color: 'var(--comcigan-text)', lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', textShadow: 'var(--comcigan-shadow)' },
 };

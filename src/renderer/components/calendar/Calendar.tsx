@@ -9,7 +9,6 @@ import { YearView } from './YearView';
 import { AgendaView } from './AgendaView';
 import { StatsView } from './StatsView';
 import { CalendarHeader } from './CalendarHeader';
-import { EventLegend } from './EventLegend';
 import { SearchPanel } from './SearchPanel';
 import { PrintView } from './PrintView';
 import { PersonalEventDetail } from './PersonalEventDetail';
@@ -17,49 +16,47 @@ import { PrivateContent } from '../common/PrivacyGuard';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import type { PersonalEvent } from '@shared/types';
 
+/** 스스로 여백을 관리하는 화면 */
+const FULL_BLEED_VIEWS = new Set(['month', 'week', 'today', 'agenda']);
+
 interface CalendarProps {
   onAddPersonalEvent?: () => void;
-  onPasteEvents?: () => void;
 }
 
-export function Calendar({ onAddPersonalEvent, onPasteEvents }: CalendarProps = {}) {
+export function Calendar({ onAddPersonalEvent }: CalendarProps = {}) {
   const { view } = useCalendarStore();
-  const { categoryFilter, setCategoryFilter } = useUIStore();
-  const [showSearch, setShowSearch] = useState(false);
-  const [showPrint, setShowPrint] = useState(false);
+  const { categoryFilter, setCategoryFilter, calendarTool, setCalendarTool } = useUIStore();
+  const showSearch = calendarTool === 'search';
+  const showPrint = calendarTool === 'print';
   const [selectedPersonal, setSelectedPersonal] = useState<PersonalEvent | null>(null);
 
   // 전역 단축키
   useKeyboardShortcuts({
-    onSearch: () => setShowSearch(true),
+    onSearch: () => setCalendarTool('search'),
     onAddPersonal: onAddPersonalEvent,
   });
 
   if (showPrint) {
-    return <PrintView onClose={() => setShowPrint(false)} />;
+    return <PrintView onClose={() => setCalendarTool(null)} />;
   }
 
   return (
     <div style={styles.container}>
       <CalendarHeader
         onAddPersonalEvent={onAddPersonalEvent}
-        onPasteEvents={onPasteEvents}
-        onToggleSearch={() => setShowSearch(true)}
-        onPrint={() => setShowPrint(true)}
         categoryFilter={categoryFilter}
         setCategoryFilter={setCategoryFilter}
       />
-      <div style={styles.viewContainer}>
+      <div style={{ ...styles.viewContainer, padding: FULL_BLEED_VIEWS.has(view) ? 0 : '0 8px' }}>
         {view === 'month' && <MonthView onAddPersonalEvent={onAddPersonalEvent} onPersonalClick={setSelectedPersonal} />}
         {view === 'week' && <WeekView onAddPersonalEvent={onAddPersonalEvent} onPersonalClick={setSelectedPersonal} />}
         {view === 'day' && <DayView onAddPersonalEvent={onAddPersonalEvent} onPersonalClick={setSelectedPersonal} />}
         {view === 'today' && <TodayView onAddPersonalEvent={onAddPersonalEvent} onPersonalClick={setSelectedPersonal} />}
         {view === 'year' && <YearView />}
-        {view === 'agenda' && <AgendaView />}
+        {view === 'agenda' && <AgendaView onPersonalClick={setSelectedPersonal} />}
         {view === 'stats' && <StatsView />}
       </div>
-      <EventLegend />
-      {showSearch && <SearchPanel onClose={() => setShowSearch(false)} />}
+      {showSearch && <SearchPanel onClose={() => setCalendarTool(null)} />}
       {selectedPersonal && (
         <PrivateContent>
           <PersonalEventDetail event={selectedPersonal} onClose={() => setSelectedPersonal(null)} />
@@ -79,6 +76,5 @@ const styles: Record<string, React.CSSProperties> = {
   viewContainer: {
     flex: 1,
     overflow: 'auto',
-    padding: '0 8px',
   },
 };

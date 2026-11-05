@@ -1,132 +1,63 @@
 import React, { useMemo } from 'react';
-import { format, isSameDay, startOfToday, addDays } from 'date-fns';
-import { ko } from 'date-fns/locale';
-import { useCalendarStore } from '../../store/calendarStore';
+import { addDays, isSameDay, startOfToday } from 'date-fns';
+import type { PersonalEvent } from '@shared/types';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
+import { useVisiblePersonalEvents } from '../../hooks/useVisiblePersonalEvents';
 import { useUIStore } from '../../store/uiStore';
-import { getCreatorTag } from '../../utils/calendarHelpers';
-import { SchoolBadge } from '../common/SchoolBadge';
-import type { CalendarEvent } from '@shared/types';
+import { isEventOnDate } from '../../utils/calendarHelpers';
+import { getHoliday } from '../../utils/holidays';
 import { Ic } from '../common/Ic';
+import { DayAgenda } from './DayAgenda';
 
-const CATEGORY_LABELS: Record<string, string> = {
-  event: '행사', meeting: '회의', deadline: '마감일', notice: '공지', other: '기타',
-};
+const DAYS_AHEAD = 60;
 
-export function AgendaView() {
-  const { setSelectedEvent, setShowEventDetail } = useCalendarStore();
+/** 앞으로 60일의 일정을 날짜별로 보여 준다. 수업은 오늘만 함께 적는다. */
+export function AgendaView({ onPersonalClick }: { onPersonalClick?: (pe: PersonalEvent) => void }) {
   const { categoryFilter } = useUIStore();
   // useVisibleEvents가 이미 학교+카테고리 필터를 적용함 — 여기서는 날짜만 필터
   const events = useVisibleEvents();
+  const personalEvents = useVisiblePersonalEvents();
 
-  // 앞으로 60일간 일정
-  const upcoming = useMemo(() => {
+  const days = useMemo(() => {
     const today = startOfToday();
-    const end = addDays(today, 60);
-    return events
-      .filter((e) => {
-        const start = new Date(e.startDate);
-        return start >= today && start <= end;
-      })
-      .sort((a, b) =>
-        new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
-      );
-  }, [events]);
-
-  // 날짜별로 그룹화
-  const groups = useMemo(() => {
-    const map = new Map<string, CalendarEvent[]>();
-    for (const e of upcoming) {
-      const key = format(new Date(e.startDate), 'yyyy-MM-dd');
-      const arr = map.get(key) || [];
-      arr.push(e);
-      map.set(key, arr);
+    const out: Date[] = [];
+    for (let i = 0; i <= DAYS_AHEAD; i++) {
+      const day = addDays(today, i);
+      const busy = i === 0 || getHoliday(day)
+        || events.some((e) => isEventOnDate(e, day))
+        || personalEvents.some((e) => isEventOnDate(e, day));
+      if (busy) out.push(day);
     }
-    return Array.from(map.entries());
-  }, [upcoming]);
+    return out;
+  }, [events, personalEvents]);
+
+  const nothing = days.length === 1 && !events.some((e) => isEventOnDate(e, days[0]));
 
   return (
     <div style={styles.container}>
-      {groups.length === 0 ? (
+      {nothing && events.length === 0 && (
         <div style={styles.empty}>
           <span style={{ fontSize: 'var(--fs-icon)' }}><Ic name="inbox" gap={false} /></span>
           <span>{categoryFilter !== 'all' ? '해당 카테고리에 예정된 일정이 없습니다' : '예정된 일정이 없습니다'}</span>
         </div>
-      ) : (
-        groups.map(([dateKey, dayEvents]) => {
-          const date = new Date(dateKey);
-          const today = isSameDay(date, new Date());
-          return (
-            <div key={dateKey} style={styles.group}>
-              <div style={{ ...styles.dateHeader, color: today ? 'var(--accent)' : 'var(--text-primary)' }}>
-                {today && <span style={styles.todayBadge}>TODAY</span>}
-                {format(date, 'M월 d일 (EEEE)', { locale: ko })}
-              </div>
-              <div style={styles.eventList}>
-                {dayEvents.map((e) => (
-                  <div
-                    key={e.id}
-                    onClick={() => { setSelectedEvent(e); setShowEventDetail(true); }}
-                    style={{ ...styles.eventRow, borderLeftColor: e.adminColor }}
-                  >
-                    <div style={styles.timeCol}>
-                      {e.allDay ? '종일' : format(new Date(e.startDate), 'HH:mm')}
-                    </div>
-                    <div style={styles.contentCol}>
-                      <div style={styles.titleRow}>
-                        <span style={styles.eventTitle}><SchoolBadge school={e.school} />{e.title}</span>
-                        <span style={{ ...styles.categoryBadge, background: e.adminColor }}>
-                          {CATEGORY_LABELS[e.category] || e.category}
-                        </span>
-                      </div>
-                      {e.adminName && <span style={styles.meta}>{e.adminName}</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })
       )}
+      {days.map((day) => (
+        <DayAgenda
+          key={day.toISOString()}
+          date={day}
+          onPersonalClick={onPersonalClick}
+          showClasses={isSameDay(day, new Date())}
+          hideEmpty
+        />
+      ))}
     </div>
   );
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  container: { height: '100%', overflow: 'auto', padding: 8 },
+  container: { height: '100%', overflow: 'auto', paddingBottom: 8 },
   empty: {
     display: 'flex', flexDirection: 'column', alignItems: 'center',
     gap: 8, padding: '40px 0', color: 'var(--text-muted)', fontSize: 'var(--fs-control)',
   },
-  group: { marginBottom: 12 },
-  dateHeader: {
-    fontSize: 'var(--fs-body)', fontWeight: 700,
-    padding: '6px 4px',
-    borderBottom: '1px solid var(--border-subtle)',
-    marginBottom: 6,
-    display: 'flex', alignItems: 'center', gap: 6,
-  },
-  todayBadge: {
-    fontSize: 'var(--fs-tiny)', fontWeight: 800, padding: '1px 6px', borderRadius: 4,
-    background: 'var(--accent)', color: 'var(--on-event)',
-  },
-  eventList: { display: 'flex', flexDirection: 'column', gap: 4 },
-  eventRow: {
-    display: 'flex', gap: 8, padding: 8, borderRadius: 6,
-    background: 'var(--bg-secondary)', cursor: 'pointer',
-    borderLeft: '3px solid',
-    transition: 'background 0.12s',
-  },
-  timeCol: {
-    fontSize: 'var(--fs-label)', fontWeight: 600, color: 'var(--text-secondary)',
-    minWidth: 44,
-  },
-  contentCol: { flex: 1, minWidth: 0 },
-  titleRow: { display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'space-between' },
-  eventTitle: { fontSize: 'var(--fs-body)', fontWeight: 600, color: 'var(--text-primary)' },
-  categoryBadge: {
-    fontSize: 'var(--fs-tiny)', fontWeight: 600, padding: '1px 6px', borderRadius: 4,
-    color: 'var(--on-event)',
-  },
-  meta: { fontSize: 'var(--fs-caption)', color: 'var(--text-muted)', display: 'block', marginTop: 2 },
 };

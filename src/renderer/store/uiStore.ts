@@ -39,6 +39,9 @@ interface UIState {
   /** 도서관(read365) 어느 학교 기준으로 볼지 — LibraryView 진입 시 설정 */
   librarySchool: School | null;
   setLibrarySchool: (s: School | null) => void;
+  /** 도구 모음에서 연 달력 도구 */
+  calendarTool: 'search' | 'print' | null;
+  setCalendarTool: (tool: 'search' | 'print' | null) => void;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -46,6 +49,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   setCategoryFilter: (c) => set({ categoryFilter: c }),
   librarySchool: null,
   setLibrarySchool: (s) => set({ librarySchool: s }),
+  calendarTool: null,
+  setCalendarTool: (tool) => set({ calendarTool: tool }),
   // 초기값: localStorage 값 없으면 'all' (로그인 후 본인 학교로 대체됨)
   viewingSchool: loadViewingSchool() || 'all',
   setViewingSchool: (s) => {

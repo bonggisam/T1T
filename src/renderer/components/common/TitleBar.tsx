@@ -1,69 +1,56 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  Calendar, CheckSquare, Building2, UtensilsCrossed, BookOpen,
-  Bell, Users, Settings, Sun, Moon, Pin, Minus, X, Eye, EyeOff,
-  GraduationCap, School as SchoolIcon, Pencil, LogOut, CalendarDays, Phone, BookMarked,
+  Bell, Calendar, CheckSquare, Eye, EyeOff, LayoutGrid, Minus, Pencil, Phone, Pin, Search, Settings,
+  UtensilsCrossed, X,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/notificationStore';
-import { useComciganStore } from '../../store/comciganStore';
 import { usePersonalHidden, usePrivacyStore } from '../../store/privacyStore';
 import { useUIStore } from '../../store/uiStore';
-import { useHorizontalScroll } from '../../hooks/useHorizontalScroll';
-import { SCHOOL_LABELS } from '@shared/types';
-import type { School } from '@shared/types';
-import { Ic } from './Ic';
+import { usePopover } from '../../hooks/usePopover';
+import { useWindowSize, WIDE_MIN } from '../../hooks/useWindowSize';
+import { CalendarNav } from '../calendar/CalendarNav';
+import { ToolMenu, type ToolTab } from './ToolMenu';
+
+/** 이보다 좁으면 제목 줄의 글자를 줄여 단추가 밀려나지 않게 한다 */
+const COMPACT_MAX = 400;
+const TOOL_MENU_WIDTH = 300;
 
 interface TitleBarProps {
   onToggleSettings: () => void;
   onToggleAdmin: () => void;
+  /** 로그인한 뒤에만 도구를 보여 준다 */
   showSettingsBtn: boolean;
   showAdminBtn: boolean;
-  onToggleTPass?: () => void;
-  showTPass?: boolean;
-  onToggleOuting?: () => void;
-  showOuting?: boolean;
-  onToggleTodos?: () => void;
-  showTodos?: boolean;
-  onToggleReserv?: () => void;
-  showReserv?: boolean;
-  onToggleMeal?: () => void;
-  showMeal?: boolean;
-  onToggleSchedule?: () => void;
-  showSchedule?: boolean;
-  onToggleKeyphone?: () => void;
-  showKeyphone?: boolean;
-  onToggleLibrary?: () => void;
-  showLibrary?: boolean;
+  activeTab?: string | null;
+  onOpenTab?: (tab: ToolTab) => void;
+  /** 달력 화면으로 돌아간다 */
+  onOpenCalendar?: () => void;
+  onPasteEvents?: () => void;
   theme?: 'light' | 'dark';
   onToggleTheme?: () => void;
   onGoHome?: () => void; // 메인 달력으로 복귀
 }
 
+/**
+ * 제목 줄. 날짜 이동, 개인 일정 가리기, 알림, 도구 모음을 한 줄에 둔다.
+ * 알림은 창이 좁아도 항상 보이고, 나머지 도구는 이름이 붙은 도구 모음 안에 있다.
+ */
 export function TitleBar({
   onToggleSettings, onToggleAdmin, showSettingsBtn, showAdminBtn,
-  onToggleTPass, showTPass,
-  onToggleOuting, showOuting,
-  onToggleTodos, showTodos,
-  onToggleReserv, showReserv,
-  onToggleMeal, showMeal,
-  onToggleSchedule, showSchedule,
-  onToggleKeyphone, showKeyphone,
-  onToggleLibrary, showLibrary,
-  theme, onToggleTheme,
-  onGoHome,
+  activeTab = null, onOpenTab, onOpenCalendar, onPasteEvents,
+  theme, onToggleTheme, onGoHome,
 }: TitleBarProps) {
-  const { user } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
   const { unreadCount, setShowPanel, showPanel } = useNotificationStore();
-  const { showTimetable, toggleTimetable } = useComciganStore();
-  const { viewingSchool, setViewingSchool } = useUIStore();
+  const setCalendarTool = useUIStore((s) => s.setCalendarTool);
   const [widgetMode, setWidgetMode] = useState(true);
-  const centerScrollRef = useHorizontalScroll<HTMLDivElement>();
-  // 학교 표시는 테마에 맞춘 토큰을 쓴다
-  const HIGH_TEXT = 'var(--school-high-ink)';
-  const MIDDLE_TEXT = 'var(--school-middle-ink)';
-  const HIGH_BG = 'var(--school-high-tint)';
-  const MIDDLE_BG = 'var(--school-middle-tint)';
+  const { width } = useWindowSize();
+  const menu = usePopover();
+  const signedIn = showSettingsBtn && !!user;
+  const compact = width < COMPACT_MAX;
+  const wide = width >= WIDE_MIN;
+  const calendarVisible = signedIn && activeTab === null;
 
   useEffect(() => {
     window.electronAPI?.getWidgetMode().then((v) => setWidgetMode(v)).catch(() => {});
@@ -79,242 +66,111 @@ export function TitleBar({
     window.electronAPI?.setWidgetMode(next);
   }
 
-  // 아이콘 색상 — TPass만 강조, 나머지는 기본 그레이(undefined)
-  const ICON_COLORS = {
-    tpass: 'var(--tpass)', // 핑크 - TPass만 강조
-  };
-
-  // Widget mode: 미니멀이지만 필수 탭 버튼은 포함
-  if (widgetMode) {
-    return (
-      <div className="titlebar" style={styles.widgetBar}>
-        <button onClick={onGoHome} style={styles.widgetTitleBtn} title="메인 달력으로">
-          <Calendar size={12} strokeWidth={2.2} style={{ marginRight: 3, verticalAlign: '-1px', color: 'var(--accent)' }} />
-          T1T
-        </button>
-        {/* 중앙: 기능 아이콘. 창이 좁으면 휠로 가로 스크롤한다 */}
-        <div ref={centerScrollRef} style={styles.widgetCenter}>
-          {user && onToggleTodos && (
-            <IconBtn Icon={CheckSquare} active={showTodos} onClick={onToggleTodos} title={showTodos ? '캘린더로' : '할 일'} compact />
-          )}
-          {user && onToggleReserv && (
-            <IconBtn Icon={Building2} active={showReserv} onClick={onToggleReserv} title={showReserv ? '캘린더로' : '회의실 예약'} compact />
-          )}
-          {user && onToggleMeal && (
-            <IconBtn Icon={UtensilsCrossed} active={showMeal} onClick={onToggleMeal} title={showMeal ? '캘린더로' : '급식 메뉴'} compact />
-          )}
-          {user && onToggleSchedule && (
-            <IconBtn Icon={CalendarDays} active={showSchedule} onClick={onToggleSchedule} title={showSchedule ? '캘린더로' : '학사일정'} compact />
-          )}
-          {user && onToggleKeyphone && (
-            <IconBtn Icon={Phone} active={showKeyphone} onClick={onToggleKeyphone} title={showKeyphone ? '캘린더로' : '키폰 번호'} compact />
-          )}
-          {user && onToggleLibrary && (
-            <IconBtn Icon={BookMarked} active={showLibrary} onClick={onToggleLibrary} title={showLibrary ? '캘린더로' : '도서관 도서검색'} compact color="var(--library)" />
-          )}
-          {user && onToggleTPass && (
-            <button
-              onClick={onToggleTPass}
-              style={{
-                ...styles.iconBtnCompact,
-                background: showTPass ? `color-mix(in srgb, ${ICON_COLORS.tpass} 13%, transparent)` : 'transparent',
-                color: ICON_COLORS.tpass,
-              }}
-              title={showTPass ? '캘린더로' : 'TPass 출결'}
-              aria-label="TPass"
-            >
-              <span style={{ ...styles.tpassIconCompact, color: ICON_COLORS.tpass }}>T</span>
-            </button>
-          )}
-          {user && onToggleOuting && (
-            <IconBtn Icon={LogOut} active={showOuting} onClick={onToggleOuting} title={showOuting ? '캘린더로' : '학생 외출 신청'} compact />
-          )}
-          {user && (
-            <WidgetSchoolToggle
-              userSchool={user.school}
-              viewingSchool={viewingSchool}
-              setViewingSchool={setViewingSchool}
-            />
-          )}
-          <IconBtn Icon={BookOpen} active={showTimetable} onClick={toggleTimetable} title={showTimetable ? '시간표 숨기기' : '시간표 보기'} compact />
-        </div>
-        {/* 우측: 개인 일정 가리기, 편집 버튼 */}
-        <div style={styles.widgetRight}>
-          {showSettingsBtn && user && <PrivacyToggle compact />}
-          <button onClick={handleToggleWidget} style={styles.editBtn} title="편집 모드 (Ctrl+Shift+C)">
-            <Pencil size={12} strokeWidth={2} style={{ marginRight: 4, verticalAlign: '-2px' }} />편집
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="titlebar" style={styles.container}>
-      <div style={styles.left}>
-        <button
-          onClick={onGoHome}
-          style={styles.homeBtn}
-          title="메인 달력으로"
-          aria-label="메인 달력"
-        >
-          <Calendar size={18} strokeWidth={2.2} color="var(--accent)" />
-          <span style={styles.title}>T1T</span>
+    <>
+      <div className="titlebar" style={styles.bar}>
+        <button onClick={onGoHome} style={styles.home} title="메인 달력으로" aria-label="메인 달력">
+          <Calendar size={16} strokeWidth={2.2} color="var(--accent)" />
+          {!compact && <span style={styles.title}>T1T</span>}
         </button>
-        {user && (user.role === 'super_admin' ? (
-          <span style={{
-            ...styles.schoolPill,
-            background: 'var(--warning-soft)',
-            color: 'var(--warning)',
-          }}>
-            <Ic name="crown" />전체 관리자
-          </span>
-        ) : user.school === 'taeseong_high' ? (
-          <span style={{
-            ...styles.schoolPill,
-            background: HIGH_BG,
-            color: HIGH_TEXT,
-          }}>
-            <GraduationCap size={11} strokeWidth={2.5} style={{ verticalAlign: '-1px' }} /> 태성고
-          </span>
-        ) : (
-          <span style={{
-            ...styles.schoolPill,
-            background: MIDDLE_BG,
-            color: MIDDLE_TEXT,
-          }}>
-            <SchoolIcon size={11} strokeWidth={2.5} style={{ verticalAlign: '-1px' }} /> 태성중
-          </span>
-        ))}
-      </div>
 
-      {/* 가운데: 기능 아이콘 */}
-      <div ref={centerScrollRef} style={styles.center}>
-        {showSettingsBtn && user && (
+        {calendarVisible && <CalendarNav compact={compact} />}
+
+        <span style={styles.spacer} />
+
+        {signedIn && wide && onOpenTab && (
           <>
-            {onToggleTodos && (
-              <IconBtn Icon={CheckSquare} active={showTodos} onClick={onToggleTodos} title={showTodos ? '캘린더로' : '할 일'} />
-            )}
-            {onToggleReserv && (
-              <IconBtn Icon={Building2} active={showReserv} onClick={onToggleReserv} title={showReserv ? '캘린더로' : '회의실 예약'} />
-            )}
-            {onToggleMeal && (
-              <IconBtn Icon={UtensilsCrossed} active={showMeal} onClick={onToggleMeal} title={showMeal ? '캘린더로' : '급식 메뉴'} />
-            )}
-            {onToggleSchedule && (
-              <IconBtn Icon={CalendarDays} active={showSchedule} onClick={onToggleSchedule} title={showSchedule ? '캘린더로' : '학사일정'} />
-            )}
-            {onToggleKeyphone && (
-              <IconBtn Icon={Phone} active={showKeyphone} onClick={onToggleKeyphone} title={showKeyphone ? '캘린더로' : '키폰 번호'} />
-            )}
-            {onToggleLibrary && (
-              <IconBtn Icon={BookMarked} active={showLibrary} onClick={onToggleLibrary} title={showLibrary ? '캘린더로' : '도서관 도서검색'} color="var(--library)" />
-            )}
-            {onToggleTPass && (
-              <button
-                onClick={onToggleTPass}
-                style={{
-                  ...styles.iconBtn,
-                  background: showTPass ? `color-mix(in srgb, ${ICON_COLORS.tpass} 13%, transparent)` : 'transparent',
-                }}
-                title={showTPass ? '캘린더로' : 'TPass 출결'}
-                aria-label="TPass"
-              >
-                <span style={{ ...styles.tpassIcon, color: ICON_COLORS.tpass }}>T</span>
-              </button>
-            )}
-            {onToggleOuting && (
-              <IconBtn Icon={LogOut} active={showOuting} onClick={onToggleOuting} title={showOuting ? '캘린더로' : '학생 외출 신청'} />
-            )}
-            <div style={styles.divider} />
-            <IconBtn Icon={BookOpen} active={showTimetable} onClick={toggleTimetable} title={showTimetable ? '시간표 숨기기' : '시간표 보기'} />
+            <IconBtn Icon={CheckSquare} active={activeTab === 'todos'} onClick={() => onOpenTab('todos')} title="할 일" />
+            <IconBtn Icon={UtensilsCrossed} active={activeTab === 'meal'} onClick={() => onOpenTab('meal')} title="급식" />
+            <IconBtn Icon={Phone} active={activeTab === 'keyphone'} onClick={() => onOpenTab('keyphone')} title="키폰" />
+            <span style={styles.separator} />
+            <IconBtn
+              Icon={Search}
+              onClick={() => { onOpenCalendar?.(); setCalendarTool('search'); }}
+              title="일정 검색"
+            />
+          </>
+        )}
+
+        {signedIn && <PrivacyToggle />}
+
+        {signedIn && (
+          <button
+            onClick={() => setShowPanel(!showPanel)}
+            style={{ ...styles.iconBtn, background: showPanel ? 'var(--accent-soft)' : 'transparent', color: showPanel ? 'var(--accent)' : 'var(--text-secondary)' }}
+            title={unreadCount > 0 ? `알림 ${unreadCount}개` : '알림'}
+            aria-label={unreadCount > 0 ? `알림 ${unreadCount}개` : '알림'}
+          >
+            <Bell size={16} strokeWidth={2.2} />
+            {unreadCount > 0 && <span style={styles.badge}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
+          </button>
+        )}
+
+        {signedIn && onOpenTab && (
+          <button
+            ref={menu.anchorRef}
+            onClick={() => menu.setOpen((v) => !v)}
+            style={{ ...styles.iconBtn, background: menu.open ? 'var(--accent-soft)' : 'transparent', color: menu.open ? 'var(--accent)' : 'var(--text-secondary)' }}
+            title="도구 모음"
+            aria-label="도구 모음"
+            aria-expanded={menu.open}
+            aria-haspopup="menu"
+          >
+            <LayoutGrid size={16} strokeWidth={2.2} />
+          </button>
+        )}
+
+        {signedIn && wide && <IconBtn Icon={Settings} onClick={onToggleSettings} title="설정" />}
+
+        <span style={styles.separator} />
+
+        {widgetMode ? (
+          <button onClick={handleToggleWidget} style={styles.editBtn} title="편집 모드 (Ctrl+Shift+C)" aria-label="편집 모드">
+            <Pencil size={12} strokeWidth={2} />
+            {!compact && '편집'}
+          </button>
+        ) : (
+          <>
+            <IconBtn Icon={Pin} onClick={handleToggleWidget} title="위젯 모드 (바탕 고정)" accent />
+            <IconBtn Icon={Minus} onClick={() => window.electronAPI?.minimize()} title="최소화" />
             <button
-              onClick={() => setShowPanel(!showPanel)}
-              style={{ ...styles.iconBtn, background: showPanel ? 'var(--bg-hover)' : 'transparent', position: 'relative' }}
-              title="알림"
-              aria-label="알림"
+              onClick={() => window.electronAPI?.close()}
+              style={{ ...styles.iconBtn, color: 'var(--danger)' }}
+              title="종료"
+              aria-label="종료"
             >
-              <Bell size={17} strokeWidth={2.2} />
-              {unreadCount > 0 && (
-                <span style={styles.badge}>{unreadCount > 9 ? '9+' : unreadCount}</span>
-              )}
+              <X size={16} strokeWidth={2.2} />
             </button>
-            {showAdminBtn && (
-              <IconBtn Icon={Users} onClick={onToggleAdmin} title="관리자" />
-            )}
-            <IconBtn Icon={Settings} onClick={onToggleSettings} title="설정" />
-            {onToggleTheme && (
-              <IconBtn
-                Icon={theme === 'dark' ? Sun : Moon}
-                onClick={onToggleTheme}
-                title={theme === 'dark' ? '라이트 모드' : '다크 모드'}
-              />
-            )}
           </>
         )}
       </div>
 
-      {/* 우측: 창 제어 */}
-      <div style={styles.right}>
-        {showSettingsBtn && user && <PrivacyToggle />}
-        <IconBtn Icon={Pin} onClick={handleToggleWidget} title="위젯 모드 (바탕 고정)" accent />
-        <IconBtn Icon={Minus} onClick={() => window.electronAPI?.minimize()} title="최소화" />
-        <button
-          onClick={() => window.electronAPI?.close()}
-          style={{ ...styles.iconBtn, ...styles.closeBtn }}
-          title="종료"
-          aria-label="종료"
-        >
-          <X size={17} strokeWidth={2.2} />
-        </button>
-      </div>
-    </div>
+      {menu.open && onOpenTab && (
+        <ToolMenu
+          popRef={menu.popRef}
+          style={{
+            top: (menu.anchorRef.current?.getBoundingClientRect().bottom ?? 40) + 4,
+            right: 8,
+            width: Math.min(TOOL_MENU_WIDTH, width - 16),
+          }}
+          activeTab={activeTab}
+          onOpenTab={onOpenTab}
+          onOpenCalendar={() => onOpenCalendar?.()}
+          onPasteEvents={onPasteEvents}
+          onToggleSettings={onToggleSettings}
+          onToggleAdmin={onToggleAdmin}
+          showAdmin={showAdminBtn}
+          theme={theme}
+          onToggleTheme={onToggleTheme}
+          onClose={() => menu.setOpen(false)}
+        />
+      )}
+    </>
   );
 }
 
-// 위젯 모드용 미니 학교 토글 (드롭다운 대신 cycle 방식)
-function WidgetSchoolToggle({
-  userSchool,
-  viewingSchool,
-  setViewingSchool,
-}: {
-  userSchool: School;
-  viewingSchool: 'all' | School;
-  setViewingSchool: (s: 'all' | School) => void;
-}) {
-  const order: (School | 'all')[] = ['taeseong_middle', 'taeseong_high', 'all'];
-  const labels: Record<string, React.ReactNode> = {
-    taeseong_middle: <><Ic name="school" />중</>,
-    taeseong_high: <><Ic name="graduation" />고</>,
-    all: <Ic name="globe" gap={false} />,
-  };
-  const currentIdx = order.indexOf(viewingSchool);
-  const currentLabel = labels[viewingSchool] ?? <Ic name="globe" gap={false} />;
-  const bg = 'var(--school-high-tint)';
-  const border = 'var(--school-high-edge)';
-  const text = 'var(--school-high-ink)';
-  return (
-    <button
-      onClick={() => setViewingSchool(order[(currentIdx + 1) % order.length])}
-      style={{
-        background: bg,
-        border: `1px solid ${border}`,
-        cursor: 'pointer',
-        padding: '3px 8px',
-        fontSize: 'var(--fs-label)',
-        fontWeight: 700,
-        color: text,
-        borderRadius: 6,
-      }}
-      title={`보는 학교: ${viewingSchool === 'all' ? '전체' : SCHOOL_LABELS[viewingSchool as School]}`}
-    >
-      {currentLabel}
-    </button>
-  );
-}
-
-// 개인 일정 가리기. 스크롤되는 가운데 묶음 밖에 두어 창이 좁아도 항상 보인다.
-function PrivacyToggle({ compact }: { compact?: boolean }) {
+// 개인 일정 가리기. 창이 좁아도 항상 보인다.
+function PrivacyToggle() {
   const hidden = usePersonalHidden();
   const toggle = usePrivacyStore((s) => s.toggle);
   return (
@@ -323,256 +179,115 @@ function PrivacyToggle({ compact }: { compact?: boolean }) {
       active={hidden}
       onClick={toggle}
       title={hidden ? '개인 일정 보이기 (Ctrl+Shift+H)' : '개인 일정 가리기 (Ctrl+Shift+H)'}
-      compact={compact}
     />
   );
 }
 
 interface IconBtnProps {
-  Icon?: React.ComponentType<any>;
-  icon?: string; // fallback 이모지 (레거시)
+  Icon: React.ComponentType<any>;
   title: string;
   onClick: () => void;
   active?: boolean;
   accent?: boolean;
-  compact?: boolean;
-  color?: string; // 조화로운 아이콘 색상
 }
 
-function IconBtn({ Icon, icon, title, onClick, active, accent, compact, color }: IconBtnProps) {
-  const size = compact ? 14 : 17;
-  // 우선순위: 활성/accent > color > 기본
-  const iconColor = active
-    ? (color || 'var(--accent)')
-    : accent
-      ? 'var(--accent)'
-      : color
-        ? color
-        : 'var(--text-secondary)';
+function IconBtn({ Icon, title, onClick, active, accent }: IconBtnProps) {
   return (
     <button
       onClick={onClick}
       style={{
-        ...(compact ? styles.iconBtnCompact : styles.iconBtn),
-        background: active && color ? `color-mix(in srgb, ${color} 13%, transparent)` : active ? 'var(--bg-hover)' : 'transparent',
-        color: iconColor,
-        opacity: active === false ? 0.78 : 1,
-        transition: 'all 0.15s',
+        ...styles.iconBtn,
+        background: active ? 'var(--accent-soft)' : 'transparent',
+        color: active || accent ? 'var(--accent)' : 'var(--text-secondary)',
       }}
       title={title}
       aria-label={title}
     >
-      {Icon ? <Icon size={size} strokeWidth={2.2} /> : <span style={compact ? styles.iconTextCompact : styles.iconText}>{icon}</span>}
+      <Icon size={16} strokeWidth={2.2} />
     </button>
   );
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  container: {
-    display: 'grid',
-    // 좌(로고)/중(아이콘)/우(창제어) — 창이 좁으면 가운데 아이콘 줄만 가로 스크롤 (잘림 방지)
-    gridTemplateColumns: 'auto minmax(0, 1fr) auto',
-    columnGap: 6,
-    alignItems: 'center',
-    padding: '8px 10px',
-    borderBottom: '1px solid var(--border-subtle)',
-    flexShrink: 0,
-    minHeight: 44,
-  },
-  center: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 0,
-    justifySelf: 'center', // 그리드 셀 내에서 중앙
-    maxWidth: '100%',
-    overflowX: 'auto',
-    scrollbarWidth: 'none',
-  },
-  widgetBar: {
-    display: 'grid',
-    gridTemplateColumns: 'auto minmax(0, 1fr) auto',
-    gap: 4,
-    alignItems: 'center',
-    padding: '6px 12px',
-    flexShrink: 0,
-    opacity: 0,
-    transition: 'opacity 0.3s',
-    borderBottom: '1px solid var(--grid-line)',
-    background: 'var(--tint-neutral-mid)',
-  },
-  widgetRight: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 4,
-    justifySelf: 'end',
-  },
-  widgetCenter: {
+  bar: {
     display: 'flex',
     alignItems: 'center',
     gap: 2,
-    justifySelf: 'center',
-    maxWidth: '100%',
-    overflowX: 'auto',
-    scrollbarWidth: 'none',
+    height: 40,
+    padding: '0 6px 0 8px',
+    flexShrink: 0,
   },
-  widgetTitle: {
-    fontSize: 'var(--fs-label)',
-    fontWeight: 600,
-    color: 'var(--text-muted)',
-    letterSpacing: 1,
-  },
-  widgetTitleBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    background: 'transparent',
-    border: 'none',
-    cursor: 'pointer',
-    padding: '2px 6px',
-    fontSize: 'var(--fs-label)',
-    fontWeight: 700,
-    color: 'var(--text-secondary)',
-    letterSpacing: 0.5,
-    borderRadius: 4,
-    transition: 'all 0.15s',
-  },
-  homeBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-    background: 'transparent',
-    border: 'none',
-    cursor: 'pointer',
-    padding: '4px 8px',
-    borderRadius: 8,
-    transition: 'background 0.15s',
-  },
-  tpassIconCompact: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 16,
-    height: 16,
-    borderRadius: 3,
-    background: 'var(--accent)',
-    color: 'var(--on-accent)',
-    fontSize: 'var(--fs-caption)',
-    fontWeight: 800,
-    lineHeight: 1,
-    fontFamily: 'Arial, sans-serif',
-  },
-  left: {
+  home: {
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
-  },
-  logo: {
-    fontSize: 'var(--fs-display)',
-    lineHeight: 1,
+    gap: 4,
+    flexShrink: 0,
+    padding: '2px 6px 2px 2px',
+    border: 'none',
+    borderRadius: 7,
+    background: 'transparent',
+    cursor: 'pointer',
   },
   title: {
     fontSize: 'var(--fs-lead)',
     fontWeight: 800,
-    color: 'var(--text-primary)',
     letterSpacing: '-0.02em',
+    color: 'var(--text-primary)',
   },
-  schoolPill: {
-    fontSize: 'var(--fs-caption)',
-    fontWeight: 700,
-    padding: '3px 8px',
-    borderRadius: 10,
-    lineHeight: 1,
-    whiteSpace: 'nowrap',
+  spacer: {
+    flex: 1,
+    minWidth: 4,
   },
-  right: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 2,
-    justifySelf: 'end', // 그리드 셀 우측 정렬
-  },
-  divider: {
+  separator: {
+    flexShrink: 0,
     width: 1,
-    height: 18,
-    background: 'var(--border-subtle)',
-    margin: '0 4px',
+    height: 16,
+    margin: '0 3px',
+    background: 'var(--border-color)',
   },
   iconBtn: {
-    background: 'transparent',
-    border: 'none',
-    cursor: 'pointer',
+    position: 'relative',
+    display: 'grid',
+    placeItems: 'center',
+    flexShrink: 0,
+    width: 27,
+    height: 27,
     padding: 0,
-    borderRadius: 8,
-    color: 'var(--text-secondary)',
-    transition: 'all 0.15s',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    width: 30,
-    height: 30,
-  },
-  iconBtnCompact: {
-    flexShrink: 0,
-    background: 'transparent',
     border: 'none',
-    cursor: 'pointer',
-    padding: '4px 6px',
-    borderRadius: 6,
+    borderRadius: 7,
+    background: 'transparent',
     color: 'var(--text-secondary)',
-    transition: 'all 0.15s',
-  },
-  iconText: {
-    fontSize: 'var(--fs-title)',
-    lineHeight: 1,
-  },
-  iconTextCompact: {
-    fontSize: 'var(--fs-control)',
-    lineHeight: 1,
-  },
-  tpassIcon: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 22,
-    height: 22,
-    borderRadius: 5,
-    background: 'var(--accent)',
-    color: 'var(--on-accent)',
-    fontSize: 'var(--fs-lead)',
-    fontWeight: 800,
-    lineHeight: 1,
-    fontFamily: 'Arial, sans-serif',
-  },
-  editBtn: {
-    background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
-    border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
     cursor: 'pointer',
-    padding: '5px 10px',
-    borderRadius: 8,
-    fontSize: 'var(--fs-control)',
-    fontWeight: 600,
-    color: 'var(--accent)',
-    justifySelf: 'end',
-    flexShrink: 0,
-    whiteSpace: 'nowrap',
-  },
-  closeBtn: {
-    color: 'var(--danger)',
   },
   badge: {
     position: 'absolute',
-    top: 2,
-    right: 2,
+    top: 0,
+    right: 0,
+    minWidth: 14,
+    height: 14,
+    padding: '0 3px',
+    borderRadius: 7,
     background: 'var(--danger)',
     color: 'var(--on-accent)',
-    fontSize: 'var(--fs-tiny)',
+    fontSize: 'var(--fs-caption)',
     fontWeight: 700,
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    padding: '0 4px',
+    lineHeight: '14px',
+    textAlign: 'center',
+  },
+  editBtn: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
-    lineHeight: 1,
+    gap: 4,
+    flexShrink: 0,
+    height: 27,
+    padding: '0 8px',
+    border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
+    borderRadius: 7,
+    background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
+    color: 'var(--accent)',
+    fontSize: 'var(--fs-body)',
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    cursor: 'pointer',
   },
 };

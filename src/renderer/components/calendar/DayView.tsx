@@ -6,6 +6,7 @@ import { useAuthStore } from '../../store/authStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useVisiblePersonalEvents } from '../../hooks/useVisiblePersonalEvents';
 import { getHoliday } from '../../utils/holidays';
+import { personalChipVars, sharedChipVars, tintStyle } from '../../utils/eventColors';
 import type { PersonalEvent } from '@shared/types';
 import { showToast } from '../common/Toast';
 import { formatEventTooltip, formatPersonalTooltip, getCreatorTag, canManageEvent, PERSONAL_SUFFIX, getPersonalEventDisplayColor } from '../../utils/calendarHelpers';
@@ -314,7 +315,7 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
               aria-label={`${event.title} 일정 열기`}
               onClick={() => { setSelectedEvent(event); setShowEventDetail(true); }}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedEvent(event); setShowEventDetail(true); } }}
-              style={{ ...styles.allDayEvent, background: event.adminColor }}>
+              style={{ ...styles.allDayEvent, ...tintStyle(sharedChipVars(event)) }}>
               <span style={styles.eventTextSmall}><SchoolBadge school={event.school} size="xs" />{event.title}</span>
             </div>
           ))}
@@ -329,7 +330,7 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
               title={formatPersonalTooltip(pe, pe.source === 'local')}
               style={{
                 ...styles.allDayEvent,
-                background: getPersonalEventDisplayColor(pe, user?.profileColor),
+                ...tintStyle(personalChipVars(pe, user?.profileColor)),
                 opacity: 0.85,
                 borderLeft: '3px solid var(--event-edge)',
               }}>
@@ -413,7 +414,7 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
                       onClick={() => { setSelectedEvent(event); setShowEventDetail(true); }}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedEvent(event); setShowEventDetail(true); } }}
                       style={{
-                        ...styles.eventBlock, background: event.adminColor,
+                        ...styles.eventBlock, ...tintStyle(sharedChipVars(event)),
                         cursor: isOwner ? 'grab' : 'pointer',
                         opacity: dragRef.current?.eventId === event.id ? 0.4 : 1,
                         position: 'relative',
@@ -451,7 +452,7 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
                         onPersonalClick?.(pe);
                       }}
                       style={{
-                        ...styles.eventBlock, background: getPersonalEventDisplayColor(pe, user?.profileColor), opacity: 0.85,
+                        ...styles.eventBlock, ...tintStyle(personalChipVars(pe, user?.profileColor)),
                         borderLeft: '3px solid var(--event-edge)',
                         cursor: canDrag ? 'grab' : 'pointer',
                         position: 'relative',
@@ -527,13 +528,13 @@ const styles: Record<string, React.CSSProperties> = {
   allDaySection: { display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center', padding: '4px 4px 8px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 },
   allDayLabel: { fontSize: 'var(--fs-caption)', color: 'var(--text-muted)', marginRight: 4 },
   allDayEvent: { borderRadius: 4, padding: '2px 8px', cursor: 'pointer' },
-  eventTextSmall: { fontSize: 'var(--schedule-font-size)', color: 'var(--on-event)', fontWeight: 500, textShadow: '0 0 2px rgba(0,0,0,0.3)' },
+  eventTextSmall: { fontSize: 'var(--schedule-font-size)', color: 'inherit', fontWeight: 500, textShadow: '0 0 2px rgba(0,0,0,0.3)' },
   hourGrid: { display: 'flex', flexDirection: 'column', flex: 1, overflow: 'auto' },
   hourRow: { display: 'flex', minHeight: 44, borderBottom: '1px solid var(--border-subtle)' },
   timeLabel: { width: 48, flexShrink: 0, fontSize: 'var(--fs-caption)', color: 'var(--text-muted)', padding: '4px 4px 0 0', textAlign: 'right' },
   hourContent: { flex: 1, padding: 2, display: 'flex', flexDirection: 'column', gap: 2 },
   eventBlock: { borderRadius: 4, padding: '4px 8px', cursor: 'pointer' },
-  eventTitle: { fontSize: 'var(--schedule-font-size)', color: 'var(--on-event)', fontWeight: 600, display: 'block', textShadow: '0 0 2px rgba(0,0,0,0.3)' },
+  eventTitle: { fontSize: 'var(--schedule-font-size)', color: 'inherit', fontWeight: 600, display: 'block', textShadow: '0 0 2px rgba(0,0,0,0.3)' },
   eventTime: { fontSize: 'calc(var(--schedule-font-size) - 1px)', color: 'rgba(255,255,255,0.85)' },
   emptyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '12px 0', color: 'var(--text-muted)', fontSize: 'var(--fs-body)', flexShrink: 0 },
   resizeHandle: {

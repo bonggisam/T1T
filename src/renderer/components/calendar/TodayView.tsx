@@ -12,6 +12,11 @@ import { getCreatorTag, PERSONAL_SUFFIX, formatEventTooltip, formatPersonalToolt
 import { SchoolBadge } from '../common/SchoolBadge';
 import { useComciganStore } from '../../store/comciganStore';
 import { TodayWidgets } from './TodayWidgets';
+import { TodoMini } from './DaySidePanel';
+import { PeriodBoard } from './PeriodBoard';
+import { buildPeriodRows } from '../../utils/periodRows';
+import { personalChipVars, sharedChipVars, tintStyle } from '../../utils/eventColors';
+import { useWindowSize, WIDE_MIN } from '../../hooks/useWindowSize';
 import { Ic } from '../common/Ic';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -35,6 +40,11 @@ export function TodayView({ onAddPersonalEvent, onPersonalClick }: TodayViewProp
   const personalEvents = useVisiblePersonalEvents();
 
   const [days, setDays] = useState(1);
+  const hasConfig = useComciganStore((st) => !!st.config);
+  const classTimes = useComciganStore((st) => st.timetableData?.classTimes);
+  const hasPeriods = hasConfig && !!buildPeriodRows(classTimes);
+  const { width } = useWindowSize();
+  const sideBySide = width >= WIDE_MIN;
 
   // 날짜 배열 (오늘 ~ 오늘+days-1)
   const dateRange = useMemo(() => {
@@ -125,28 +135,47 @@ export function TodayView({ onAddPersonalEvent, onPersonalClick }: TodayViewProp
         </button>
       </div>
 
-      {/* 날씨·내 수업·D-Day 위젯 */}
-      <TodayWidgets />
+      {!(days === 1 && sideBySide) && <TodayWidgets />}
 
-      {/* days === 1: 24시간 타임라인 */}
+      {/* days === 1: 교시 표. 컴시간을 연결하지 않았으면 24시간 타임라인 */}
       {days === 1 ? (
-        <DayTimeline
-          date={rangeStart}
-          events={dayEventsMap.get(rangeStart.toISOString())?.shared || []}
-          personalEvents={dayEventsMap.get(rangeStart.toISOString())?.personal || []}
-          user={user}
-          onEventClick={(e) => { setSelectedEvent(e); setShowEventDetail(true); }}
-          onPersonalClick={(pe) => onPersonalClick?.(pe)}
-          onAddShared={() => setShowEventModal(true)}
-          onAddAtTime={(hour, minute) => {
-            // 클릭된 시간으로 selectedDate 설정 후 모달 열기 → EventModal이 그 시간으로 자동 채움
-            const d = new Date(rangeStart);
-            d.setHours(hour, minute, 0, 0);
-            setSelectedDate(d);
-            setShowEventModal(true);
-          }}
-          onAddPersonal={onAddPersonalEvent}
-        />
+        <div style={styles.dayBody}>
+          <div style={styles.dayMain}>
+            {hasPeriods ? (
+              <PeriodBoard
+                date={rangeStart}
+                events={dayEventsMap.get(rangeStart.toISOString())?.shared || []}
+                personalEvents={dayEventsMap.get(rangeStart.toISOString())?.personal || []}
+                onPersonalClick={(pe) => onPersonalClick?.(pe)}
+                onAddPersonal={onAddPersonalEvent}
+              />
+            ) : (
+              <DayTimeline
+                date={rangeStart}
+                events={dayEventsMap.get(rangeStart.toISOString())?.shared || []}
+                personalEvents={dayEventsMap.get(rangeStart.toISOString())?.personal || []}
+                user={user}
+                onEventClick={(e) => { setSelectedEvent(e); setShowEventDetail(true); }}
+                onPersonalClick={(pe) => onPersonalClick?.(pe)}
+                onAddShared={() => setShowEventModal(true)}
+                onAddAtTime={(hour, minute) => {
+                  // 클릭된 시간으로 selectedDate 설정 후 모달 열기 → EventModal이 그 시간으로 자동 채움
+                  const d = new Date(rangeStart);
+                  d.setHours(hour, minute, 0, 0);
+                  setSelectedDate(d);
+                  setShowEventModal(true);
+                }}
+                onAddPersonal={onAddPersonalEvent}
+              />
+            )}
+          </div>
+          {sideBySide && (
+            <aside style={styles.daySide} aria-label="오늘의 도구">
+              <TodayWidgets />
+              <TodoMini />
+            </aside>
+          )}
+        </div>
       ) : (
       <div style={styles.list}>
         {totalCount === 0 && (
@@ -285,7 +314,7 @@ function DayTimeline({
               <button
                 key={e.id}
                 onClick={() => onEventClick(e)}
-                style={{ ...timelineStyles.allDayChip, background: e.adminColor }}
+                style={{ ...timelineStyles.allDayChip, ...tintStyle(sharedChipVars(e)) }}
                 title={formatEventTooltip(e, canManageEvent(e, user))}
               >
                 <SchoolBadge school={e.school} />
@@ -296,7 +325,7 @@ function DayTimeline({
               <button
                 key={pe.id}
                 onClick={() => onPersonalClick(pe)}
-                style={{ ...timelineStyles.allDayChip, background: getPersonalEventDisplayColor(pe, user?.profileColor), opacity: 0.9 }}
+                style={{ ...timelineStyles.allDayChip, ...tintStyle(personalChipVars(pe, user?.profileColor)) }}
                 title={formatPersonalTooltip(pe, pe.source === 'local')}
               >
                 {pe.title} {PERSONAL_SUFFIX}
@@ -440,7 +469,7 @@ function DayTimeline({
                   style={{
                     ...timelineStyles.eventBlock,
                     ...block,
-                    background: e.adminColor,
+                    ...tintStyle(sharedChipVars(e)),
                   }}
                   title={formatEventTooltip(e, canManageEvent(e, user))}
                 >
@@ -466,9 +495,7 @@ function DayTimeline({
                   style={{
                     ...timelineStyles.eventBlock,
                     ...block,
-                    background: getPersonalEventDisplayColor(pe, user?.profileColor),
-                    opacity: 0.88,
-                    borderLeft: '3px solid var(--event-edge)',
+                    ...tintStyle(personalChipVars(pe, user?.profileColor)),
                   }}
                   title={formatPersonalTooltip(pe, pe.source === 'local')}
                 >
@@ -554,9 +581,7 @@ const timelineStyles: Record<string, React.CSSProperties> = {
     padding: '3px 8px',
     fontSize: 'var(--fs-label)',
     fontWeight: 600,
-    color: 'var(--on-event)',
     cursor: 'pointer',
-    textShadow: '0 0 2px var(--scrim)',
   },
   emptyBar: {
     display: 'flex',
@@ -587,25 +612,22 @@ const timelineStyles: Record<string, React.CSSProperties> = {
     borderRadius: 5,
     border: 'none',
     cursor: 'pointer',
-    color: 'var(--on-event)',
     textAlign: 'left' as const,
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
     gap: 1,
-    boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
   },
   eventTitle: {
     fontSize: 'var(--fs-label)',
     fontWeight: 700,
-    textShadow: '0 0 2px var(--scrim)',
     whiteSpace: 'nowrap' as const,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   },
   eventTime: {
     fontSize: 'var(--fs-tiny)',
-    color: 'var(--on-event-muted)',
+    opacity: 0.85,
     fontWeight: 500,
   },
   addBtn: {
@@ -699,19 +721,37 @@ const styles: Record<string, React.CSSProperties> = {
   navBar: {
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
-    padding: '10px 8px 12px',
+    gap: 6,
+    padding: '3px 8px',
     borderBottom: '1px solid var(--border-subtle)',
     flexShrink: 0,
   },
+  dayBody: {
+    display: 'flex',
+    flex: 1,
+    minHeight: 0,
+  },
+  dayMain: {
+    display: 'flex',
+    flexDirection: 'column',
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
+  },
+  daySide: {
+    flexShrink: 0,
+    width: 268,
+    overflowY: 'auto',
+    borderLeft: '1px solid var(--grid-line)',
+  },
   navBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 7,
     border: '1px solid var(--border-color)',
     background: 'var(--bg-secondary)',
     color: 'var(--text-primary)',
-    fontSize: 'var(--fs-display)',
+    fontSize: 'var(--fs-lead)',
     fontWeight: 700,
     cursor: 'pointer',
     display: 'flex',
@@ -720,19 +760,27 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'all 0.15s',
   },
   dateBlock: {
+    display: 'flex',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+    gap: 6,
     flex: 1,
+    minWidth: 0,
     textAlign: 'center' as const,
+    whiteSpace: 'nowrap' as const,
+    overflow: 'hidden',
   },
   dateMain: {
-    fontSize: 'var(--fs-title)',
+    fontSize: 'var(--fs-lead)',
     fontWeight: 700,
     color: 'var(--text-primary)',
   },
   dateSub: {
-    fontSize: 'var(--fs-label)',
-    marginTop: 2,
+    fontSize: 'var(--fs-body)',
     fontWeight: 500,
-    color: 'var(--text-muted)',
+    color: 'var(--text-secondary)',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
   list: {
     flex: 1,
