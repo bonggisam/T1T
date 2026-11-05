@@ -20,7 +20,7 @@ import { TodosView } from './components/todos/TodosView';
 import { ReservView } from './components/reserv/ReservView';
 import { MealView } from './components/meal/MealView';
 import { UpdateBanner } from './components/common/UpdateBanner';
-import { ToastContainer } from './components/common/Toast';
+import { ToastContainer, showToast } from './components/common/Toast';
 import { useComciganStore } from './store/comciganStore';
 import { useTodosStore } from './store/todosStore';
 import { useUsersStore } from './store/usersStore';
@@ -34,6 +34,7 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ResizeHandles } from './components/common/ResizeHandles';
 import { startSchoolScheduleAutoSync } from './utils/schoolScheduleSync';
 import { syncSharedEventsToGoogle } from './utils/sharedEventsGoogleSync';
+import { transparencyToOpacity } from './utils/windowOpacity';
 
 type AuthScreen = 'login' | 'signup';
 
@@ -227,6 +228,13 @@ export function App() {
     }
   }, [user?.settings?.theme]);
 
+  // 저장된 투명도를 창에 적용. 로그아웃하면 100%로 되돌려 다음 사람의 로그인 화면이 흐리지 않게 한다.
+  const savedTransparency = user?.settings?.transparency;
+  useEffect(() => {
+    window.electronAPI?.setOpacity(transparencyToOpacity(savedTransparency))
+      .catch((err) => console.warn('[Window] setOpacity failed:', err));
+  }, [savedTransparency]);
+
   if (loading) {
     return (
       <div className="glass" style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -303,6 +311,16 @@ export function App() {
     useCalendarStore.getState().setSelectedDate(new Date());
   }
 
+  // 제목 줄 테마 버튼 — 바로 바꾸고 settings.theme에 저장. 저장에 실패하면 스토어가 되돌아가며 화면도 따라간다.
+  function handleToggleTheme() {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    useAuthStore.getState().saveSettings({ theme: next }).catch((err) => {
+      console.warn('[Theme] save failed:', err);
+      showToast('테마를 저장하지 못했습니다', 'error');
+    });
+  }
+
   return (
     <div className="glass" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <TitleBar
@@ -327,7 +345,7 @@ export function App() {
         onToggleLibrary={() => toggle('library')}
         showLibrary={showLibrary}
         theme={theme}
-        onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        onToggleTheme={handleToggleTheme}
         onGoHome={goHome}
       />
       <UpdateBanner />

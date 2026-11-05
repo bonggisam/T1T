@@ -1,10 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { format, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
+import { useTimelineScroll } from '../../hooks/useTimelineScroll';
 import type { PersonalEvent, CalendarEvent, User } from '@shared/types';
 import { getCreatorTag, PERSONAL_SUFFIX, formatEventTooltip, formatPersonalTooltip, canManageEvent, getPersonalEventDisplayColor } from '../../utils/calendarHelpers';
 import { SchoolBadge } from '../common/SchoolBadge';
@@ -237,6 +238,14 @@ function DayTimeline({
     ? getPeriodsForWeekday(dayWeekday)
     : [];
 
+  const gridScrollRef = useRef<HTMLDivElement>(null);
+  useTimelineScroll(
+    gridScrollRef,
+    [date],
+    comciganConfig ? timetableData : null,
+    [...events, ...personalEvents],
+  );
+
   const isToday = isSameDay(date, new Date());
   const [nowMinute, setNowMinute] = useState(() => {
     const now = new Date();
@@ -295,8 +304,19 @@ function DayTimeline({
         </div>
       )}
 
+      {/* 빈 상태 — 스크롤 위치와 상관없이 보이도록 격자 밖에 둔다 */}
+      {events.length === 0 && personalEvents.length === 0 && user && (
+        <div style={timelineStyles.emptyBar}>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>📭 오늘 일정 없음</span>
+          <button onClick={onAddShared} style={timelineStyles.addBtn}>+ 공유 일정</button>
+          {onAddPersonal && (
+            <button onClick={onAddPersonal} style={timelineStyles.addBtnSecondary}>+ 개인 일정</button>
+          )}
+        </div>
+      )}
+
       {/* 24시간 그리드 */}
-      <div style={timelineStyles.gridScroll}>
+      <div ref={gridScrollRef} style={timelineStyles.gridScroll}>
         <div
           style={{ position: 'relative', height: HOUR_HEIGHT * 24 }}
           onMouseMove={(e) => {
@@ -333,6 +353,7 @@ function DayTimeline({
           {HOURS.map((h) => (
             <div
               key={h}
+              data-hour={h}
               style={{
                 position: 'absolute',
                 top: h * HOUR_HEIGHT,
@@ -491,27 +512,6 @@ function DayTimeline({
               );
             })}
           </div>
-
-          {/* 빈 상태 */}
-          {events.length === 0 && personalEvents.length === 0 && user && (
-            <div style={{
-              position: 'absolute',
-              top: 12 * HOUR_HEIGHT - 40,
-              left: 60, right: 10,
-              textAlign: 'center',
-              zIndex: 2,
-            }}>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>
-                📭 오늘 일정 없음
-              </div>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-                <button onClick={onAddShared} style={timelineStyles.addBtn}>+ 공유 일정</button>
-                {onAddPersonal && (
-                  <button onClick={onAddPersonal} style={timelineStyles.addBtnSecondary}>+ 개인 일정</button>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -555,6 +555,16 @@ const timelineStyles: Record<string, React.CSSProperties> = {
     color: '#fff',
     cursor: 'pointer',
     textShadow: '0 0 2px rgba(0,0,0,0.3)',
+  },
+  emptyBar: {
+    display: 'flex',
+    flexWrap: 'wrap' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: '6px 8px',
+    borderBottom: '1px solid var(--border-subtle)',
+    flexShrink: 0,
   },
   gridScroll: {
     flex: 1,

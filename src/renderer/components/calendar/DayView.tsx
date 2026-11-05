@@ -8,6 +8,7 @@ import type { PersonalEvent } from '@shared/types';
 import { showToast } from '../common/Toast';
 import { formatEventTooltip, formatPersonalTooltip, getCreatorTag, canManageEvent, PERSONAL_SUFFIX, getPersonalEventDisplayColor } from '../../utils/calendarHelpers';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
+import { useTimelineScroll } from '../../hooks/useTimelineScroll';
 import { SchoolBadge } from '../common/SchoolBadge';
 import { useComciganStore } from '../../store/comciganStore';
 import { hasTimetableOverlap } from '../../utils/timetableOverlap';
@@ -111,6 +112,17 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
 
   const allDayEvents = dayEvents.filter((e) => e.allDay);
   const timedEvents = dayEvents.filter((e) => !e.allDay);
+  // 개인 종일 일정도 시간 격자 위로 올린다. 00:00 행에 두면 스크롤된 채로 열릴 때 보이지 않는다.
+  const allDayPersonal = dayPersonalEvents.filter((e) => e.allDay);
+  const timedPersonal = dayPersonalEvents.filter((e) => !e.allDay);
+  const nowHour = Math.floor(nowMinute / 60);
+
+  useTimelineScroll(
+    gridRef,
+    [selectedDate],
+    comciganConfig ? timetableData : null,
+    [...dayEvents, ...dayPersonalEvents],
+  );
 
   // 컴시간 시간표 — 선택된 날짜의 요일 시간표 (월=1...금=5)
   const DEFAULT_PERIOD_START_HOURS: Record<number, number> = { 1: 9, 2: 10, 3: 11, 4: 12, 5: 13, 6: 14, 7: 15, 8: 16 };
@@ -130,8 +142,9 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
     const grid = gridRef.current;
     if (!grid) return null;
     const rect = grid.getBoundingClientRect();
+    // 스크롤된 상태에서 격자 밖(날짜·종일 줄 등)에 놓으면 엉뚱한 시각으로 옮겨지므로 취소한다
+    if (clientY < rect.top || clientY > rect.bottom) return null;
     const y = clientY - rect.top + grid.scrollTop;
-    if (y < 0) return null;
     const rowHeight = grid.scrollHeight / 24;
     return Math.min(23, Math.max(0, Math.floor(y / rowHeight)));
   }
@@ -283,7 +296,7 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
         {format(selectedDate, 'yyyy년 M월 d일 (EEEE)', { locale: ko })}
       </div>
 
-      {allDayEvents.length > 0 && (
+      {allDayEvents.length + allDayPersonal.length > 0 && (
         <div style={styles.allDaySection}>
           <span style={styles.allDayLabel}>종일</span>
           {allDayEvents.map((event) => (
@@ -298,6 +311,24 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
               <span style={styles.eventTextSmall}><SchoolBadge school={event.school} size="xs" />{event.title}</span>
             </div>
           ))}
+          {allDayPersonal.map((pe) => (
+            <div
+              key={pe.id}
+              role="button"
+              tabIndex={0}
+              aria-label={`${pe.title} 개인 일정 열기`}
+              onClick={() => onPersonalClick?.(pe)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPersonalClick?.(pe); } }}
+              title={formatPersonalTooltip(pe, pe.source === 'local')}
+              style={{
+                ...styles.allDayEvent,
+                background: getPersonalEventDisplayColor(pe, user?.profileColor),
+                opacity: 0.85,
+                borderLeft: '3px solid rgba(255,255,255,0.5)',
+              }}>
+              <span style={styles.eventTextSmall}>{pe.title} {PERSONAL_SUFFIX}</span>
+            </div>
+          ))}
         </div>
       )}
 
@@ -309,38 +340,15 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
         </div>
       )}
 
-      <div ref={gridRef} style={{ ...styles.hourGrid, position: 'relative' }}>
-        {/* 현재 시간선 */}
-        {isTodayView && (
-          <div style={{
-            position: 'absolute',
-            left: 48,
-            right: 0,
-            top: `${(nowMinute / (24 * 60)) * 100}%`,
-            height: 2,
-            background: '#E74C3C',
-            zIndex: 10,
-            pointerEvents: 'none',
-            boxShadow: '0 0 4px rgba(231,76,60,0.5)',
-          }}>
-            <div style={{
-              position: 'absolute',
-              left: -4,
-              top: -3,
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              background: '#E74C3C',
-            }} />
-          </div>
-        )}
+      <div ref={gridRef} style={styles.hourGrid}>
         {HOURS.map((hour) => {
           const hourEvents = timedEvents.filter((e) => new Date(e.startDate).getHours() === hour);
-          const hourPersonal = dayPersonalEvents.filter((e) => new Date(e.startDate).getHours() === hour);
+          const hourPersonal = timedPersonal.filter((e) => new Date(e.startDate).getHours() === hour);
           const isDropTarget = dragOverHour === hour;
 
           return (
             <div key={hour}
+              data-hour={hour}
               onClick={(e) => {
                 if (dragRef.current?.activated) return;
                 if (Date.now() - justFinishedDragRef.current < 200) return;
@@ -351,11 +359,36 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
               }}
               style={{
               ...styles.hourRow,
+              position: 'relative',
               background: isDropTarget ? 'color-mix(in srgb, var(--accent) 20%, transparent)' : 'rgba(128,128,128,0.02)',
               outline: isDropTarget ? '2px dashed var(--accent)' : 'none',
               outlineOffset: -1,
               cursor: 'pointer',
             }}>
+              {/* 현재 시간선 — 행 안에 두어 행 높이가 달라져도 시각과 맞는다 */}
+              {isTodayView && hour === nowHour && (
+                <div style={{
+                  position: 'absolute',
+                  left: 48,
+                  right: 0,
+                  top: `${((nowMinute % 60) / 60) * 100}%`,
+                  height: 2,
+                  background: '#E74C3C',
+                  zIndex: 10,
+                  pointerEvents: 'none',
+                  boxShadow: '0 0 4px rgba(231,76,60,0.5)',
+                }}>
+                  <div style={{
+                    position: 'absolute',
+                    left: -4,
+                    top: -3,
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: '#E74C3C',
+                  }} />
+                </div>
+              )}
               <div style={styles.timeLabel}>{hour.toString().padStart(2, '0')}:00</div>
               <div style={styles.hourContent}>
                 {hourEvents.map((event) => {

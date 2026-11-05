@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../../utils/firebase';
 import { useAuthStore } from '../../store/authStore';
 import { useWidgetStore } from '../../store/widgetStore';
+import { MIN_TRANSPARENCY, transparencyToOpacity } from '../../utils/windowOpacity';
 import { CalendarSyncSettings } from './CalendarSyncSettings';
 import { ComciganSettings } from './ComciganSettings';
 
@@ -22,7 +21,7 @@ const COLOR_PRESETS = [
 // (이전 모드에서 사용하던 리사이즈 폭/높이 상수 — 현재 모달 오버레이라 사용 안 함)
 
 export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) {
-  const { user, logout } = useAuthStore();
+  const { user, logout, saveSettings } = useAuthStore();
   const widget = useWidgetStore();
   const [transparency, setTransparency] = useState(user?.settings.transparency ?? 80);
   const [alwaysOnTop, setAlwaysOnTop] = useState(user?.settings.alwaysOnTop ?? true);
@@ -63,6 +62,12 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
     window.electronAPI?.setOpacity(value / 100);
   }
 
+  // 슬라이더는 미리보기다. 패널이 어떤 경로로 닫히든 창을 저장된 값으로 맞춘다.
+  useEffect(() => () => {
+    const saved = useAuthStore.getState().user?.settings?.transparency;
+    window.electronAPI?.setOpacity(transparencyToOpacity(saved));
+  }, []);
+
   function handleAlwaysOnTop(value: boolean) {
     setAlwaysOnTop(value);
     window.electronAPI?.toggleAlwaysOnTop(value);
@@ -102,17 +107,16 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
     setSaving(true);
     setSaveMsg('');
     try {
-      const updates: any = {
-        'settings.transparency': transparency,
-        'settings.alwaysOnTop': alwaysOnTop,
-        'settings.clickThrough': clickThrough,
-        'settings.notificationSound': notifSound,
-        'settings.notificationBadge': notifBadge,
-        'settings.theme': theme,
-        'settings.syncInterval': syncInterval,
-        profileColor,
-      };
-      await updateDoc(doc(db, 'users', user.id), updates);
+      // 스토어도 함께 갱신된다. 그래야 다시 열었을 때 옛 값이 보이거나 옛 값으로 덮어쓰지 않는다.
+      await saveSettings({
+        transparency,
+        alwaysOnTop,
+        clickThrough,
+        notificationSound: notifSound,
+        notificationBadge: notifBadge,
+        theme,
+        syncInterval,
+      }, profileColor);
       // Save font size locally
       try {
         localStorage.setItem('tonet-schedule-font-size', String(scheduleFontSize));
@@ -198,7 +202,7 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
             <span style={styles.label}>투명도: {transparency}%</span>
             <input
               type="range"
-              min={10}
+              min={MIN_TRANSPARENCY}
               max={100}
               value={transparency}
               onChange={(e) => handleTransparency(Number(e.target.value))}
