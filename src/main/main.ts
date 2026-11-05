@@ -509,6 +509,7 @@ function setupIPC(): void {
     const ALLOWED_HOSTS = [
       'read365.edunet.net',         // 학교 도서관(독서로)
       'comci.net',                  // 컴시간
+      'comcigan.co.kr',             // 컴시간 문의 게시판
       'taesung-m.goeyi.kr',         // 태성중 홈페이지
       'taesung-h.goeyi.kr',         // 태성고 홈페이지
       'github.com',                 // 릴리스 페이지

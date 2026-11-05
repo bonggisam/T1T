@@ -6,6 +6,7 @@ import { LINK_SCHOOLS, useComciganLinksStore } from '../../store/comciganLinksSt
 import {
   buildLinkRows, chooseAccount, duplicateUserIds, linkEntriesOf, needsAttention, type LinkRow,
 } from '../../utils/comciganLinks';
+import { ComciganCallButton } from '../common/ComciganCall';
 import { showToast } from '../common/Toast';
 
 const MAX_GRADE = 3;
@@ -212,7 +213,7 @@ export function ComciganLinkTable({ users }: { users: User[] }) {
       )}
 
       {loadingGrid && <p style={styles.note}>전교 시간표를 받는 중입니다...</p>}
-      {gridError && <p style={styles.warn}>{gridError}</p>}
+      {gridError && <p style={styles.warn}>{gridError} <ComciganCallButton style={{ marginLeft: 4 }} /></p>}
 
       {rows.length > 0 && (
         <>

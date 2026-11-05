@@ -5,6 +5,7 @@ import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, RefreshCw
 import type { School } from '@shared/types';
 import { SCHOOL_LABELS } from '@shared/types';
 import { useWindowSize, WIDE_MIN } from '../../hooks/useWindowSize';
+import { ComciganCallButton } from '../common/ComciganCall';
 import { useAuthStore } from '../../store/authStore';
 import { useCalendarStore } from '../../store/calendarStore';
 import { gridTargets, LINK_SCHOOLS, useComciganLinksStore } from '../../store/comciganLinksStore';
@@ -319,7 +320,10 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
       ) : gridError && people.length === 0 ? (
         <div style={styles.center}>
           <p style={styles.empty}>{gridError}</p>
-          <button type="button" onClick={() => loadGrids(true)} style={styles.smallBtn}>다시 시도</button>
+          <div style={styles.errorActions}>
+            <button type="button" onClick={() => loadGrids(true)} style={styles.smallBtn}>다시 시도</button>
+            <ComciganCallButton />
+          </div>
         </div>
       ) : (
         <div style={wide ? styles.bodyWide : styles.body}>
@@ -437,7 +441,9 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
             <div style={styles.notes}>
               {linksDenied && <p style={styles.warn}>연결표를 읽지 못해 컴시간 표기로 보여 드립니다. 서버 규칙 적용 여부를 관리자에게 확인해 주세요.</p>}
               {!linksDenied && hasUnlinked && <p style={styles.note}>이름 대신 두 글자로 보이는 분은 아직 계정과 연결되지 않은 컴시간 표기입니다.</p>}
-              {gridError && people.length > 0 && <p style={styles.warn}>{gridError}</p>}
+              {gridError && people.length > 0 && (
+                <p style={styles.warn}>{gridError} <ComciganCallButton style={{ marginLeft: 4 }} /></p>
+              )}
               {weekOffset > 0 && <p style={styles.note}>컴시간은 이번 주 시간표만 알려 주므로 다음 주 이후는 이번 주 시간표로 어림합니다.</p>}
               {targetSchools.size > 1 && baseSchool && <p style={styles.note}>시각은 {SCHOOL_LABELS[baseSchool]} 시정표 기준이고, 다른 학교 수업은 시각으로 견줍니다.</p>}
               <p style={styles.note}>컴시간 시간표와 공유 일정만 봅니다. 개인 일정은 계산에 쓰지 않으며, 수업 중인 분은 인원수만 보여 드립니다.</p>
@@ -511,6 +517,11 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 8,
     padding: 20,
     textAlign: 'center',
+  },
+  errorActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
   },
   empty: {
     fontSize: 'var(--fs-control)',

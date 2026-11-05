@@ -17,6 +17,7 @@ import { PersonalEventModal } from './components/calendar/PersonalEventModal';
 import { PasteEventsModal } from './components/calendar/PasteEventsModal';
 import { PrivacyBanner, PrivateContent, PrivateNotice } from './components/common/PrivacyGuard';
 import { TimetableChangeBanner } from './components/common/TimetableChangeBanner';
+import { ComciganOutageBanner, OperatorOutageBanner } from './components/common/ComciganCall';
 import { TPassView } from './components/tpass/TPassView';
 import { OutingView } from './components/outing/OutingView';
 import { TodosView } from './components/todos/TodosView';
@@ -33,6 +34,7 @@ import { useReminder } from './hooks/useReminder';
 import { useClassReminder } from './hooks/useClassReminder';
 import { useClassPrivacy } from './hooks/useClassPrivacy';
 import { useDutyReminder } from './hooks/useDutyReminder';
+import { useComciganOutageWatch, useOperatorOutageAlert } from './hooks/useComciganOutage';
 import { useDutyStore, useDutySubscription } from './store/dutyStore';
 import { useComciganLinksStore } from './store/comciganLinksStore';
 import { isPersonalHidden } from './store/privacyStore';
@@ -89,6 +91,10 @@ export function App() {
   // 시험 감독·당직 표와 내 차례 미리 알림
   useDutySubscription(user?.status === 'active' ? user.id : null);
   useDutyReminder();
+  // 컴시간이 막혔는지 지켜보고, 운영자는 선생님이 보낸 알림을 받는다
+  const isOperator = user?.status === 'active' && (user.role === 'admin' || user.role === 'super_admin');
+  useComciganOutageWatch();
+  useOperatorOutageAlert(isOperator);
 
   useEffect(() => {
     const unsub = initialize();
@@ -423,6 +429,8 @@ export function App() {
       )}
       <PrivacyBanner />
       <TimetableChangeBanner />
+      {isOperator && <OperatorOutageBanner />}
+      <ComciganOutageBanner />
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         <ErrorBoundary key={activeTab || 'calendar'}>
           {showAdmin ? (

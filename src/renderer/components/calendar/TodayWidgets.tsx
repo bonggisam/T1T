@@ -11,6 +11,8 @@ import {
   readWeatherCache, isWeatherCacheFresh, loadWeather, WEATHER_REFRESH_MS, SCHOOL_LOCATION,
 } from '../../utils/weather';
 import { getTimedPeriods, getCurrentAndNext, formatClassLabel, formatMinutes, isTimetableStale } from '../../utils/classPeriods';
+import { useComciganOutageStore } from '../../store/comciganOutageStore';
+import { ComciganCallButton } from '../common/ComciganCall';
 import { collectDDays, formatDDay } from '../../utils/dday';
 import { usePersonalHidden } from '../../store/privacyStore';
 import { Ic } from '../common/Ic';
@@ -136,6 +138,7 @@ function NextClassCard() {
     ? format(checkedAt, checkedAt.toDateString() === now.toDateString() ? 'HH:mm' : 'M/d HH:mm')
     : '알 수 없음';
   const stale = !!timetableData && isTimetableStale(timetableData.lastUpdated, now);
+  const outage = useComciganOutageStore((s) => s.outage);
 
   let body: React.ReactNode;
   if (periods.length === 0) {
@@ -185,6 +188,7 @@ function NextClassCard() {
       {body}
       <div style={{ ...styles.subRow, ...(stale ? styles.staleRow : {}) }}>
         {stale ? `시간표를 확인하지 못했습니다 · ${checkedLabel} 기준` : `${checkedLabel} 확인`}
+        {outage && <ComciganCallButton style={{ marginLeft: 6 }} />}
       </div>
     </div>
   );

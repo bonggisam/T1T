@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useComciganStore } from '../../store/comciganStore';
 import { useAuthStore } from '../../store/authStore';
 import { LINK_SCHOOLS, useComciganLinksStore } from '../../store/comciganLinksStore';
+import { useComciganOutageStore } from '../../store/comciganOutageStore';
+import { ComciganCallButton } from '../common/ComciganCall';
 
 export function ComciganSettings() {
   const { config, timetableData, searchResults, searching, loading, error, searchSchool, configure, fetchTimetable, clearConfig } = useComciganStore();
@@ -12,6 +14,7 @@ export function ComciganSettings() {
   const [maxGrade, setMaxGrade] = useState(3);
   const user = useAuthStore((s) => s.user);
   const links = useComciganLinksStore((s) => s.links);
+  const outage = useComciganOutageStore((s) => s.outage);
   // 관리자가 연결표에 올린 내 표기
   const myLinks = LINK_SCHOOLS.flatMap((school) => {
     const doc = links[school];
@@ -70,6 +73,12 @@ export function ComciganSettings() {
           </button>
         </div>
         {error && <p style={styles.error}>{error}</p>}
+        {(error || outage) && (
+          <div style={styles.row}>
+            <span style={styles.label}>시간표를 받지 못하고 있습니다</span>
+            <ComciganCallButton />
+          </div>
+        )}
       </div>
     );
   }
