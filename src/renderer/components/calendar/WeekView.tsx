@@ -12,6 +12,7 @@ import type { CalendarEvent, PersonalEvent, TeacherPeriod } from '@shared/types'
 import { showToast } from '../common/Toast';
 import { formatEventTooltip, formatPersonalTooltip, getCreatorTag, canManageEvent, PERSONAL_SUFFIX, getPersonalEventDisplayColor } from '../../utils/calendarHelpers';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
+import { useTimelineScroll } from '../../hooks/useTimelineScroll';
 import { SchoolBadge } from '../common/SchoolBadge';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -24,6 +25,7 @@ interface DragInfo {
   activated: boolean;
   originDay: number; // 0-6 (column index)
   originHour: number; // 0-23
+  allDay: boolean; // 종일 줄에서 시작한 드래그 — 날짜만 옮긴다
 }
 
 interface QuickAdd {
@@ -52,6 +54,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
   const eventsRef = useRef(events);
   const personalEventsRef = useRef(personalEvents);
   const [dragOver, setDragOver] = useState<{ col: number; hour: number } | null>(null);
+  const [dragOverAllDayCol, setDragOverAllDayCol] = useState<number | null>(null);
   const [quickAdd, setQuickAdd] = useState<QuickAdd | null>(null);
   const [nowMinute, setNowMinute] = useState(() => new Date().getHours() * 60 + new Date().getMinutes());
 
@@ -122,6 +125,22 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 0 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 0 });
   const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
+  const todayIdx = days.findIndex((d) => isToday(d));
+  const nowHour = Math.floor(nowMinute / 60);
+
+  useTimelineScroll(
+    gridRef,
+    days,
+    comciganConfig ? timetableData : null,
+    days.flatMap((d) => [...getEventsForDay(d), ...getPersonalEventsForDay(d)]),
+  );
+
+  // 종일 일정은 시간 격자 위의 별도 줄에 표시
+  const allDayByDay = days.map((day) => ({
+    shared: getEventsForDay(day).filter((e) => e.allDay),
+    personal: getPersonalEventsForDay(day).filter((e) => e.allDay),
+  }));
+  const hasAllDay = allDayByDay.some((d) => d.shared.length + d.personal.length > 0);
 
   function getEventsForDay(date: Date): CalendarEvent[] {
     return events.filter((e) => {
@@ -142,24 +161,34 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
   }
 
   // ─── 그리드 좌표 → 열(day)+행(hour) 계산 ───
-  function getGridPos(clientX: number, clientY: number): { col: number; hour: number } | null {
+  function getColumn(clientX: number): number | null {
     const grid = gridRef.current;
     if (!grid) return null;
     const rect = grid.getBoundingClientRect();
     const x = clientX - rect.left;
-    const y = clientY - rect.top + grid.scrollTop;
-    if (x < 0 || y < 0 || x > rect.width) return null;
+    if (x < 0 || x > rect.width) return null;
     const gutterWidth = 40;
     const colWidth = (rect.width - gutterWidth) / 7;
     const col = Math.floor((x - gutterWidth) / colWidth);
-    if (col < 0 || col > 6) return null;
+    return col < 0 || col > 6 ? null : col;
+  }
+
+  function getGridPos(clientX: number, clientY: number): { col: number; hour: number } | null {
+    const grid = gridRef.current;
+    if (!grid) return null;
+    const rect = grid.getBoundingClientRect();
+    // 스크롤된 상태에서 격자 밖(머리글·종일 줄 등)에 놓으면 엉뚱한 시각으로 옮겨지므로 취소한다
+    if (clientY < rect.top || clientY > rect.bottom) return null;
+    const col = getColumn(clientX);
+    if (col === null) return null;
+    const y = clientY - rect.top + grid.scrollTop;
     const rowHeight = grid.scrollHeight / 24;
     const hour = Math.min(23, Math.max(0, Math.floor(y / rowHeight)));
     return { col, hour };
   }
 
   // ─── 드래그 핸들러 ───
-  function handleEventMouseDown(e: React.MouseEvent, eventId: string, type: 'shared' | 'personal', dayIdx: number, hour: number) {
+  function handleEventMouseDown(e: React.MouseEvent, eventId: string, type: 'shared' | 'personal', dayIdx: number, hour: number, allDay = false) {
     if (type === 'shared') {
       const ev = events.find((x) => x.id === eventId);
       if (!ev || !canManageEvent(ev, user)) return;
@@ -169,7 +198,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
     }
     e.preventDefault();
     e.stopPropagation();
-    dragRef.current = { eventId, type, startX: e.clientX, startY: e.clientY, activated: false, originDay: dayIdx, originHour: hour };
+    dragRef.current = { eventId, type, startX: e.clientX, startY: e.clientY, activated: false, originDay: dayIdx, originHour: hour, allDay };
   }
 
   useEffect(() => {
@@ -181,22 +210,33 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
         if (Math.abs(e.clientX - drag.startX) < 12 && Math.abs(e.clientY - drag.startY) < 12) return;
         drag.activated = true;
       }
-      const pos = getGridPos(e.clientX, e.clientY);
-      setDragOver(pos);
+      if (drag.allDay) {
+        setDragOverAllDayCol(getColumn(e.clientX));
+      } else {
+        setDragOver(getGridPos(e.clientX, e.clientY));
+      }
     }
 
     async function onMouseUp(e: MouseEvent) {
       const drag = dragRef.current;
       dragRef.current = null;
-      if (!drag || !drag.activated) { setDragOver(null); return; }
+      setDragOver(null);
+      setDragOverAllDayCol(null);
+      if (!drag || !drag.activated) return;
       justFinishedDragRef.current = Date.now();
 
-      const pos = getGridPos(e.clientX, e.clientY);
-      setDragOver(null);
-      if (!pos) return;
-
-      const daysDiff = pos.col - drag.originDay;
-      const hoursDiff = pos.hour - drag.originHour;
+      let daysDiff: number;
+      let hoursDiff = 0;
+      if (drag.allDay) {
+        const col = getColumn(e.clientX);
+        if (col === null) return;
+        daysDiff = col - drag.originDay;
+      } else {
+        const pos = getGridPos(e.clientX, e.clientY);
+        if (!pos) return;
+        daysDiff = pos.col - drag.originDay;
+        hoursDiff = pos.hour - drag.originHour;
+      }
       if (daysDiff === 0 && hoursDiff === 0) return;
 
       if (drag.type === 'shared') {
@@ -251,49 +291,110 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
         ))}
       </div>
 
-      {/* Time grid */}
-      <div ref={gridRef} style={styles.gridScroll}>
-        <div style={{ ...styles.grid, position: 'relative' }}>
-          {/* 현재 시간선 */}
-          {(() => {
-            const todayIdx = days.findIndex((d) => isToday(d));
-            if (todayIdx < 0) return null;
+      {/* 종일 일정 — 시간 격자 밖에 두어 스크롤 위치와 상관없이 항상 보인다 */}
+      {hasAllDay && (
+        <div style={styles.allDayRow}>
+          <div style={styles.timeGutter}>
+            <span style={styles.timeLabel}>종일</span>
+          </div>
+          {allDayByDay.map(({ shared, personal }, dayIdx) => {
+            const isDropTarget = dragOverAllDayCol === dayIdx;
             return (
-              <div style={{
-                position: 'absolute',
-                left: `calc(40px + ${(todayIdx / 7) * 100}%)`,
-                width: `${100 / 7}%`,
-                top: `${(nowMinute / (24 * 60)) * 100}%`,
-                height: 2,
-                background: '#E74C3C',
-                zIndex: 10,
-                pointerEvents: 'none',
-                boxShadow: '0 0 4px rgba(231,76,60,0.5)',
+              <div key={dayIdx} style={{
+                ...styles.allDayCell,
+                background: isDropTarget ? 'color-mix(in srgb, var(--accent) 20%, transparent)' : 'rgba(128,128,128,0.02)',
+                outline: isDropTarget ? '2px dashed var(--accent)' : 'none',
+                outlineOffset: -1,
               }}>
-                <div style={{
-                  position: 'absolute',
-                  left: -4,
-                  top: -3,
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  background: '#E74C3C',
-                }} />
+                {shared.map((event) => {
+                  const isOwner = canManageEvent(event, user);
+                  return (
+                    <div
+                      key={event.id}
+                      onMouseDown={(e) => handleEventMouseDown(e, event.id, 'shared', dayIdx, 0, true)}
+                      onClick={() => {
+                        if (Date.now() - justFinishedDragRef.current < 200) return;
+                        setSelectedEvent(event);
+                        setShowEventDetail(true);
+                      }}
+                      style={{
+                        ...styles.eventBlock, background: event.adminColor,
+                        cursor: isOwner ? 'grab' : 'pointer',
+                        opacity: dragRef.current?.eventId === event.id ? 0.4 : 1,
+                      }}
+                      title={formatEventTooltip(event, isOwner)}
+                    >
+                      <span style={styles.eventText}>
+                        <SchoolBadge school={event.school} size="xs" />{event.title}
+                      </span>
+                    </div>
+                  );
+                })}
+                {personal.map((pe) => {
+                  const canDrag = pe.source === 'local';
+                  return (
+                    <div
+                      key={pe.id}
+                      onMouseDown={(e) => handleEventMouseDown(e, pe.id, 'personal', dayIdx, 0, true)}
+                      onClick={() => {
+                        if (Date.now() - justFinishedDragRef.current < 200) return;
+                        onPersonalClick?.(pe);
+                      }}
+                      style={{
+                        ...styles.eventBlock, background: getPersonalEventDisplayColor(pe, user?.profileColor), opacity: 0.85,
+                        borderLeft: '2px solid rgba(255,255,255,0.5)',
+                        cursor: canDrag ? 'grab' : 'pointer',
+                      }}
+                      title={formatPersonalTooltip(pe, canDrag)}
+                    >
+                      <span style={styles.eventText}>{pe.title} {PERSONAL_SUFFIX}</span>
+                    </div>
+                  );
+                })}
               </div>
             );
-          })()}
+          })}
+        </div>
+      )}
+
+      {/* Time grid */}
+      <div ref={gridRef} style={styles.gridScroll}>
+        <div style={styles.grid}>
           {HOURS.map((hour) => (
-            <div key={hour} style={styles.hourRow}>
+            <div key={hour} data-hour={hour} style={{ ...styles.hourRow, position: 'relative' }}>
+              {/* 현재 시간선 — 행 안에 두어 행 높이가 달라져도 시각과 맞는다 */}
+              {todayIdx >= 0 && hour === nowHour && (
+                <div style={{
+                  position: 'absolute',
+                  left: `calc(40px + (100% - 40px) * ${todayIdx} / 7)`,
+                  width: 'calc((100% - 40px) / 7)',
+                  top: `${((nowMinute % 60) / 60) * 100}%`,
+                  height: 2,
+                  background: '#E74C3C',
+                  zIndex: 10,
+                  pointerEvents: 'none',
+                  boxShadow: '0 0 4px rgba(231,76,60,0.5)',
+                }}>
+                  <div style={{
+                    position: 'absolute',
+                    left: -4,
+                    top: -3,
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: '#E74C3C',
+                  }} />
+                </div>
+              )}
               <div style={styles.timeGutter}>
                 <span style={styles.timeLabel}>{hour.toString().padStart(2, '0')}:00</span>
               </div>
               {days.map((day, dayIdx) => {
                 const dayEvents = getEventsForDay(day).filter((e) => {
-                  if (e.allDay) return hour === 0;
-                  return new Date(e.startDate).getHours() === hour;
+                  return !e.allDay && new Date(e.startDate).getHours() === hour;
                 });
                 const dayPersonal = getPersonalEventsForDay(day).filter((e) => {
-                  return new Date(e.startDate).getHours() === hour;
+                  return !e.allDay && new Date(e.startDate).getHours() === hour;
                 });
                 const jsDay = day.getDay();
                 const comciganPeriods = comciganByDayHour.get(`${jsDay}-${hour}`) || [];
@@ -409,6 +510,9 @@ const styles: Record<string, React.CSSProperties> = {
   dayName: { fontSize: 10, color: 'var(--text-muted)' },
   dayNum: { fontSize: 14, fontWeight: 700, textShadow: 'var(--label-halo)' },
   todayNum: { background: 'var(--accent)', color: '#fff', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 },
+  allDayRow: { display: 'grid', gridTemplateColumns: '40px repeat(7, 1fr)', gap: 1, borderBottom: '1px solid var(--grid-line)', flexShrink: 0, maxHeight: 84, overflowX: 'hidden', overflowY: 'auto' },
+  // overflow: hidden을 주면 행이 내용만큼 커지지 않아 넘친 일정이 스크롤 없이 잘린다
+  allDayCell: { padding: 1, minWidth: 0, borderRight: '1px solid var(--grid-line)' },
   gridScroll: { flex: 1, overflow: 'auto' },
   grid: { display: 'flex', flexDirection: 'column' },
   hourRow: { display: 'grid', gridTemplateColumns: '40px repeat(7, 1fr)', gap: 1, minHeight: 40, borderBottom: '1px solid var(--grid-line)' },

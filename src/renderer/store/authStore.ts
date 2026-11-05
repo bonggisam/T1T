@@ -23,6 +23,8 @@ interface AuthState {
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   clearError: () => void;
+  /** 본인 설정을 Firestore와 스토어에 함께 저장한다. 실패하면 스토어를 되돌리고 오류를 던진다. */
+  saveSettings: (settings: Partial<UserSettings>, profileColor?: string) => Promise<void>;
 }
 
 const defaultSettings: UserSettings = {
@@ -40,7 +42,7 @@ const defaultSettings: UserSettings = {
 
 let signupInProgress = false;
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   firebaseUser: null,
   user: null,
   loading: true,
@@ -186,6 +188,30 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   clearError: () => set({ error: null }),
+
+  saveSettings: async (settings, profileColor) => {
+    const before = get().user;
+    if (!before) return;
+    // 점 표기로 바뀐 값만 보낸다. settings 전체를 보내면 다른 PC에서 바꾼 값까지 덮어쓴다.
+    const fields: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(settings)) fields[`settings.${key}`] = value;
+    if (profileColor) fields.profileColor = profileColor;
+
+    set({
+      user: {
+        ...before,
+        profileColor: profileColor || before.profileColor,
+        settings: { ...before.settings, ...settings },
+      },
+    });
+    try {
+      await updateDoc(doc(db, 'users', before.id), fields);
+    } catch (err) {
+      // 그 사이 로그아웃하거나 다른 계정으로 바뀌었으면 이전 사용자 정보를 되살리지 않는다
+      if (get().user?.id === before.id) set({ user: before });
+      throw err;
+    }
+  },
 }));
 
 function getErrorMessage(code: string): string {
