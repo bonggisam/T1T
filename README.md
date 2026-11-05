@@ -7,7 +7,13 @@
 ## ✨ 주요 기능
 
 - 📅 **공유 일정** — 중·고 구분(M/H 색상 배지) + 공통 일정
-- 📋 **다중 뷰** — 오늘 / 월 / 주 / 일 / 년 / 아젠다 / 통계
+- 📋 **다중 뷰** — 오늘 / 월 / 주 / 일 / 년 / 목록 / 통계 (오늘과 주는 교시 기준)
+- 🔁 **반복 일정과 일정 응답** — 평일·매주·격주·매월, 참석·불참·확인
+- 🔒 **수업 화면 보호** — 내 수업 시간에 개인 일정 자동 가리기, Ctrl+Shift+H
+- 🔎 **회의 시간 찾기** — 시간표와 공유 일정만으로 모두 비는 교시 찾기
+- 🗂 **시험 감독·당직 표** — 표를 붙여 넣으면 각자 달력에 차례 표시
+- 📝 **쪽지·공문 붙여넣기** — 날짜를 읽어 개인 일정 초안 만들기
+- 🎨 **테마 7종과 개인 옵션** — 강조색, 글자 크기, 크게 보기, 색 구분 돕기
 - ✅ **할 일** — 우선순위·마감일·인라인 수정
 - 🍱 **NEIS 급식·학사일정** 자동 표시
 - 📚 **컴시간 시간표** 연동
@@ -21,7 +27,7 @@
 
 ## 🛠 기술 스택
 
-- Electron 41 + React 18 + TypeScript
+- Electron 45 + React 18 + TypeScript
 - Zustand (상태) + Firebase (Firestore + Auth)
 - Vite + electron-builder
 - date-fns (날짜) + lucide-react (아이콘)
@@ -32,8 +38,8 @@
 
 - **Mac (Apple Silicon)**: `T1T-x.y.z-arm64.dmg`
 - **Mac (Intel)**: `T1T-x.y.z.dmg`
-- **Windows 설치**: `T1T Setup x.y.z.exe`
-- **Windows 포터블**: `T1T x.y.z.exe`
+- **Windows 설치**: `T1T-Setup-x.y.z.exe`
+- **Windows 포터블**: `T1T-Portable-x.y.z.exe`
 
 ## 🧰 개발
 
@@ -43,6 +49,7 @@ cp .env.example .env  # Firebase 키 입력
 npm run dev           # 개발 모드
 npm run build:mac     # macOS 빌드 (arm64 + x64)
 npm run build:win     # Windows 빌드 (x64)
+npm run check:privacy # 공유 기능이 개인 일정을 가져오지 않는지 검사
 ```
 
 ### 환경변수 (`.env`)
