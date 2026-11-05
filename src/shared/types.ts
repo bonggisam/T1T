@@ -84,7 +84,7 @@ export interface CalendarEvent {
   seriesId?: string | null;
   /** 응답을 받는 일정이면 그 종류 */
   responseType?: ResponseType | null;
-  /** 달력에 함께 그리는 내 감독·당직 차례. 일정 문서가 아니어서 저장하지 않고 화면에서만 쓴다. */
+  /** 달력에 함께 그리는 내 시험감독 차례. 일정 문서가 아니어서 저장하지 않고 화면에서만 쓴다. */
   duty?: DutyRef;
   attachments: Attachment[];
   checklist: ChecklistItem[];
@@ -243,7 +243,7 @@ export interface ComciganLinkDoc {
   updatedAt?: Date | null;
 }
 
-// 시험 감독·당직 표
+// 시험감독 표
 export interface DutyEntry {
   id: string;
   date: string; // yyyy-MM-dd
@@ -343,6 +343,8 @@ export interface ElectronAPI {
   startEdgeResize: (edge: 'top'|'right'|'bottom'|'left'|'top-left'|'top-right'|'bottom-left'|'bottom-right') => Promise<void>;
   stopEdgeResize: () => Promise<void>;
   openExternal: (url: string) => Promise<{ ok: boolean; reason?: string }>;
+  /** 외출시스템 비밀번호 단계를 넘긴다. 값은 메인 프로세스에만 있다 */
+  tpassAutoLogin: (webContentsId: number) => Promise<{ ok: boolean; reason?: string; attempt?: number }>;
   onWidgetModeChanged: (callback: (enabled: boolean) => void) => () => void;
   onClickThroughChanged: (callback: (enabled: boolean) => void) => () => void;
   /** 절전 복귀나 화면 잠금 해제 때 호출 */

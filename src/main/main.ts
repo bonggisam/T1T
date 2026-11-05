@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, Tray, Menu, globalShortcut, ipcMain, nativeImage, powerMonitor, screen, shell, type NativeImage } from 'electron';
+import { app, BrowserWindow, clipboard, Tray, Menu, globalShortcut, ipcMain, nativeImage, powerMonitor, screen, shell, webContents as electronWebContents, type NativeImage } from 'electron';
 import * as http from 'http';
 import * as crypto from 'crypto';
 import * as path from 'path';
@@ -10,7 +10,8 @@ import { comciganService } from './comcigan';
 import { defaultBounds, isReachable, parseSavedState, resolveBounds } from './windowPlacement';
 import type { DisplayArea, Rect, SavedWindowState } from './windowPlacement';
 import * as macUpdater from './macUpdater';
-import { GOOGLE_CLIENT_ID as INJECTED_GOOGLE_ID, GOOGLE_CLIENT_SECRET as INJECTED_GOOGLE_SECRET } from './credentials.gen';
+import { isTpassView, tpassAutoLogin } from './tpassLogin';
+import { GOOGLE_CLIENT_ID as INJECTED_GOOGLE_ID, GOOGLE_CLIENT_SECRET as INJECTED_GOOGLE_SECRET, TPASS_PASSWORD } from './credentials.gen';
 
 // 진단 로그 — 개발 모드에서만 (프로덕션 console 노이즈 제거)
 if (!app.isPackaged) {
@@ -526,6 +527,16 @@ function setupIPC(): void {
     } catch (e: any) {
       return { ok: false, reason: e?.message || 'unknown' };
     }
+  });
+
+  // 외출시스템 비밀번호 단계 건너뛰기. 값은 메인 프로세스에만 두고 렌더러로 보내지 않는다.
+  ipcMain.handle('tpass:auto-login', async (_event, webContentsId: number) => {
+    if (typeof webContentsId !== 'number' || webContentsId <= 0) return { ok: false, reason: 'invalid id' };
+    if (!TPASS_PASSWORD) return { ok: false, reason: 'no password' };
+    const wc = electronWebContents.fromId(webContentsId);
+    if (!wc || wc.isDestroyed()) return { ok: false, reason: 'no webContents' };
+    if (!isTpassView(wc)) return { ok: false, reason: 'not the tpass view' };
+    return tpassAutoLogin(wc, TPASS_PASSWORD);
   });
 
   ipcMain.handle('tray:set-badge', (_event, hasBadge: boolean) => {
