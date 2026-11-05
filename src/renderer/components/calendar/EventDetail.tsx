@@ -26,6 +26,7 @@ import { MentionInput, renderMentions, extractMentions } from '../common/Mention
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useUsersStore } from '../../store/usersStore';
 import { notifyUser } from '../../utils/notifications';
+import { Ic } from '../common/Ic';
 
 const CATEGORY_LABELS: Record<string, string> = {
   event: '행사',
@@ -152,7 +153,7 @@ export function EventDetail() {
     // 관리자가 다른 사람 일정 삭제 시 확인 대화상자
     if (!isCreator && isAdmin) {
       const ok = window.confirm(
-        `⚠️ 다른 사용자(${selectedEvent!.adminName || '알 수 없음'})가 만든 일정을 관리자 권한으로 삭제합니다.\n\n계속하시겠습니까?`
+        `다른 사용자(${selectedEvent!.adminName || '알 수 없음'})가 만든 일정을 관리자 권한으로 삭제합니다.\n\n계속하시겠습니까?`
       );
       if (!ok) return;
     }
@@ -221,7 +222,7 @@ export function EventDetail() {
           notifyUser(
             target.id,
             'new_event',
-            `💬 ${user.name}님이 "${selectedEvent.title}"에서 언급했습니다`,
+            `${user.name}님이 "${selectedEvent.title}"에서 언급했습니다`,
             selectedEvent.id,
             user.id,
           );
@@ -232,7 +233,7 @@ export function EventDetail() {
     } catch (err) {
       console.error('Failed to add comment:', err);
       const msg = err instanceof Error ? err.message : '알 수 없는 오류';
-      showToast(`❌ 댓글 등록 실패: ${msg}`, 'error');
+      showToast(`댓글 등록 실패: ${msg}`, 'error');
     }
     setSendingComment(false);
   }
@@ -246,7 +247,7 @@ export function EventDetail() {
     } catch (err) {
       console.error('Failed to delete comment:', err);
       const msg = err instanceof Error ? err.message : '댓글 삭제에 실패했습니다';
-      showToast(`❌ ${msg}`, 'error');
+      showToast(`${msg}`, 'error');
     }
   }
 
@@ -286,7 +287,7 @@ export function EventDetail() {
       const currentAt = selectedEvent.updatedAt.getTime();
       if (currentAt > startedAt + 1000) { // 1초 여유
         const ok = window.confirm(
-          '⚠️ 편집 중 다른 사용자가 이 일정을 수정했습니다.\n\n덮어쓰시겠습니까?\n(취소를 누르면 편집을 중단하고 최신 내용을 확인하세요.)'
+          '편집 중 다른 사용자가 이 일정을 수정했습니다.\n\n덮어쓰시겠습니까?\n(취소를 누르면 편집을 중단하고 최신 내용을 확인하세요.)'
         );
         if (!ok) {
           setSaving(false);
@@ -352,7 +353,7 @@ export function EventDetail() {
             <span style={{ ...styles.colorDot, background: selectedEvent.adminColor }} />
             <span style={styles.category}>{CATEGORY_LABELS[selectedEvent.category] || selectedEvent.category}</span>
           </div>
-          <button onClick={close} style={styles.closeBtn}>✕</button>
+          <button onClick={close} style={styles.closeBtn}><Ic name="x" gap={false} /></button>
         </div>
 
         {/* Title & creator */}
@@ -371,18 +372,18 @@ export function EventDetail() {
                 {CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
               </select>
               <select value={editSchool} onChange={(e) => setEditSchool(e.target.value as School | 'all')} style={styles.editSelect}>
-                <option value="taeseong_middle">🏫 태성중</option>
-                <option value="taeseong_high">🎓 태성고</option>
-                <option value="all">📢 전체</option>
+                <option value="taeseong_middle">태성중</option>
+                <option value="taeseong_high">태성고</option>
+                <option value="all">전체</option>
               </select>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, cursor: 'pointer' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--fs-label)', cursor: 'pointer' }}>
                 <input type="checkbox" checked={editAllDay} onChange={(e) => setEditAllDay(e.target.checked)} />
                 종일
               </label>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <input type="datetime-local" value={editStart} onChange={(e) => setEditStart(e.target.value)} style={styles.editDateInput} />
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>~</span>
+              <span style={{ fontSize: 'var(--fs-label)', color: 'var(--text-muted)' }}>~</span>
               <input type="datetime-local" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} style={styles.editDateInput} />
             </div>
             <select
@@ -416,10 +417,10 @@ export function EventDetail() {
 
             {/* Date/time */}
             <div style={styles.info}>
-              <span>📅 {format(new Date(selectedEvent.startDate), 'yyyy.MM.dd (EEE)', { locale: ko })}</span>
+              <span><Ic name="calendar" />{format(new Date(selectedEvent.startDate), 'yyyy.MM.dd (EEE)', { locale: ko })}</span>
               {!selectedEvent.allDay && (
                 <span>
-                  🕐 {format(new Date(selectedEvent.startDate), 'HH:mm')} ~ {format(new Date(selectedEvent.endDate), 'HH:mm')}
+                  <Ic name="clock" />{format(new Date(selectedEvent.startDate), 'HH:mm')} ~ {format(new Date(selectedEvent.endDate), 'HH:mm')}
                 </span>
               )}
               {selectedEvent.allDay && <span>종일</span>}
@@ -453,7 +454,7 @@ export function EventDetail() {
         {selectedEvent.checklist.length > 0 && (
           <div style={styles.checklistSection}>
             <div style={styles.checklistHeader}>
-              <span style={styles.sectionLabel}>☑️ 체크리스트</span>
+              <span style={styles.sectionLabel}><Ic name="checkSquare" />체크리스트</span>
               <span style={styles.progressText}>{checkedCount}/{totalCount}</span>
             </div>
             {/* Progress bar */}
@@ -476,7 +477,7 @@ export function EventDetail() {
                     opacity: item.checked ? 0.6 : 1,
                   }}
                 >
-                  <span style={styles.checkIcon}>{item.checked ? '✅' : '⬜'}</span>
+                  <span style={styles.checkIcon}><Ic name={item.checked ? 'checkSquare' : 'square'} gap={false} /></span>
                   <span style={{
                     ...styles.checkText,
                     textDecoration: item.checked ? 'line-through' : 'none',
@@ -484,7 +485,7 @@ export function EventDetail() {
                 </div>
               ))}
             {progress === 100 && (
-              <div style={styles.completeMsg}>✅ 모든 항목 완료!</div>
+              <div style={styles.completeMsg}><Ic name="checkCircle" />모든 항목 완료!</div>
             )}
           </div>
         )}
@@ -499,7 +500,7 @@ export function EventDetail() {
                 onClick={() => setShowReadList(!showReadList)}
                 style={styles.readHeader}
               >
-                <span style={styles.sectionLabel}>👁️ 읽음 확인</span>
+                <span style={styles.sectionLabel}><Ic name="eye" />읽음 확인</span>
                 <span style={styles.readCount}>{readCount}명 확인</span>
               </div>
               {showReadList && readEntries.length > 0 && (
@@ -531,7 +532,7 @@ export function EventDetail() {
 
         {/* Comments */}
         <div style={styles.commentSection}>
-          <span style={styles.sectionLabel}>💬 댓글 ({comments.length})</span>
+          <span style={styles.sectionLabel}><Ic name="message" />댓글 ({comments.length})</span>
           <div style={styles.commentList}>
             {comments.map((c) => (
               <div key={c.id} style={styles.commentItem}>
@@ -550,7 +551,7 @@ export function EventDetail() {
                         style={styles.commentDeleteBtn}
                         title={user?.id === c.userId ? '삭제' : '관리자 권한으로 삭제'}
                       >
-                        ✕
+                        <Ic name="x" gap={false} />
                       </button>
                     )}
                   </div>
@@ -587,15 +588,15 @@ export function EventDetail() {
           <div style={styles.actions}>
             {!isCreator && isAdmin && (
               <span style={{
-                fontSize: 10, color: '#F59E0B', fontWeight: 600,
+                fontSize: 'var(--fs-caption)', color: 'var(--warning)', fontWeight: 600,
                 padding: '2px 8px', borderRadius: 4,
-                background: 'rgba(245, 158, 11, 0.1)',
+                background: 'var(--warning-soft)',
                 marginRight: 'auto',
               }}>
-                👑 관리자 권한으로 편집
+                <Ic name="crown" />관리자 권한으로 편집
               </span>
             )}
-            <button onClick={startEditing} style={styles.editBtn}>✏️ 수정</button>
+            <button onClick={startEditing} style={styles.editBtn}><Ic name="pencil" />수정</button>
             <button onClick={handleDelete} disabled={deleting} style={styles.deleteBtn}>
               {deleting ? '삭제 중...' : '삭제'}
             </button>
@@ -621,13 +622,13 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: 5,
     marginBottom: 10,
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     color: 'var(--text-secondary)',
   },
   overlay: {
     position: 'absolute',
     inset: 0,
-    background: 'rgba(0,0,0,0.3)',
+    background: 'var(--scrim)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -658,7 +659,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '50%',
   },
   category: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     color: 'var(--text-muted)',
     fontWeight: 500,
   },
@@ -666,18 +667,18 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontSize: 14,
+    fontSize: 'var(--fs-lead)',
     color: 'var(--text-muted)',
     padding: '2px 6px',
   },
   title: {
-    fontSize: 18,
+    fontSize: 'var(--fs-heading)',
     fontWeight: 700,
     color: 'var(--text-primary)',
     marginBottom: 4,
   },
   creator: {
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     color: 'var(--text-secondary)',
     marginBottom: 10,
   },
@@ -685,7 +686,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     gap: 4,
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     color: 'var(--text-secondary)',
     marginBottom: 10,
     padding: '8px 10px',
@@ -696,7 +697,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 10,
   },
   description: {
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     color: 'var(--text-primary)',
     lineHeight: 1.6,
     whiteSpace: 'pre-wrap',
@@ -713,12 +714,12 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
   },
   sectionLabel: {
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     fontWeight: 600,
     color: 'var(--text-primary)',
   },
   progressText: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     color: 'var(--text-muted)',
   },
   progressBar: {
@@ -742,16 +743,16 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'background 0.12s',
   },
   checkIcon: {
-    fontSize: 14,
+    fontSize: 'var(--fs-lead)',
     flexShrink: 0,
   },
   checkText: {
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     color: 'var(--text-primary)',
   },
   completeMsg: {
     textAlign: 'center',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     color: 'var(--success)',
     fontWeight: 600,
     padding: 4,
@@ -777,7 +778,7 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'background 0.12s',
   },
   readCount: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     color: 'var(--accent)',
     fontWeight: 600,
   },
@@ -796,17 +797,17 @@ const styles: Record<string, React.CSSProperties> = {
     borderTop: '1px solid var(--border-subtle)',
   },
   readName: {
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     color: 'var(--text-primary)',
     fontWeight: 500,
   },
   readTime: {
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     color: 'var(--text-muted)',
   },
   readEmpty: {
     padding: '8px 10px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     color: 'var(--text-muted)',
     textAlign: 'center',
     borderTop: '1px solid var(--border-subtle)',
@@ -846,7 +847,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   commentName: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 600,
     color: 'var(--text-primary)',
   },
@@ -856,7 +857,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 4,
   },
   commentTime: {
-    fontSize: 9,
+    fontSize: 'var(--fs-tiny)',
     color: 'var(--text-muted)',
   },
   commentDeleteBtn: {
@@ -864,12 +865,12 @@ const styles: Record<string, React.CSSProperties> = {
     border: 'none',
     cursor: 'pointer',
     color: 'var(--text-muted)',
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     padding: '0 2px',
     lineHeight: 1,
   },
   commentText: {
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     color: 'var(--text-primary)',
     lineHeight: 1.4,
     margin: 0,
@@ -884,7 +885,7 @@ const styles: Record<string, React.CSSProperties> = {
   commentTextInput: {
     flex: 1,
     padding: '6px 10px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     border: '1px solid var(--border-color)',
     borderRadius: 6,
     background: 'var(--bg-secondary)',
@@ -894,18 +895,18 @@ const styles: Record<string, React.CSSProperties> = {
   },
   commentSendBtn: {
     padding: '6px 12px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 600,
     border: 'none',
     borderRadius: 6,
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--on-accent)',
     cursor: 'pointer',
     flexShrink: 0,
   },
   editBtn: {
     padding: '6px 16px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     border: '1px solid var(--accent)',
     borderRadius: 8,
     background: 'transparent',
@@ -914,7 +915,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   deleteBtn: {
     padding: '6px 16px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     border: '1px solid var(--danger)',
     borderRadius: 8,
     background: 'transparent',
@@ -924,7 +925,7 @@ const styles: Record<string, React.CSSProperties> = {
   editInput: {
     width: '100%',
     padding: '8px 12px',
-    fontSize: 14,
+    fontSize: 'var(--fs-lead)',
     fontWeight: 600,
     border: '1px solid var(--border-color)',
     borderRadius: 8,
@@ -934,7 +935,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   editSelect: {
     padding: '4px 8px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     border: '1px solid var(--border-color)',
     borderRadius: 6,
     background: 'var(--bg-secondary)',
@@ -944,7 +945,7 @@ const styles: Record<string, React.CSSProperties> = {
   editDateInput: {
     flex: 1,
     padding: '4px 6px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     border: '1px solid var(--border-color)',
     borderRadius: 6,
     background: 'var(--bg-secondary)',
@@ -954,7 +955,7 @@ const styles: Record<string, React.CSSProperties> = {
   editTextarea: {
     width: '100%',
     padding: '8px 12px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     border: '1px solid var(--border-color)',
     borderRadius: 8,
     background: 'var(--bg-secondary)',
@@ -965,7 +966,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   editCancelBtn: {
     padding: '6px 14px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     border: '1px solid var(--border-color)',
     borderRadius: 6,
     background: 'transparent',
@@ -974,12 +975,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
   editSaveBtn: {
     padding: '6px 14px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 600,
     border: 'none',
     borderRadius: 6,
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--on-accent)',
     cursor: 'pointer',
   },
 };

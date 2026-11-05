@@ -7,6 +7,7 @@ import { useUIStore } from '../../store/uiStore';
 import { getCreatorTag } from '../../utils/calendarHelpers';
 import { SchoolBadge } from '../common/SchoolBadge';
 import type { CalendarEvent } from '@shared/types';
+import { Ic } from '../common/Ic';
 
 const CATEGORY_LABELS: Record<string, string> = {
   event: '행사', meeting: '회의', deadline: '마감일', notice: '공지', other: '기타',
@@ -48,7 +49,7 @@ export function AgendaView() {
     <div style={styles.container}>
       {groups.length === 0 ? (
         <div style={styles.empty}>
-          <span style={{ fontSize: 24 }} role="img" aria-label="빈 상자">📭</span>
+          <span style={{ fontSize: 'var(--fs-icon)' }}><Ic name="inbox" gap={false} /></span>
           <span>{categoryFilter !== 'all' ? '해당 카테고리에 예정된 일정이 없습니다' : '예정된 일정이 없습니다'}</span>
         </div>
       ) : (
@@ -95,19 +96,19 @@ const styles: Record<string, React.CSSProperties> = {
   container: { height: '100%', overflow: 'auto', padding: 8 },
   empty: {
     display: 'flex', flexDirection: 'column', alignItems: 'center',
-    gap: 8, padding: '40px 0', color: 'var(--text-muted)', fontSize: 13,
+    gap: 8, padding: '40px 0', color: 'var(--text-muted)', fontSize: 'var(--fs-control)',
   },
   group: { marginBottom: 12 },
   dateHeader: {
-    fontSize: 12, fontWeight: 700,
+    fontSize: 'var(--fs-body)', fontWeight: 700,
     padding: '6px 4px',
     borderBottom: '1px solid var(--border-subtle)',
     marginBottom: 6,
     display: 'flex', alignItems: 'center', gap: 6,
   },
   todayBadge: {
-    fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 4,
-    background: 'var(--accent)', color: '#fff',
+    fontSize: 'var(--fs-tiny)', fontWeight: 800, padding: '1px 6px', borderRadius: 4,
+    background: 'var(--accent)', color: 'var(--on-event)',
   },
   eventList: { display: 'flex', flexDirection: 'column', gap: 4 },
   eventRow: {
@@ -117,15 +118,15 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'background 0.12s',
   },
   timeCol: {
-    fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)',
+    fontSize: 'var(--fs-label)', fontWeight: 600, color: 'var(--text-secondary)',
     minWidth: 44,
   },
   contentCol: { flex: 1, minWidth: 0 },
   titleRow: { display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'space-between' },
-  eventTitle: { fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' },
+  eventTitle: { fontSize: 'var(--fs-body)', fontWeight: 600, color: 'var(--text-primary)' },
   categoryBadge: {
-    fontSize: 9, fontWeight: 600, padding: '1px 6px', borderRadius: 4,
-    color: '#fff',
+    fontSize: 'var(--fs-tiny)', fontWeight: 600, padding: '1px 6px', borderRadius: 4,
+    color: 'var(--on-event)',
   },
-  meta: { fontSize: 10, color: 'var(--text-muted)', display: 'block', marginTop: 2 },
+  meta: { fontSize: 'var(--fs-caption)', color: 'var(--text-muted)', display: 'block', marginTop: 2 },
 };

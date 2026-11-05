@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Ic } from '../common/Ic';
 
 /**
  * 학생 외출 신청 현황 뷰 — webview 기반.
@@ -101,14 +102,14 @@ export function OutingView({ onBack }: OutingViewProps) {
     <div style={styles.container}>
       <div style={styles.toolbar}>
         <button onClick={onBack} style={styles.backBtn} title="캘린더로 돌아가기">
-          📅 캘린더
+          <Ic name="calendar" />캘린더
         </button>
-        <span style={styles.label}>🚶‍♂️ 외출 신청 ({todayStr})</span>
+        <span style={styles.label}><Ic name="door" />외출 신청 ({todayStr})</span>
         <button onClick={openSettings} style={styles.iconBtn} title="외출 신청 URL 설정" aria-label="설정">
-          ⚙️
+          <Ic name="settings" gap={false} />
         </button>
         <button onClick={handleRefresh} style={styles.iconBtn} title="새로고침" aria-label="새로고침">
-          🔄
+          <Ic name="refresh" gap={false} />
         </button>
       </div>
       {url && loading && (
@@ -157,18 +158,18 @@ const styles: Record<string, React.CSSProperties> = {
   toolbar: {
     display: 'flex', alignItems: 'center', gap: 8,
     padding: '6px 12px', borderBottom: '1px solid var(--border-subtle)',
-    flexShrink: 0, background: 'rgba(128,128,128,0.05)',
+    flexShrink: 0, background: 'var(--tint-neutral)',
   },
   backBtn: {
     background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
     border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
     cursor: 'pointer', padding: '4px 10px', borderRadius: 6,
-    fontSize: 12, fontWeight: 600, color: 'var(--accent)',
+    fontSize: 'var(--fs-body)', fontWeight: 600, color: 'var(--accent)',
   },
-  label: { flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center' },
+  label: { flex: 1, fontSize: 'var(--fs-control)', fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center' },
   iconBtn: {
     background: 'none', border: 'none', cursor: 'pointer',
-    fontSize: 14, padding: '4px 6px', borderRadius: 6,
+    fontSize: 'var(--fs-lead)', padding: '4px 6px', borderRadius: 6,
   },
   loadingBar: { height: 2, background: 'var(--border-subtle)', overflow: 'hidden', flexShrink: 0 },
   loadingProgress: {
@@ -178,33 +179,33 @@ const styles: Record<string, React.CSSProperties> = {
   webviewContainer: { flex: 1, overflow: 'hidden' },
   emptyState: {
     flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-    gap: 12, padding: 24, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center',
+    gap: 12, padding: 24, fontSize: 'var(--fs-control)', color: 'var(--text-muted)', textAlign: 'center',
   },
   modalOverlay: {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+    position: 'fixed', inset: 0, background: 'var(--scrim)',
     display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
   },
   modal: {
     padding: 20, borderRadius: 12, minWidth: 360,
     background: 'var(--bg-primary)', color: 'var(--text-primary)',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+    boxShadow: '0 8px 32px var(--scrim)',
   },
-  modalTitle: { fontSize: 14, fontWeight: 700, marginBottom: 8 },
-  modalDesc: { fontSize: 12, color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.4 },
+  modalTitle: { fontSize: 'var(--fs-lead)', fontWeight: 700, marginBottom: 8 },
+  modalDesc: { fontSize: 'var(--fs-body)', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.4 },
   input: {
-    width: '100%', padding: '8px 12px', fontSize: 12,
+    width: '100%', padding: '8px 12px', fontSize: 'var(--fs-body)',
     border: '1px solid var(--border-color)', borderRadius: 8,
     background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none',
   },
   modalActions: { display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 },
   cancelBtn: {
-    padding: '6px 12px', fontSize: 12, fontWeight: 600,
+    padding: '6px 12px', fontSize: 'var(--fs-body)', fontWeight: 600,
     border: '1px solid var(--border-color)', borderRadius: 6,
     background: 'var(--bg-secondary)', color: 'var(--text-secondary)', cursor: 'pointer',
   },
   saveBtn: {
-    padding: '6px 14px', fontSize: 12, fontWeight: 600,
+    padding: '6px 14px', fontSize: 'var(--fs-body)', fontWeight: 600,
     border: 'none', borderRadius: 6,
-    background: 'var(--accent)', color: '#fff', cursor: 'pointer',
+    background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer',
   },
 };

@@ -9,6 +9,7 @@ import { useDisableClickThrough } from '../../hooks/useDisableClickThrough';
 import { parseNaturalDate, stripDateText } from '../../utils/naturalDateParse';
 import { expandOccurrences } from '../../utils/repeat';
 import { RepeatPicker, repeatProblem } from './RepeatPicker';
+import { Ic } from '../common/Ic';
 
 const CATEGORIES: { key: EventCategory; label: string }[] = [
   { key: 'event', label: '행사' },
@@ -83,7 +84,7 @@ export function EventModal() {
     setEndDate(formatDateTimeLocal(newEnd));
     const cleaned = stripDateText(title, parsed.matchedText);
     setTitle(cleaned || title);
-    showToast(`📅 ${parsed.matchedText} → ${newStart.toLocaleString('ko-KR')}`, 'success');
+    showToast(`${parsed.matchedText} → ${newStart.toLocaleString('ko-KR')}`, 'success');
   }
 
   function formatDateTimeLocal(d: Date): string {
@@ -169,7 +170,7 @@ export function EventModal() {
       console.error('Failed to add event:', err);
       const msg = err instanceof Error ? err.message : '일정 등록에 실패했습니다';
       const savedCount = (err as { savedCount?: number }).savedCount;
-      showToast(savedCount ? `❌ ${savedCount}회까지만 저장되었습니다: ${msg}` : `❌ ${msg}`, 'error');
+      showToast(savedCount ? `${savedCount}회까지만 저장되었습니다: ${msg}` : `${msg}`, 'error');
     }
     setSaving(false);
   }
@@ -220,7 +221,7 @@ export function EventModal() {
       >
         <div style={styles.header}>
           <h3 style={styles.title}>새 일정 등록</h3>
-          <button onClick={() => setShowEventModal(false)} style={styles.closeBtn} aria-label="닫기">✕</button>
+          <button onClick={() => setShowEventModal(false)} style={styles.closeBtn} aria-label="닫기"><Ic name="x" gap={false} /></button>
         </div>
 
         <form onSubmit={handleSubmit} style={styles.form}>
@@ -239,7 +240,7 @@ export function EventModal() {
               style={styles.magicBtn}
               title="자연어 날짜 인식 — 제목의 '내일 3시' 같은 표현을 시작 시간으로 설정"
             >
-              🪄
+              <Ic name="wand" gap={false} />
             </button>
           </div>
 
@@ -251,30 +252,30 @@ export function EventModal() {
               onClick={() => setScope('taeseong_middle')}
               style={{
                 ...styles.schoolBtn,
-                ...(scope === 'taeseong_middle' ? { ...styles.schoolBtnActive, background: '#10B981' } : {}),
+                ...(scope === 'taeseong_middle' ? { ...styles.schoolBtnActive, background: 'var(--school-middle)' } : {}),
               }}
             >
-              🏫 태성중
+              <Ic name="school" />태성중
             </button>
             <button
               type="button"
               onClick={() => setScope('taeseong_high')}
               style={{
                 ...styles.schoolBtn,
-                ...(scope === 'taeseong_high' ? { ...styles.schoolBtnActive, background: '#8B5CF6' } : {}),
+                ...(scope === 'taeseong_high' ? { ...styles.schoolBtnActive, background: 'var(--school-high)' } : {}),
               }}
             >
-              🎓 태성고
+              <Ic name="graduation" />태성고
             </button>
             <button
               type="button"
               onClick={() => setScope('all')}
               style={{
                 ...styles.schoolBtn,
-                ...(scope === 'all' ? { ...styles.schoolBtnActive, background: '#3B82F6' } : {}),
+                ...(scope === 'all' ? { ...styles.schoolBtnActive, background: 'var(--school-all)' } : {}),
               }}
             >
-              📢 공통
+              <Ic name="megaphone" />공통
             </button>
           </div>
 
@@ -294,20 +295,20 @@ export function EventModal() {
                   setEndDate(formatDateTimeLocal(ed));
                 }
               }} />
-              <span style={{ fontSize: 12 }}>종일</span>
+              <span style={{ fontSize: 'var(--fs-body)' }}>종일</span>
             </label>
           </div>
 
           <div style={styles.row}>
             <input type="datetime-local" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={styles.dateInput} />
-            <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>~</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-body)' }}>~</span>
             <input type="datetime-local" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={styles.dateInput} />
           </div>
 
           {/* 빠른 시간 선택 — 클릭으로 시작 시간 즉시 설정 (종일이 아닐 때만) */}
           {!allDay && (
             <div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
+              <div style={{ fontSize: 'var(--fs-label)', color: 'var(--text-muted)', marginBottom: 4 }}>
                 빠른 시작 시간 선택 (클릭)
               </div>
               <div style={styles.hourGrid}>
@@ -369,7 +370,7 @@ export function EventModal() {
             {checklist.map((item) => (
               <div key={item.id} style={styles.checkItem}>
                 <span style={styles.checkText}>{item.text}</span>
-                <button type="button" onClick={() => removeCheckItem(item.id)} style={styles.removeBtn}>✕</button>
+                <button type="button" onClick={() => removeCheckItem(item.id)} style={styles.removeBtn}><Ic name="x" gap={false} /></button>
               </div>
             ))}
             <div style={styles.addCheckRow}>
@@ -406,14 +407,14 @@ const styles: Record<string, React.CSSProperties> = {
   responseLabel: {
     flexShrink: 0,
     width: 40,
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
     color: 'var(--text-secondary)',
   },
   overlay: {
     position: 'absolute',
     inset: 0,
-    background: 'rgba(0,0,0,0.3)',
+    background: 'var(--scrim)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -434,7 +435,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 12,
   },
   title: {
-    fontSize: 16,
+    fontSize: 'var(--fs-title)',
     fontWeight: 700,
     color: 'var(--text-primary)',
   },
@@ -442,7 +443,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontSize: 14,
+    fontSize: 'var(--fs-lead)',
     color: 'var(--text-muted)',
     padding: '2px 6px',
   },
@@ -454,7 +455,7 @@ const styles: Record<string, React.CSSProperties> = {
   input: {
     width: '100%',
     padding: '8px 12px',
-    fontSize: 14,
+    fontSize: 'var(--fs-lead)',
     border: '1px solid var(--border-color)',
     borderRadius: 8,
     background: 'var(--bg-secondary)',
@@ -467,12 +468,12 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 8,
   },
   magicBtn: {
-    background: 'linear-gradient(135deg, #8B5CF6, #4A90E2)',
-    color: '#fff',
+    background: 'linear-gradient(135deg, var(--school-high), var(--event-default))',
+    color: 'var(--on-accent)',
     border: 'none',
     cursor: 'pointer',
     padding: '0 12px',
-    fontSize: 18,
+    fontSize: 'var(--fs-heading)',
     borderRadius: 8,
     transition: 'opacity 0.15s',
   },
@@ -483,7 +484,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '4px 0',
   },
   schoolRowLabel: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 600,
     color: 'var(--text-muted)',
     marginRight: 4,
@@ -492,7 +493,7 @@ const styles: Record<string, React.CSSProperties> = {
   schoolBtn: {
     flex: 1,
     padding: '6px 8px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
     color: 'var(--text-secondary)',
     background: 'var(--bg-secondary)',
@@ -502,14 +503,14 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'all 0.15s',
   },
   schoolBtnActive: {
-    color: '#fff',
+    color: 'var(--on-accent)',
     border: '1px solid transparent',
     fontWeight: 700,
   },
   select: {
     flex: 1,
     padding: '6px 10px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     border: '1px solid var(--border-color)',
     borderRadius: 8,
     background: 'var(--bg-secondary)',
@@ -525,7 +526,7 @@ const styles: Record<string, React.CSSProperties> = {
   dateInput: {
     flex: 1,
     padding: '6px 8px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     border: '1px solid var(--border-color)',
     borderRadius: 8,
     background: 'var(--bg-secondary)',
@@ -540,7 +541,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   hourBtn: {
     padding: '4px 0',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 600,
     border: '1px solid var(--border-color)',
     borderRadius: 6,
@@ -551,14 +552,14 @@ const styles: Record<string, React.CSSProperties> = {
   },
   hourBtnActive: {
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--on-accent)',
     border: '1px solid transparent',
     fontWeight: 700,
   },
   textarea: {
     width: '100%',
     padding: '8px 12px',
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     border: '1px solid var(--border-color)',
     borderRadius: 8,
     background: 'var(--bg-secondary)',
@@ -573,7 +574,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 4,
   },
   sectionLabel: {
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
     color: 'var(--text-secondary)',
   },
@@ -586,7 +587,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 6,
   },
   checkText: {
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     color: 'var(--text-primary)',
   },
   removeBtn: {
@@ -594,7 +595,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: 'none',
     cursor: 'pointer',
     color: 'var(--danger)',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     padding: '0 4px',
   },
   addCheckRow: {
@@ -604,7 +605,7 @@ const styles: Record<string, React.CSSProperties> = {
   checkInput: {
     flex: 1,
     padding: '4px 8px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     border: '1px solid var(--border-color)',
     borderRadius: 6,
     background: 'var(--bg-secondary)',
@@ -613,12 +614,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
   addCheckBtn: {
     padding: '4px 10px',
-    fontSize: 14,
+    fontSize: 'var(--fs-lead)',
     fontWeight: 700,
     border: 'none',
     borderRadius: 6,
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--on-accent)',
     cursor: 'pointer',
   },
   actions: {
@@ -629,7 +630,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   cancelBtn: {
     padding: '6px 16px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     border: '1px solid var(--border-color)',
     borderRadius: 8,
     background: 'transparent',
@@ -638,12 +639,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
   submitBtn: {
     padding: '6px 20px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
     border: 'none',
     borderRadius: 8,
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--on-accent)',
     cursor: 'pointer',
   },
 };

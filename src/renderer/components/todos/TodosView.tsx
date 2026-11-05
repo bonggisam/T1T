@@ -5,8 +5,9 @@ import { useTodosStore } from '../../store/todosStore';
 import { useAuthStore } from '../../store/authStore';
 import { showToast } from '../common/Toast';
 import type { Todo } from '@shared/types';
+import { Ic } from '../common/Ic';
 
-const PRIORITY_COLORS = { low: '#10B981', medium: '#F59E0B', high: '#EF4444' } as const;
+const PRIORITY_COLORS = { low: 'var(--success)', medium: 'var(--warning)', high: 'var(--danger)' } as const;
 
 interface TodosViewProps {
   onBack: () => void;
@@ -82,8 +83,8 @@ export function TodosView({ onBack }: TodosViewProps) {
   return (
     <div className="animate-fade-in" style={styles.container}>
       <div style={styles.header}>
-        <h3 style={styles.title}>✅ 할 일</h3>
-        <button onClick={onBack} style={styles.closeBtn}>✕</button>
+        <h3 style={styles.title}><Ic name="checkSquare" />할 일</h3>
+        <button onClick={onBack} style={styles.closeBtn}><Ic name="x" gap={false} /></button>
       </div>
 
       {/* 입력 폼 */}
@@ -99,9 +100,9 @@ export function TodosView({ onBack }: TodosViewProps) {
         />
         <div style={styles.formRow}>
           <select value={priority} onChange={(e) => setPriority(e.target.value as any)} style={styles.select}>
-            <option value="low">🟢 낮음</option>
-            <option value="medium">🟡 보통</option>
-            <option value="high">🔴 높음</option>
+            <option value="low">낮음</option>
+            <option value="medium">보통</option>
+            <option value="high">높음</option>
           </select>
           <input
             type="date"
@@ -134,7 +135,7 @@ export function TodosView({ onBack }: TodosViewProps) {
       <div style={styles.list}>
         {filtered.length === 0 ? (
           <div style={styles.empty}>
-            {filter === 'active' ? '🎉 진행 중인 할 일이 없습니다' :
+            {filter === 'active' ? '진행 중인 할 일이 없습니다' :
              filter === 'completed' ? '아직 완료한 할 일이 없습니다' :
              '할 일이 없습니다'}
           </div>
@@ -224,9 +225,9 @@ function TodoItem({ todo, onToggle, onDelete, onUpdate }: {
         />
         <div style={{ display: 'flex', gap: 6 }}>
           <select value={editPriority} onChange={(e) => setEditPriority(e.target.value as any)} style={styles.select}>
-            <option value="low">🟢 낮음</option>
-            <option value="medium">🟡 보통</option>
-            <option value="high">🔴 높음</option>
+            <option value="low">낮음</option>
+            <option value="medium">보통</option>
+            <option value="high">높음</option>
           </select>
           <input
             type="date"
@@ -251,7 +252,7 @@ function TodoItem({ todo, onToggle, onDelete, onUpdate }: {
           background: todo.completed ? 'var(--accent)' : 'transparent',
           borderColor: todo.completed ? 'var(--accent)' : 'var(--border-color)',
         }}>
-          {todo.completed && '✓'}
+          {todo.completed && <Ic name="check" gap={false} />}
         </span>
       </button>
       <div style={styles.todoContent} onDoubleClick={startEdit} title="더블클릭하면 수정">
@@ -263,14 +264,14 @@ function TodoItem({ todo, onToggle, onDelete, onUpdate }: {
           {todo.title}
         </span>
         {todo.dueDate && (
-          <span style={{ ...styles.dueDate, color: isOverdue ? '#EF4444' : 'var(--text-muted)' }}>
-            {isOverdue ? '⚠️ ' : '📅 '}
+          <span style={{ ...styles.dueDate, color: isOverdue ? 'var(--danger)' : 'var(--text-muted)' }}>
+            <Ic name={isOverdue ? 'alert' : 'calendar'} />
             {format(new Date(todo.dueDate), 'M/d (EEE)', { locale: ko })}
           </span>
         )}
       </div>
-      <button onClick={startEdit} style={styles.iconBtn} title="수정" aria-label="수정">✏️</button>
-      <button onClick={onDelete} style={styles.deleteBtn} title="삭제" aria-label="삭제">✕</button>
+      <button onClick={startEdit} style={styles.iconBtn} title="수정" aria-label="수정"><Ic name="pencil" gap={false} /></button>
+      <button onClick={onDelete} style={styles.deleteBtn} title="삭제" aria-label="삭제"><Ic name="x" gap={false} /></button>
     </div>
   );
 }
@@ -278,39 +279,39 @@ function TodoItem({ todo, onToggle, onDelete, onUpdate }: {
 const styles: Record<string, React.CSSProperties> = {
   container: { display: 'flex', flexDirection: 'column', height: '100%', padding: '0 12px 12px' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0' },
-  title: { fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' },
-  closeBtn: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text-muted)' },
+  title: { fontSize: 'var(--fs-subtitle)', fontWeight: 700, color: 'var(--text-primary)' },
+  closeBtn: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 'var(--fs-lead)', color: 'var(--text-muted)' },
   addForm: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 },
   input: {
-    width: '100%', padding: '8px 12px', fontSize: 13,
+    width: '100%', padding: '8px 12px', fontSize: 'var(--fs-control)',
     border: '1px solid var(--border-color)', borderRadius: 8,
     background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none',
   },
   formRow: { display: 'flex', gap: 6 },
   select: {
-    flex: 1, padding: '6px 10px', fontSize: 11,
+    flex: 1, padding: '6px 10px', fontSize: 'var(--fs-label)',
     border: '1px solid var(--border-color)', borderRadius: 8,
     background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none',
   },
   dateInput: {
-    flex: 1, padding: '6px 10px', fontSize: 11,
+    flex: 1, padding: '6px 10px', fontSize: 'var(--fs-label)',
     border: '1px solid var(--border-color)', borderRadius: 8,
     background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none',
   },
   addBtn: {
-    padding: '6px 14px', fontSize: 12, fontWeight: 600,
+    padding: '6px 14px', fontSize: 'var(--fs-body)', fontWeight: 600,
     border: 'none', borderRadius: 8,
-    background: 'var(--accent)', color: '#fff', cursor: 'pointer',
+    background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer',
   },
   filterBar: { display: 'flex', gap: 4, marginBottom: 10 },
   filterBtn: {
-    flex: 1, padding: '5px 0', fontSize: 11, fontWeight: 500,
+    flex: 1, padding: '5px 0', fontSize: 'var(--fs-label)', fontWeight: 500,
     border: 'none', borderRadius: 8,
     background: 'var(--bg-secondary)', color: 'var(--text-secondary)', cursor: 'pointer',
   },
-  filterBtnActive: { background: 'var(--accent)', color: '#fff' },
+  filterBtnActive: { background: 'var(--accent)', color: 'var(--on-accent)' },
   list: { flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 4 },
-  empty: { textAlign: 'center', fontSize: 13, color: 'var(--text-muted)', marginTop: 40 },
+  empty: { textAlign: 'center', fontSize: 'var(--fs-control)', color: 'var(--text-muted)', marginTop: 40 },
   todoItem: {
     display: 'flex', alignItems: 'center', gap: 8,
     padding: '8px 10px',
@@ -321,23 +322,23 @@ const styles: Record<string, React.CSSProperties> = {
     width: 18, height: 18, borderRadius: 4,
     border: '2px solid var(--border-color)',
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    color: '#fff', fontSize: 11, fontWeight: 700,
+    color: 'var(--on-accent)', fontSize: 'var(--fs-label)', fontWeight: 700,
   },
   todoContent: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 },
-  todoTitle: { fontSize: 13, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 },
+  todoTitle: { fontSize: 'var(--fs-control)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 },
   priorityDot: { width: 6, height: 6, borderRadius: '50%', flexShrink: 0 },
-  dueDate: { fontSize: 10, marginLeft: 12 },
+  dueDate: { fontSize: 'var(--fs-caption)', marginLeft: 12 },
   deleteBtn: {
     background: 'none', border: 'none', cursor: 'pointer',
-    color: 'var(--text-muted)', fontSize: 12, padding: '2px 6px',
+    color: 'var(--text-muted)', fontSize: 'var(--fs-body)', padding: '2px 6px',
   },
   iconBtn: {
     background: 'none', border: 'none', cursor: 'pointer',
-    fontSize: 12, padding: '2px 6px', opacity: 0.7,
+    fontSize: 'var(--fs-body)', padding: '2px 6px', opacity: 0.7,
   },
   editBtn: {
-    padding: '5px 12px', fontSize: 11, fontWeight: 600,
+    padding: '5px 12px', fontSize: 'var(--fs-label)', fontWeight: 600,
     border: 'none', borderRadius: 6,
-    background: 'var(--accent)', color: '#fff', cursor: 'pointer',
+    background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer',
   },
 };

@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useWidgetStore } from '../../store/widgetStore';
 import { useComciganStore } from '../../store/comciganStore';
-import { MIN_TRANSPARENCY, transparencyToOpacity } from '../../utils/windowOpacity';
+import { getPlateAlpha, getZoom, PLATE_ALPHA_MAX, PLATE_ALPHA_MIN, setPlateAlpha, setZoom, ZOOM_CHOICES } from '../../utils/displayPrefs';
 import { CalendarSyncSettings } from './CalendarSyncSettings';
 import { ComciganSettings } from './ComciganSettings';
+import { Ic, type IconName } from '../common/Ic';
 
 interface SettingsPanelProps {
   onClose: () => void;
@@ -24,7 +25,8 @@ const COLOR_PRESETS = [
 export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) {
   const { user, logout, saveSettings } = useAuthStore();
   const widget = useWidgetStore();
-  const [transparency, setTransparency] = useState(user?.settings.transparency ?? 80);
+  const [plateAlpha, setPlateAlphaState] = useState(getPlateAlpha);
+  const [zoom, setZoomState] = useState(getZoom);
   const [alwaysOnTop, setAlwaysOnTop] = useState(user?.settings.alwaysOnTop ?? true);
   const [clickThrough, setClickThrough] = useState(user?.settings.clickThrough ?? false);
   const [notifSound, setNotifSound] = useState(user?.settings.notificationSound ?? true);
@@ -59,16 +61,16 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
     document.documentElement.style.setProperty('--schedule-font-size', `${scheduleFontSize}px`);
   }, [scheduleFontSize]);
 
-  function handleTransparency(value: number) {
-    setTransparency(value);
-    window.electronAPI?.setOpacity(value / 100);
+  // 배경 농도와 화면 배율은 이 PC에만 저장하고 바로 적용한다
+  function handlePlateAlpha(value: number) {
+    setPlateAlphaState(value);
+    setPlateAlpha(value);
   }
 
-  // 슬라이더는 미리보기다. 패널이 어떤 경로로 닫히든 창을 저장된 값으로 맞춘다.
-  useEffect(() => () => {
-    const saved = useAuthStore.getState().user?.settings?.transparency;
-    window.electronAPI?.setOpacity(transparencyToOpacity(saved));
-  }, []);
+  function handleZoom(value: number) {
+    setZoomState(value);
+    setZoom(value);
+  }
 
   function handleAlwaysOnTop(value: boolean) {
     setAlwaysOnTop(value);
@@ -79,7 +81,7 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
     if (value) {
       // 클릭 통과를 켜면 UI 클릭이 안 되므로 해제 방법을 먼저 안내
       const ok = window.confirm(
-        '⚠️ 클릭 통과 모드를 켜면 앱 UI를 클릭할 수 없게 됩니다.\n\n' +
+        '클릭 통과 모드를 켜면 앱 UI를 클릭할 수 없게 됩니다.\n\n' +
         '해제 방법:\n' +
         '• 단축키: Ctrl/Cmd + Shift + X\n' +
         '• 작업표시줄 트레이 아이콘 우클릭 → "클릭 통과 해제"\n\n' +
@@ -111,7 +113,6 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
     try {
       // 스토어도 함께 갱신된다. 그래야 다시 열었을 때 옛 값이 보이거나 옛 값으로 덮어쓰지 않는다.
       await saveSettings({
-        transparency,
         alwaysOnTop,
         clickThrough,
         notificationSound: notifSound,
@@ -156,13 +157,13 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
     >
       <div className="animate-fade-in glass" style={styles.modal} onClick={(e) => e.stopPropagation()}>
       <div style={styles.header}>
-        <h3 style={styles.title}>⚙️ 설정</h3>
-        <button onClick={handleClose} style={styles.closeBtn}>✕</button>
+        <h3 style={styles.title}><Ic name="settings" />설정</h3>
+        <button onClick={handleClose} style={styles.closeBtn}><Ic name="x" gap={false} /></button>
       </div>
 
       <div style={styles.sections}>
         {/* Profile section */}
-        <Section title="👤 내 프로필">
+        <Section icon="user" title="내 프로필">
           <div style={styles.infoRow}>
             <span style={styles.label}>이름</span>
             <span style={styles.value}>{user?.name}</span>
@@ -199,17 +200,30 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
         </Section>
 
         {/* Display section */}
-        <Section title="🎨 화면 설정">
+        <Section icon="palette" title="화면 설정">
           <div style={styles.settingRow}>
-            <span style={styles.label}>투명도: {transparency}%</span>
+            <span style={styles.label}>배경 농도: {plateAlpha}%</span>
             <input
               type="range"
-              min={MIN_TRANSPARENCY}
-              max={100}
-              value={transparency}
-              onChange={(e) => handleTransparency(Number(e.target.value))}
+              min={PLATE_ALPHA_MIN}
+              max={PLATE_ALPHA_MAX}
+              step={5}
+              value={plateAlpha}
+              onChange={(e) => handlePlateAlpha(Number(e.target.value))}
+              aria-label="배경 농도"
               style={styles.slider}
             />
+          </div>
+          <div style={styles.settingRow}>
+            <span style={styles.label}>화면 배율</span>
+            <select
+              value={zoom}
+              onChange={(e) => handleZoom(Number(e.target.value))}
+              aria-label="화면 배율"
+              style={styles.widgetSelect}
+            >
+              {ZOOM_CHOICES.map((z) => <option key={z} value={z}>{z}%</option>)}
+            </select>
           </div>
           <div style={styles.settingRow}>
             <span style={styles.label}>일정 글자 크기: {scheduleFontSize}px</span>
@@ -230,23 +244,23 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
               <button
                 onClick={() => setTheme('light')}
                 style={{ ...styles.themeBtn, ...(theme === 'light' ? styles.themeBtnActive : {}) }}
-              >☀️ 라이트</button>
+              ><Ic name="sun" />라이트</button>
               <button
                 onClick={() => setTheme('dark')}
                 style={{ ...styles.themeBtn, ...(theme === 'dark' ? styles.themeBtnActive : {}) }}
-              >🌙 다크</button>
+              ><Ic name="moon" />다크</button>
             </div>
           </div>
         </Section>
 
         {/* Notification section */}
-        <Section title="🔔 알림 설정">
+        <Section icon="bell" title="알림 설정">
           <ToggleRow label="알림음" value={notifSound} onChange={setNotifSound} />
           <ToggleRow label="NEW 배지 표시" value={notifBadge} onChange={setNotifBadge} />
         </Section>
 
         {/* 수업 화면 보호 — 끄는 옵션 없이 항상 동작한다. 단축키는 잠시 숨기거나 보이게 할 뿐이다. */}
-        <Section title="🔒 수업 화면 보호">
+        <Section icon="lock" title="수업 화면 보호">
           <div style={styles.settingRow}>
             <span style={styles.label}>가리기·보이기</span>
             <kbd style={styles.shortcutKey}>Ctrl+Shift+H</kbd>
@@ -263,7 +277,7 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
         </Section>
 
         {/* Today widgets — 이 PC에만 저장, 즉시 적용 */}
-        <Section title="🌤️ 오늘 화면 위젯">
+        <Section icon="cloudSun" title="오늘 화면 위젯">
           <ToggleRow label="날씨·미세먼지" value={widget.showWeather} onChange={(v) => widget.setPref('showWeather', v)} />
           <ToggleRow label="D-Day (시험·방학 자동)" value={widget.showDDay} onChange={(v) => widget.setPref('showDDay', v)} />
           {widget.hiddenAutoDDays.length > 0 && (
@@ -291,7 +305,7 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
         </Section>
 
         {/* Calendar Sync */}
-        <Section title="📅 캘린더 연동">
+        <Section icon="calendar" title="캘린더 연동">
           <CalendarSyncSettings
             syncInterval={syncInterval}
             onSyncIntervalChange={setSyncInterval}
@@ -299,12 +313,12 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
         </Section>
 
         {/* Comcigan timetable */}
-        <Section title="🏫 컴시간 시간표">
+        <Section icon="school" title="컴시간 시간표">
           <ComciganSettings />
         </Section>
 
         {/* Info */}
-        <Section title="ℹ️ 정보">
+        <Section icon="info" title="정보">
           <div style={styles.infoRow}>
             <span style={styles.label}>버전</span>
             <span style={styles.value}>v{appVersion}</span>
@@ -318,7 +332,7 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
                 const actual = await window.electronAPI?.setAutoLaunch(v);
                 if (typeof actual === 'boolean') setAutoLaunch(actual);
                 const { showToast } = await import('../common/Toast');
-                showToast(v ? '✅ 시작 시 자동 실행이 설정되었습니다' : '시작 시 자동 실행이 해제되었습니다', 'success');
+                showToast(v ? '시작 시 자동 실행이 설정되었습니다' : '시작 시 자동 실행이 해제되었습니다', 'success');
               } catch {
                 const { showToast } = await import('../common/Toast');
                 showToast('자동 실행 설정 실패', 'error');
@@ -331,7 +345,7 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
             <button
               onClick={async () => {
                 const { showToast } = await import('../common/Toast');
-                showToast('🔍 업데이트 확인 중…', 'info');
+                showToast('업데이트 확인 중…', 'info');
                 try {
                   const result = await window.electronAPI?.updaterCheck();
                   if (!result) {
@@ -339,13 +353,13 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
                     return;
                   }
                   if (!result.ok) {
-                    showToast(`⚠️ ${result.error} — 수동 다운로드 권장`, 'error');
+                    showToast(`${result.error} — 수동 다운로드 권장`, 'error');
                     // 5초 후 자동으로 수동 다운로드 페이지 열기
                     setTimeout(() => window.electronAPI?.updaterOpenDownloadPage(), 3000);
                     return;
                   }
                   if (result.version) {
-                    showToast(`📥 새 버전 v${result.version} — 상단 배너에서 진행 상황 확인`, 'success');
+                    showToast(`새 버전 v${result.version} — 상단 배너에서 진행 상황 확인`, 'success');
                   }
                 } catch (e: any) {
                   showToast(`업데이트 확인 실패: ${e?.message || '알 수 없는 오류'} — 수동 다운로드 페이지를 엽니다`, 'error');
@@ -354,7 +368,7 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
               }}
               style={{
                 padding: '3px 10px',
-                fontSize: 11,
+                fontSize: 'var(--fs-label)',
                 border: '1px solid var(--border-color)',
                 borderRadius: 6,
                 background: 'transparent',
@@ -371,7 +385,7 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
               onClick={() => window.electronAPI?.updaterOpenDownloadPage()}
               style={{
                 padding: '3px 10px',
-                fontSize: 11,
+                fontSize: 'var(--fs-label)',
                 border: '1px solid var(--border-color)',
                 borderRadius: 6,
                 background: 'transparent',
@@ -381,7 +395,7 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
               }}
               title="GitHub 릴리스 페이지를 열어 최신 .exe 파일을 직접 다운로드"
             >
-              📥 페이지 열기
+              <Ic name="download" />페이지 열기
             </button>
           </div>
         </Section>
@@ -391,7 +405,7 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
         <button onClick={handleSave} disabled={saving} style={styles.saveBtn}>
           {saving ? '저장 중...' : '설정 저장'}
         </button>
-        {saveMsg && <span style={{ fontSize: 11, color: '#EF4444', alignSelf: 'center' }}>{saveMsg}</span>}
+        {saveMsg && <span style={{ fontSize: 'var(--fs-label)', color: 'var(--danger)', alignSelf: 'center' }}>{saveMsg}</span>}
         <button onClick={logout} style={styles.logoutBtn}>로그아웃</button>
       </div>
       </div>
@@ -399,10 +413,10 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ icon, title, children }: { icon?: IconName; title: string; children: React.ReactNode }) {
   return (
     <div style={sectionStyles.container}>
-      <h4 style={sectionStyles.title}>{title}</h4>
+      <h4 style={sectionStyles.title}>{icon && <Ic name={icon} />}{title}</h4>
       <div style={sectionStyles.content}>{children}</div>
     </div>
   );
@@ -433,7 +447,7 @@ const sectionStyles: Record<string, React.CSSProperties> = {
     marginBottom: 16,
   },
   title: {
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     fontWeight: 700,
     color: 'var(--text-primary)',
     marginBottom: 8,
@@ -451,7 +465,7 @@ const styles: Record<string, React.CSSProperties> = {
   overlay: {
     position: 'absolute',
     inset: 0,
-    background: 'rgba(0,0,0,0.35)',
+    background: 'var(--scrim)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -479,14 +493,14 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   title: {
-    fontSize: 15,
+    fontSize: 'var(--fs-subtitle)',
     fontWeight: 700,
   },
   closeBtn: {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontSize: 14,
+    fontSize: 'var(--fs-lead)',
     color: 'var(--text-muted)',
   },
   sections: {
@@ -505,16 +519,16 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
   },
   label: {
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     color: 'var(--text-secondary)',
   },
   value: {
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 500,
     color: 'var(--text-primary)',
   },
   shortcutKey: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontFamily: 'inherit',
     padding: '1px 6px',
     borderRadius: 4,
@@ -524,12 +538,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
   privacyNote: {
     margin: 0,
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     lineHeight: 1.5,
     color: 'var(--text-muted)',
   },
   widgetSelect: {
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     padding: '3px 8px',
     borderRadius: 6,
     border: '1px solid var(--border-color)',
@@ -555,7 +569,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: 16,
     height: 16,
     borderRadius: '50%',
-    background: '#fff',
+    background: 'var(--on-accent)',
     position: 'absolute' as const,
     top: 2,
     left: 2,
@@ -568,7 +582,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   themeBtn: {
     padding: '3px 10px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     border: '1px solid var(--border-color)',
     borderRadius: 6,
     background: 'transparent',
@@ -577,7 +591,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   themeBtnActive: {
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--on-accent)',
     borderColor: 'var(--accent)',
   },
   colorGrid: {
@@ -603,17 +617,17 @@ const styles: Record<string, React.CSSProperties> = {
   saveBtn: {
     flex: 1,
     padding: '8px',
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     fontWeight: 600,
     border: 'none',
     borderRadius: 8,
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--on-accent)',
     cursor: 'pointer',
   },
   logoutBtn: {
     padding: '8px 16px',
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     border: '1px solid var(--border-color)',
     borderRadius: 8,
     background: 'transparent',

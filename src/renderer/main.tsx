@@ -2,13 +2,17 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
 import './styles/global.css';
+import { applyDisplayPrefs } from './utils/displayPrefs';
+
+// 첫 화면을 그리기 전에 이 PC의 배경 농도와 화면 배율을 적용한다
+applyDisplayPrefs();
 
 // 글로벌 비동기 에러 — 콘솔 출력 + 토스트 (가능한 경우)
 // 캘린더가 죽어도 앱 전체가 white screen이 되지 않도록 ErrorBoundary와 함께 방어.
 function showGlobalErrorToast(message: string): void {
   // 동적 import — 초기 로딩 사이즈 영향 없음
   import('./components/common/Toast')
-    .then(({ showToast }) => showToast(`⚠️ ${message}`, 'error'))
+    .then(({ showToast }) => showToast(`${message}`, 'error'))
     .catch(() => {
       // Toast 모듈 자체 로드 실패 시 콘솔만
     });

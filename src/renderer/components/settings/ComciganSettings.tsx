@@ -40,7 +40,7 @@ export function ComciganSettings() {
         </div>
         <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
           <button onClick={() => fetchTimetable()} disabled={loading} style={styles.btn}>
-            {loading ? '갱신 중...' : '🔄 새로고침'}
+            {loading ? '갱신 중...' : '새로고침'}
           </button>
           <button onClick={() => clearConfig()} style={{ ...styles.btn, color: 'var(--danger)' }}>
             초기화
@@ -94,10 +94,10 @@ export function ComciganSettings() {
               style={{
                 ...styles.resultItem,
                 background: selectedSchool?.code === s.code ? 'var(--accent)' : 'transparent',
-                color: selectedSchool?.code === s.code ? '#fff' : 'var(--text-primary)',
+                color: selectedSchool?.code === s.code ? 'var(--on-accent)' : 'var(--text-primary)',
               }}
             >
-              {s.name} <span style={{ fontSize: 10, opacity: 0.7 }}>({s.region})</span>
+              {s.name} <span style={{ fontSize: 'var(--fs-caption)', opacity: 0.7 }}>({s.region})</span>
             </div>
           ))}
         </div>
@@ -105,7 +105,7 @@ export function ComciganSettings() {
 
       {selectedSchool && (
         <>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>
+          <div style={{ fontSize: 'var(--fs-label)', color: 'var(--text-secondary)', marginTop: 6 }}>
             선택: <strong>{selectedSchool.name}</strong>
           </div>
 
@@ -134,9 +134,9 @@ export function ComciganSettings() {
           <button
             onClick={handleConfigure}
             disabled={!teacherName.trim() || loading}
-            style={{ ...styles.btn, marginTop: 8, background: 'var(--accent)', color: '#fff', width: '100%' }}
+            style={{ ...styles.btn, marginTop: 8, background: 'var(--accent)', color: 'var(--on-accent)', width: '100%' }}
           >
-            {loading ? '설정 중...' : '🏫 시간표 연동 시작'}
+            {loading ? '설정 중...' : '시간표 연동 시작'}
           </button>
         </>
       )}
@@ -158,11 +158,11 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
   },
   label: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     color: 'var(--text-secondary)',
   },
   value: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 500,
     color: 'var(--text-primary)',
   },
@@ -173,7 +173,7 @@ const styles: Record<string, React.CSSProperties> = {
   input: {
     flex: 1,
     padding: '5px 8px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     border: '1px solid var(--border-color)',
     borderRadius: 6,
     background: 'var(--bg-secondary)',
@@ -182,7 +182,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   select: {
     padding: '3px 6px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     border: '1px solid var(--border-color)',
     borderRadius: 6,
     background: 'var(--bg-secondary)',
@@ -190,7 +190,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   btn: {
     padding: '4px 10px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     border: '1px solid var(--border-color)',
     borderRadius: 6,
     background: 'transparent',
@@ -207,12 +207,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
   resultItem: {
     padding: '4px 8px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     cursor: 'pointer',
     transition: 'background 0.1s',
   },
   error: {
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     color: 'var(--danger)',
     marginTop: 4,
   },

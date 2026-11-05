@@ -4,6 +4,7 @@ import { ko } from 'date-fns/locale';
 import { useAuthStore } from '../../store/authStore';
 import { useDarkMode } from '../../hooks/useDarkMode';
 import type { School } from '@shared/types';
+import { Ic, type IconName } from '../common/Ic';
 
 interface MealDay {
   date: string; // YYYY-MM-DD
@@ -19,13 +20,13 @@ interface MealData {
 }
 
 // 학교 색상 — 라이트/다크 분리 (다크는 더 밝은 톤)
-const SCHOOL_OPTIONS_LIGHT: { key: School; label: string; icon: string; color: string }[] = [
-  { key: 'taeseong_middle', label: '태성중', icon: '🏫', color: '#10B981' },
-  { key: 'taeseong_high', label: '태성고', icon: '🎓', color: '#8B5CF6' },
+const SCHOOL_OPTIONS_LIGHT: { key: School; label: string; icon: IconName; color: string }[] = [
+  { key: 'taeseong_middle', label: '태성중', icon: 'school', color: 'var(--school-middle)' },
+  { key: 'taeseong_high', label: '태성고', icon: 'graduation', color: 'var(--school-high)' },
 ];
-const SCHOOL_OPTIONS_DARK: { key: School; label: string; icon: string; color: string }[] = [
-  { key: 'taeseong_middle', label: '태성중', icon: '🏫', color: '#34D399' },
-  { key: 'taeseong_high', label: '태성고', icon: '🎓', color: '#C4B5FD' },
+const SCHOOL_OPTIONS_DARK: { key: School; label: string; icon: IconName; color: string }[] = [
+  { key: 'taeseong_middle', label: '태성중', icon: 'school', color: 'var(--school-middle-bright)' },
+  { key: 'taeseong_high', label: '태성고', icon: 'graduation', color: 'var(--school-high-bright)' },
 ];
 
 interface MealViewProps {
@@ -102,11 +103,11 @@ export function MealView({ onBack }: MealViewProps) {
     <div style={styles.container}>
       <div style={styles.toolbar}>
         <button onClick={onBack} style={styles.backBtn} title="캘린더로 돌아가기">
-          📅 캘린더
+          <Ic name="calendar" />캘린더
         </button>
-        <span style={styles.label}>🍱 급식 메뉴</span>
+        <span style={styles.label}><Ic name="meal" />급식 메뉴</span>
         <button onClick={load} style={styles.iconBtn} title="새로고침" aria-label="새로고침" disabled={loading}>
-          🔄
+          <Ic name="refresh" gap={false} />
         </button>
       </div>
 
@@ -119,11 +120,11 @@ export function MealView({ onBack }: MealViewProps) {
             style={{
               ...styles.schoolBtn,
               ...(selectedSchool === s.key
-                ? { background: s.color, color: '#fff', border: '1px solid transparent', fontWeight: 700 }
+                ? { background: s.color, color: 'var(--on-accent)', border: '1px solid transparent', fontWeight: 700 }
                 : {}),
             }}
           >
-            {s.icon} {s.label}
+            <Ic name={s.icon} />{s.label}
           </button>
         ))}
       </div>
@@ -146,10 +147,10 @@ export function MealView({ onBack }: MealViewProps) {
           </div>
         )}
         {!loading && error && (
-          <div style={styles.error}>⚠️ {error}</div>
+          <div style={styles.error}><Ic name="alert" />{error}</div>
         )}
         {!loading && !error && data && (!data.days || data.days.length === 0) && (
-          <div style={styles.empty}>📭 이번 주 급식 정보가 없습니다</div>
+          <div style={styles.empty}><Ic name="inbox" />이번 주 급식 정보가 없습니다</div>
         )}
         {!loading && !error && data && data.days && data.days.map((day) => {
           const isToday = day.date === todayStr;
@@ -161,18 +162,18 @@ export function MealView({ onBack }: MealViewProps) {
               style={{
                 ...styles.dayCard,
                 borderLeft: `4px solid ${isToday ? palette.color : 'var(--border-subtle)'}`,
-                background: isToday ? `${palette.color}10` : 'var(--bg-secondary)',
+                background: isToday ? `color-mix(in srgb, ${palette.color} 6%, transparent)` : 'var(--bg-secondary)',
               }}
             >
               <div style={styles.dayHeader}>
                 <div style={styles.dayDate}>
                   {isToday && <span style={{ ...styles.todayBadge, background: palette.color }}>오늘</span>}
-                  <span style={{ ...styles.dayLabel, color: day.weekday === '일' ? '#EF4444' : day.weekday === '토' ? '#3B82F6' : 'var(--text-primary)' }}>
+                  <span style={{ ...styles.dayLabel, color: day.weekday === '일' ? 'var(--weekend-text)' : day.weekday === '토' ? 'var(--saturday-text)' : 'var(--text-primary)' }}>
                     {dayLabel || day.date} ({day.weekday})
                   </span>
                 </div>
                 {day.calorie && (
-                  <span style={styles.calorie}>🔥 {day.calorie}</span>
+                  <span style={styles.calorie}><Ic name="flame" />{day.calorie}</span>
                 )}
               </div>
               {hasMenu ? (
@@ -197,18 +198,18 @@ const styles: Record<string, React.CSSProperties> = {
   toolbar: {
     display: 'flex', alignItems: 'center', gap: 8,
     padding: '6px 12px', borderBottom: '1px solid var(--border-subtle)',
-    flexShrink: 0, background: 'rgba(128,128,128,0.05)',
+    flexShrink: 0, background: 'var(--tint-neutral)',
   },
   backBtn: {
     background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
     border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
     cursor: 'pointer', padding: '4px 10px', borderRadius: 6,
-    fontSize: 12, fontWeight: 600, color: 'var(--accent)',
+    fontSize: 'var(--fs-body)', fontWeight: 600, color: 'var(--accent)',
   },
-  label: { flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center' },
+  label: { flex: 1, fontSize: 'var(--fs-control)', fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center' },
   iconBtn: {
     background: 'none', border: 'none', cursor: 'pointer',
-    fontSize: 14, padding: '4px 6px', borderRadius: 6,
+    fontSize: 'var(--fs-lead)', padding: '4px 6px', borderRadius: 6,
   },
   schoolToggle: {
     display: 'flex', gap: 6,
@@ -219,7 +220,7 @@ const styles: Record<string, React.CSSProperties> = {
   schoolBtn: {
     flex: 1,
     padding: '6px 10px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
     border: '1px solid var(--border-color)',
     borderRadius: 8,
@@ -236,7 +237,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   navBtn: {
     padding: '5px 10px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 600,
     border: '1px solid var(--border-color)',
     borderRadius: 6,
@@ -245,19 +246,19 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
   },
   weekInfo: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 },
-  weekRange: { fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' },
+  weekRange: { fontSize: 'var(--fs-control)', fontWeight: 700, color: 'var(--text-primary)' },
   todayLink: {
-    fontSize: 10, fontWeight: 500,
+    fontSize: 'var(--fs-caption)', fontWeight: 500,
     border: 'none', background: 'transparent',
     color: 'var(--accent)', cursor: 'pointer',
     padding: 0,
   },
   content: { flex: 1, overflow: 'auto', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 6 },
-  empty: { textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontSize: 13 },
+  empty: { textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontSize: 'var(--fs-control)' },
   error: {
     margin: 8, padding: 12, borderRadius: 8,
-    background: 'rgba(239,68,68,0.1)', color: '#EF4444',
-    fontSize: 12, textAlign: 'center',
+    background: 'var(--danger-soft)', color: 'var(--danger)',
+    fontSize: 'var(--fs-body)', textAlign: 'center',
   },
   dayCard: {
     padding: '10px 12px',
@@ -269,16 +270,16 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 6,
   },
   dayDate: { display: 'flex', alignItems: 'center', gap: 6 },
-  dayLabel: { fontSize: 15, fontWeight: 700 },
+  dayLabel: { fontSize: 'var(--fs-subtitle)', fontWeight: 700 },
   todayBadge: {
-    fontSize: 10, fontWeight: 800,
+    fontSize: 'var(--fs-caption)', fontWeight: 800,
     padding: '2px 7px', borderRadius: 8,
-    color: '#fff',
+    color: 'var(--on-accent)',
   },
   calorie: {
-    fontSize: 12, fontWeight: 600,
+    fontSize: 'var(--fs-body)', fontWeight: 600,
     color: 'var(--text-muted)',
-    background: 'rgba(245, 158, 11, 0.1)',
+    background: 'var(--warning-soft)',
     padding: '3px 9px',
     borderRadius: 12,
   },
@@ -291,7 +292,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 5,
   },
   menuItem: {
-    fontSize: 13, // 사용자 요청 — 급식 메뉴 글자 크게
+    fontSize: 'var(--fs-control)', // 사용자 요청 — 급식 메뉴 글자 크게
     fontWeight: 500,
     color: 'var(--text-primary)',
     background: 'var(--bg-primary)',
@@ -300,6 +301,6 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--border-subtle)',
   },
   noMeal: {
-    margin: 0, fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' as const,
+    margin: 0, fontSize: 'var(--fs-control)', color: 'var(--text-muted)', fontStyle: 'italic' as const,
   },
 };

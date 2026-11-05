@@ -14,6 +14,7 @@ import { useTimelineScroll } from '../../hooks/useTimelineScroll';
 import { SchoolBadge } from '../common/SchoolBadge';
 import { useComciganStore } from '../../store/comciganStore';
 import { hasTimetableOverlap } from '../../utils/timetableOverlap';
+import { Ic } from '../common/Ic';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
@@ -330,7 +331,7 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
                 ...styles.allDayEvent,
                 background: getPersonalEventDisplayColor(pe, user?.profileColor),
                 opacity: 0.85,
-                borderLeft: '3px solid rgba(255,255,255,0.5)',
+                borderLeft: '3px solid var(--event-edge)',
               }}>
               <span style={styles.eventTextSmall}>{pe.title} {PERSONAL_SUFFIX}</span>
             </div>
@@ -340,9 +341,9 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
 
       {dayEvents.length === 0 && dayPersonalEvents.length === 0 && (
         <div style={styles.emptyState}>
-          <span style={{ fontSize: 20 }}>📭</span>
+          <span style={{ fontSize: 'var(--fs-display)' }}><Ic name="inbox" gap={false} /></span>
           <span>이 날에는 일정이 없습니다</span>
-          <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>시간대를 클릭하여 일정을 추가하세요</span>
+          <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--text-muted)' }}>시간대를 클릭하여 일정을 추가하세요</span>
         </div>
       )}
 
@@ -366,7 +367,7 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
               style={{
               ...styles.hourRow,
               position: 'relative',
-              background: isDropTarget ? 'color-mix(in srgb, var(--accent) 20%, transparent)' : 'rgba(128,128,128,0.02)',
+              background: isDropTarget ? 'color-mix(in srgb, var(--accent) 20%, transparent)' : 'var(--tint-neutral-faint)',
               outline: isDropTarget ? '2px dashed var(--accent)' : 'none',
               outlineOffset: -1,
               cursor: 'pointer',
@@ -379,10 +380,10 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
                   right: 0,
                   top: `${((nowMinute % 60) / 60) * 100}%`,
                   height: 2,
-                  background: '#E74C3C',
+                  background: 'var(--now-line)',
                   zIndex: 10,
                   pointerEvents: 'none',
-                  boxShadow: '0 0 4px rgba(231,76,60,0.5)',
+                  boxShadow: '0 0 4px var(--now-line-glow)',
                 }}>
                   <div style={{
                     position: 'absolute',
@@ -391,7 +392,7 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
                     width: 8,
                     height: 8,
                     borderRadius: '50%',
-                    background: '#E74C3C',
+                    background: 'var(--now-line)',
                   }} />
                 </div>
               )}
@@ -418,11 +419,11 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
                         position: 'relative',
                       }}
                       title={overlaps.length > 0
-                        ? `${formatEventTooltip(event, isOwner)}\n\n⚠️ 수업 시간과 겹침: ${overlaps.map(p => p.period + '교시').join(', ')}`
+                        ? `${formatEventTooltip(event, isOwner)}\n\n수업 시간과 겹침: ${overlaps.map(p => p.period + '교시').join(', ')}`
                         : formatEventTooltip(event, isOwner)}
                     >
                       <span style={styles.eventTitle}>
-                        {overlaps.length > 0 && <span style={styles.overlapBadge} title="수업 시간과 겹침">⚠️</span>}
+                        {overlaps.length > 0 && <span style={styles.overlapBadge} title="수업 시간과 겹침"><Ic name="alert" gap={false} /></span>}
                         <SchoolBadge school={event.school} size="xs" />{event.title}
                       </span>
                       <span style={styles.eventTime}>
@@ -451,7 +452,7 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
                       }}
                       style={{
                         ...styles.eventBlock, background: getPersonalEventDisplayColor(pe, user?.profileColor), opacity: 0.85,
-                        borderLeft: '3px solid rgba(255,255,255,0.5)',
+                        borderLeft: '3px solid var(--event-edge)',
                         cursor: canDrag ? 'grab' : 'pointer',
                         position: 'relative',
                       }}
@@ -480,12 +481,12 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
                       border: '1px dashed color-mix(in srgb, var(--accent) 50%, transparent)',
                       borderRadius: 4,
                       padding: '2px 6px',
-                      fontSize: 11,
+                      fontSize: 'var(--fs-label)',
                       color: 'var(--text-secondary)',
                     }}
                     title={`${cp.period}교시 ${cp.grade}-${cp.classNum} ${cp.subject}`}
                   >
-                    📚 {cp.period}교시 {cp.subject} ({cp.grade}-{cp.classNum})
+                    <Ic name="book" />{cp.period}교시 {cp.subject} ({cp.grade}-{cp.classNum})
                   </div>
                 ))}
               </div>
@@ -498,16 +499,16 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
       {quickAdd && (
         <div data-quick-add style={{
           position: 'fixed', zIndex: 200, display: 'flex', flexDirection: 'column', gap: 2,
-          padding: 4, borderRadius: 8, background: 'var(--bg-modal, #fff)',
+          padding: 4, borderRadius: 8, background: 'var(--bg-modal)',
           border: '1px solid var(--border-color)', boxShadow: '0 4px 16px rgba(0,0,0,0.25)', minWidth: 140,
           left: Math.min(quickAdd.x - 70, window.innerWidth - 155),
           top: Math.min(quickAdd.y, window.innerHeight - 80),
         }}>
-          <div style={{ fontSize: 10, color: 'var(--text-muted)', padding: '2px 10px', fontWeight: 600 }}>
+          <div style={{ fontSize: 'var(--fs-caption)', color: 'var(--text-muted)', padding: '2px 10px', fontWeight: 600 }}>
             {format(selectedDate, 'M/d')} {quickAdd.hour.toString().padStart(2, '0')}:00
           </div>
-          <button onClick={handleQuickAddShared} style={quickAddBtnStyle}>📅 공유 일정 추가</button>
-          <button onClick={handleQuickAddPersonal} style={quickAddBtnStyle}>🔒 개인 일정 추가</button>
+          <button onClick={handleQuickAddShared} style={quickAddBtnStyle}><Ic name="calendar" />공유 일정 추가</button>
+          <button onClick={handleQuickAddPersonal} style={quickAddBtnStyle}><Ic name="lock" />개인 일정 추가</button>
         </div>
       )}
     </div>
@@ -516,25 +517,25 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
 
 const quickAddBtnStyle: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px',
-  fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', background: 'transparent',
+  fontSize: 'var(--fs-body)', fontWeight: 600, color: 'var(--text-primary)', background: 'transparent',
   border: 'none', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap',
 };
 
 const styles: Record<string, React.CSSProperties> = {
   container: { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' },
-  dayLabel: { fontSize: 14, fontWeight: 600, padding: '8px 4px', color: 'var(--text-primary)', flexShrink: 0 },
+  dayLabel: { fontSize: 'var(--fs-lead)', fontWeight: 600, padding: '8px 4px', color: 'var(--text-primary)', flexShrink: 0 },
   allDaySection: { display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center', padding: '4px 4px 8px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 },
-  allDayLabel: { fontSize: 10, color: 'var(--text-muted)', marginRight: 4 },
+  allDayLabel: { fontSize: 'var(--fs-caption)', color: 'var(--text-muted)', marginRight: 4 },
   allDayEvent: { borderRadius: 4, padding: '2px 8px', cursor: 'pointer' },
-  eventTextSmall: { fontSize: 'var(--schedule-font-size)', color: '#fff', fontWeight: 500, textShadow: '0 0 2px rgba(0,0,0,0.3)' },
+  eventTextSmall: { fontSize: 'var(--schedule-font-size)', color: 'var(--on-event)', fontWeight: 500, textShadow: '0 0 2px rgba(0,0,0,0.3)' },
   hourGrid: { display: 'flex', flexDirection: 'column', flex: 1, overflow: 'auto' },
   hourRow: { display: 'flex', minHeight: 44, borderBottom: '1px solid var(--border-subtle)' },
-  timeLabel: { width: 48, flexShrink: 0, fontSize: 10, color: 'var(--text-muted)', padding: '4px 4px 0 0', textAlign: 'right' },
+  timeLabel: { width: 48, flexShrink: 0, fontSize: 'var(--fs-caption)', color: 'var(--text-muted)', padding: '4px 4px 0 0', textAlign: 'right' },
   hourContent: { flex: 1, padding: 2, display: 'flex', flexDirection: 'column', gap: 2 },
   eventBlock: { borderRadius: 4, padding: '4px 8px', cursor: 'pointer' },
-  eventTitle: { fontSize: 'var(--schedule-font-size)', color: '#fff', fontWeight: 600, display: 'block', textShadow: '0 0 2px rgba(0,0,0,0.3)' },
+  eventTitle: { fontSize: 'var(--schedule-font-size)', color: 'var(--on-event)', fontWeight: 600, display: 'block', textShadow: '0 0 2px rgba(0,0,0,0.3)' },
   eventTime: { fontSize: 'calc(var(--schedule-font-size) - 1px)', color: 'rgba(255,255,255,0.85)' },
-  emptyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '12px 0', color: 'var(--text-muted)', fontSize: 12, flexShrink: 0 },
+  emptyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '12px 0', color: 'var(--text-muted)', fontSize: 'var(--fs-body)', flexShrink: 0 },
   resizeHandle: {
     position: 'absolute', left: 0, right: 0, bottom: 0, height: 6,
     cursor: 'ns-resize', borderRadius: '0 0 4px 4px',

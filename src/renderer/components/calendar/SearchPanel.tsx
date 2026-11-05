@@ -7,6 +7,7 @@ import { getSchoolTag, PERSONAL_SUFFIX } from '../../utils/calendarHelpers';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
+import { Ic } from '../common/Ic';
 
 const CATEGORY_LABELS: Record<string, string> = {
   event: '행사',
@@ -150,7 +151,7 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
         {/* Search input */}
         <div style={styles.header}>
           <div style={styles.searchBar}>
-            <span style={styles.searchIcon}>🔍</span>
+            <span style={styles.searchIcon}><Ic name="search" gap={false} /></span>
             <input
               ref={inputRef}
               type="text"
@@ -160,7 +161,7 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
               style={styles.input}
             />
             {query && (
-              <button onClick={() => setQuery('')} style={styles.clearBtn}>✕</button>
+              <button onClick={() => setQuery('')} style={styles.clearBtn}><Ic name="x" gap={false} /></button>
             )}
           </div>
           <button onClick={onClose} style={styles.closeBtn}>닫기</button>
@@ -170,14 +171,14 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
         <div style={styles.results}>
           {query.trim().length === 0 && (
             <div style={styles.emptyState}>
-              <span style={{ fontSize: 24 }}>🔍</span>
+              <span style={{ fontSize: 'var(--fs-icon)' }}><Ic name="search" gap={false} /></span>
               <p>검색어를 입력하세요</p>
             </div>
           )}
 
           {query.trim().length > 0 && results.length === 0 && (
             <div style={styles.emptyState}>
-              <span style={{ fontSize: 24 }}>📭</span>
+              <span style={{ fontSize: 'var(--fs-icon)' }}><Ic name="inbox" gap={false} /></span>
               <p>검색 결과가 없습니다</p>
             </div>
           )}
@@ -199,7 +200,7 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                   style={{
                     ...styles.typeBadge,
                     background: r.type === 'shared' ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'rgba(46,204,113,0.15)',
-                    color: r.type === 'shared' ? 'var(--accent)' : '#2ECC71',
+                    color: r.type === 'shared' ? 'var(--accent)' : 'var(--personal-tag)',
                   }}
                 >
                   {r.type === 'shared' ? '공유' : '개인'}
@@ -214,10 +215,10 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                     <span style={{ ...styles.colorDot, background: r.color }} />
                   )}
                   {r.school && getSchoolTag(r.school) && (
-                    <span style={{ fontSize: 10, color: 'var(--text-muted)', marginRight: 4 }}>{getSchoolTag(r.school)}</span>
+                    <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--text-muted)', marginRight: 4 }}>{getSchoolTag(r.school)}</span>
                   )}
                   {highlightMatch(r.title, query.trim())}
-                  {r.type === 'personal' && <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 4 }}>{PERSONAL_SUFFIX}</span>}
+                  {r.type === 'personal' && <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--text-muted)', marginLeft: 4 }}>{PERSONAL_SUFFIX}</span>}
                 </div>
                 {r.description && (
                   <div style={styles.resultDesc}>
@@ -248,7 +249,7 @@ const styles: Record<string, React.CSSProperties> = {
   overlay: {
     position: 'absolute',
     inset: 0,
-    background: 'rgba(0,0,0,0.3)',
+    background: 'var(--scrim)',
     display: 'flex',
     alignItems: 'flex-start',
     justifyContent: 'center',
@@ -282,7 +283,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--border-color)',
   },
   searchIcon: {
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     flexShrink: 0,
   },
   input: {
@@ -290,7 +291,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: 'none',
     background: 'transparent',
     padding: '8px 0',
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     color: 'var(--text-primary)',
     outline: 'none',
     fontFamily: 'inherit',
@@ -300,7 +301,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: 'none',
     cursor: 'pointer',
     color: 'var(--text-muted)',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     padding: '2px 4px',
     flexShrink: 0,
   },
@@ -310,7 +311,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     padding: '6px 12px',
     borderRadius: 6,
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 600,
     color: 'var(--text-secondary)',
     flexShrink: 0,
@@ -327,7 +328,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 8,
     padding: '32px 16px',
     color: 'var(--text-muted)',
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
   },
   resultItem: {
     display: 'flex',
@@ -346,14 +347,14 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   typeBadge: {
-    fontSize: 9,
+    fontSize: 'var(--fs-tiny)',
     fontWeight: 700,
     padding: '2px 6px',
     borderRadius: 4,
     whiteSpace: 'nowrap',
   },
   category: {
-    fontSize: 9,
+    fontSize: 'var(--fs-tiny)',
     color: 'var(--text-muted)',
     whiteSpace: 'nowrap',
   },
@@ -362,7 +363,7 @@ const styles: Record<string, React.CSSProperties> = {
     minWidth: 0,
   },
   resultTitle: {
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     fontWeight: 600,
     color: 'var(--text-primary)',
     display: 'flex',
@@ -379,7 +380,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   resultDesc: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     color: 'var(--text-secondary)',
     marginTop: 2,
     overflow: 'hidden',
@@ -387,13 +388,13 @@ const styles: Record<string, React.CSSProperties> = {
     whiteSpace: 'nowrap',
   },
   resultMeta: {
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     color: 'var(--text-muted)',
     marginTop: 3,
   },
   resultCount: {
     textAlign: 'center',
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     color: 'var(--text-muted)',
     padding: '8px 0',
   },

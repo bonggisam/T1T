@@ -28,7 +28,6 @@ export interface User {
 export interface UserSettings {
   notificationSound: boolean;
   notificationBadge: boolean;
-  transparency: number; // 0~100
   alwaysOnTop: boolean;
   clickThrough: boolean;
   defaultView: CalendarView;
@@ -228,7 +227,7 @@ export interface WeatherData {
 // Electron API bridge
 export interface ElectronAPI {
   toggleAlwaysOnTop: (value: boolean) => Promise<void>;
-  setOpacity: (opacity: number) => Promise<void>;
+  setZoomFactor: (factor: number) => void;
   toggleClickThrough: (enabled: boolean) => Promise<void>;
   getClickThrough: () => Promise<boolean>;
   minimize: () => Promise<void>;

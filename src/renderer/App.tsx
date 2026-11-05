@@ -40,7 +40,6 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ResizeHandles } from './components/common/ResizeHandles';
 import { startSchoolScheduleAutoSync } from './utils/schoolScheduleSync';
 import { syncSharedEventsToGoogle } from './utils/sharedEventsGoogleSync';
-import { transparencyToOpacity } from './utils/windowOpacity';
 
 type AuthScreen = 'login' | 'signup';
 
@@ -120,7 +119,7 @@ export function App() {
         const last = localStorage.getItem('t1t-last-version');
         if (last && last !== current) {
           const { showToast } = await import('./components/common/Toast');
-          showToast(`✨ v${last} → v${current} 업데이트 완료`, 'success');
+          showToast(`v${last} → v${current} 업데이트 완료`, 'success');
         }
         localStorage.setItem('t1t-last-version', current);
       } catch {}
@@ -304,19 +303,12 @@ export function App() {
     }
   }, [user?.settings?.theme]);
 
-  // 저장된 투명도를 창에 적용. 로그아웃하면 100%로 되돌려 다음 사람의 로그인 화면이 흐리지 않게 한다.
-  const savedTransparency = user?.settings?.transparency;
-  useEffect(() => {
-    window.electronAPI?.setOpacity(transparencyToOpacity(savedTransparency))
-      .catch((err) => console.warn('[Window] setOpacity failed:', err));
-  }, [savedTransparency]);
-
   if (loading) {
     return (
       <div className="glass" style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
           <div className="spinner" />
-          <p style={{ marginTop: 12, fontSize: 14 }}>로딩 중...</p>
+          <p style={{ marginTop: 12, fontSize: 'var(--fs-lead)' }}>로딩 중...</p>
         </div>
       </div>
     );
@@ -369,8 +361,8 @@ export function App() {
         />
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, textAlign: 'center' }}>
           <div>
-            <p style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>가입이 거절되었습니다</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>관리자에게 문의해주세요.</p>
+            <p style={{ fontSize: 'var(--fs-heading)', fontWeight: 600, marginBottom: 8 }}>가입이 거절되었습니다</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--fs-lead)' }}>관리자에게 문의해주세요.</p>
           </div>
         </div>
       </div>
@@ -437,9 +429,9 @@ export function App() {
       {isOffline && (
         <div style={{
           background: 'var(--warning)',
-          color: '#fff',
+          color: 'var(--on-accent)',
           textAlign: 'center',
-          fontSize: 11,
+          fontSize: 'var(--fs-label)',
           fontWeight: 600,
           padding: '3px 0',
           flexShrink: 0,

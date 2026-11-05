@@ -171,7 +171,7 @@ const mStyles: Record<string, React.CSSProperties> = {
   popup: {
     position: 'absolute', left: 0, right: 0,
     padding: 4, borderRadius: 8,
-    background: 'var(--bg-modal, #fff)',
+    background: 'var(--bg-modal)',
     border: '1px solid var(--border-color)',
     boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
     zIndex: 50,
@@ -180,13 +180,13 @@ const mStyles: Record<string, React.CSSProperties> = {
   item: {
     display: 'flex', alignItems: 'center', gap: 6,
     padding: '4px 8px', borderRadius: 6,
-    cursor: 'pointer', fontSize: 12,
+    cursor: 'pointer', fontSize: 'var(--fs-body)',
   },
   avatar: {
     width: 18, height: 18, borderRadius: '50%',
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    color: '#fff', fontSize: 10, fontWeight: 700,
+    color: 'var(--on-accent)', fontSize: 'var(--fs-caption)', fontWeight: 700,
   },
-  name: { fontSize: 12, color: 'var(--text-primary)', flex: 1 },
-  school: { fontSize: 9, color: 'var(--text-muted)' },
+  name: { fontSize: 'var(--fs-body)', color: 'var(--text-primary)', flex: 1 },
+  school: { fontSize: 'var(--fs-tiny)', color: 'var(--text-muted)' },
 };

@@ -8,6 +8,7 @@ import { showToast } from '../common/Toast';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useDisableClickThrough } from '../../hooks/useDisableClickThrough';
 import { parseEventDrafts, type ParsedDraft } from '../../utils/pasteEventParser';
+import { Ic } from '../common/Ic';
 
 interface Row extends ParsedDraft {
   checked: boolean;
@@ -157,7 +158,7 @@ export function PasteEventsModal({ initialText, onClose }: PasteEventsModalProps
       <div className="glass-solid animate-slide-up" style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.header}>
           <h3 style={styles.title}>붙여 넣어 일정 만들기</h3>
-          <button onClick={onClose} style={styles.closeBtn} aria-label="닫기">✕</button>
+          <button onClick={onClose} style={styles.closeBtn} aria-label="닫기"><Ic name="x" gap={false} /></button>
         </div>
 
         <textarea
@@ -243,7 +244,7 @@ const styles: Record<string, React.CSSProperties> = {
   overlay: {
     position: 'absolute',
     inset: 0,
-    background: 'rgba(0,0,0,0.3)',
+    background: 'var(--scrim)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -267,7 +268,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   title: {
-    fontSize: 15,
+    fontSize: 'var(--fs-subtitle)',
     fontWeight: 700,
     color: 'var(--text-primary)',
   },
@@ -275,7 +276,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontSize: 14,
+    fontSize: 'var(--fs-lead)',
     color: 'var(--text-muted)',
     padding: '2px 6px',
   },
@@ -283,7 +284,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
     flexShrink: 0,
     padding: '8px 10px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     lineHeight: 1.45,
     border: '1px solid var(--border-color)',
     borderRadius: 8,
@@ -295,7 +296,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   note: {
     flexShrink: 0,
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     lineHeight: 1.4,
     color: 'var(--text-muted)',
   },
@@ -309,7 +310,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   empty: {
     padding: '10px 4px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     lineHeight: 1.45,
     color: 'var(--text-secondary)',
   },
@@ -332,7 +333,7 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     minWidth: 0,
     padding: '4px 6px',
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     fontWeight: 600,
     border: '1px solid var(--border-color)',
     borderRadius: 6,
@@ -349,7 +350,7 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     minWidth: 0,
     padding: '3px 5px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     border: '1px solid var(--border-color)',
     borderRadius: 6,
     background: 'var(--bg-primary)',
@@ -358,20 +359,20 @@ const styles: Record<string, React.CSSProperties> = {
     colorScheme: 'light dark',
   },
   tilde: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     color: 'var(--text-muted)',
   },
   allDay: {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 3,
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     color: 'var(--text-secondary)',
     cursor: 'pointer',
     whiteSpace: 'nowrap',
   },
   source: {
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     color: 'var(--text-muted)',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -389,7 +390,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   cancelBtn: {
     padding: '6px 16px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     border: '1px solid var(--border-color)',
     borderRadius: 8,
     background: 'transparent',
@@ -398,12 +399,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
   submitBtn: {
     padding: '6px 16px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
     border: 'none',
     borderRadius: 8,
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--on-accent)',
     cursor: 'pointer',
   },
 };

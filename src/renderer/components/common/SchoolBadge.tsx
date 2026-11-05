@@ -13,10 +13,10 @@ export function SchoolBadge({ school, size = 'sm' }: { school?: string; size?: '
   if (school !== 'taeseong_middle' && school !== 'taeseong_high' && school !== 'all') return null;
   const palette = SCHOOL_COLORS[school];
   const sizeStyles = size === 'xs'
-    ? { fontSize: 8, padding: '0 3px' }
+    ? { fontSize: 'var(--fs-micro)', padding: '0 3px' }
     : size === 'md'
-      ? { fontSize: 10, padding: '1px 6px' }
-      : { fontSize: 9, padding: '1px 5px' };
+      ? { fontSize: 'var(--fs-caption)', padding: '1px 6px' }
+      : { fontSize: 'var(--fs-tiny)', padding: '1px 5px' };
   const label = school === 'taeseong_middle' ? '중'
     : school === 'taeseong_high' ? '고'
     : '공';
@@ -28,7 +28,7 @@ export function SchoolBadge({ school, size = 'sm' }: { school?: string; size?: '
       marginRight: 4,
       borderRadius: 3,
       background: palette.primary,
-      color: '#fff',
+      color: 'var(--on-accent)',
       lineHeight: 1.4,
       verticalAlign: 'middle',
     }}>

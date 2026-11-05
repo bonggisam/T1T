@@ -308,7 +308,7 @@ function updateTrayMenu(): void {
       },
     },
     {
-      label: isClickThrough ? '🖱 클릭 통과 해제' : '🖱 클릭 통과 켜기',
+      label: isClickThrough ? '클릭 통과 해제' : '클릭 통과 켜기',
       click: () => toggleClickThrough(),
     },
     { type: 'separator' },
@@ -378,11 +378,6 @@ function setupIPC(): void {
     if (!isWidgetMode) mainWindow?.setAlwaysOnTop(alwaysOnTopPref);
   });
 
-  ipcMain.handle('window:set-opacity', (_event, opacity: number) => {
-    if (typeof opacity === 'number' && opacity >= 0 && opacity <= 1) {
-      mainWindow?.setOpacity(opacity);
-    }
-  });
 
   ipcMain.handle('window:toggle-click-through', (_event, enabled: boolean) => {
     setClickThrough(enabled);

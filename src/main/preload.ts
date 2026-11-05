@@ -1,9 +1,9 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webFrame } from 'electron';
 import type { ComciganConfig, ComciganSchool, ComciganTimetableData, WeatherData } from '../shared/types';
 
 contextBridge.exposeInMainWorld('electronAPI', {
   toggleAlwaysOnTop: (value: boolean) => ipcRenderer.invoke('window:toggle-always-on-top', value),
-  setOpacity: (opacity: number) => ipcRenderer.invoke('window:set-opacity', opacity),
+  setZoomFactor: (factor: number) => webFrame.setZoomFactor(factor),
   toggleClickThrough: (enabled: boolean) => ipcRenderer.invoke('window:toggle-click-through', enabled),
   getClickThrough: (): Promise<boolean> => ipcRenderer.invoke('window:get-click-through'),
   minimize: () => ipcRenderer.invoke('window:minimize'),

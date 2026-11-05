@@ -30,7 +30,6 @@ interface AuthState {
 const defaultSettings: UserSettings = {
   notificationSound: true,
   notificationBadge: true,
-  transparency: 80,
   alwaysOnTop: true,
   clickThrough: false,
   defaultView: 'month',

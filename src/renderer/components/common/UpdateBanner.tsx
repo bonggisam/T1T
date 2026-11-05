@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Ic } from './Ic';
 
 type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error' | 'up-to-date';
 
@@ -91,46 +92,46 @@ export function UpdateBanner() {
 
   const bg =
     status === 'error' ? 'var(--danger)' :
-    status === 'up-to-date' ? '#10B981' :
-    status === 'downloaded' ? '#059669' :
+    status === 'up-to-date' ? 'var(--success)' :
+    status === 'downloaded' ? 'var(--success-deep)' :
     'var(--accent)';
 
   return (
     <div style={{ ...styles.banner, background: bg }}>
       {status === 'up-to-date' && (
         <>
-          <span style={styles.text}>✅ 최신 버전을 사용 중입니다</span>
-          <button onClick={() => setStatus('idle')} style={styles.dismissBtn}>✕</button>
+          <span style={styles.text}><Ic name="checkCircle" />최신 버전을 사용 중입니다</span>
+          <button onClick={() => setStatus('idle')} style={styles.dismissBtn}><Ic name="x" gap={false} /></button>
         </>
       )}
       {status === 'available' && (
         <>
           <span style={styles.text}>
             {info.manualOnly
-              ? `🎉 새 버전 v${info.version} — 이 Mac에서는 수동 설치가 필요합니다`
-              : `🎉 새 버전 v${info.version} — 자동 다운로드 중`}
+              ? `새 버전 v${info.version} — 이 Mac에서는 수동 설치가 필요합니다`
+              : `새 버전 v${info.version} — 자동 다운로드 중`}
           </span>
           {info.manualOnly && (
             <button
               onClick={() => window.electronAPI?.updaterOpenDownloadPage()}
               style={styles.btn}
             >
-              📥 다운로드 페이지 열기
+              <Ic name="download" />다운로드 페이지 열기
             </button>
           )}
-          <button onClick={() => setStatus('idle')} style={styles.dismissBtn}>✕</button>
+          <button onClick={() => setStatus('idle')} style={styles.dismissBtn}><Ic name="x" gap={false} /></button>
         </>
       )}
       {status === 'downloading' && (
         <span style={styles.text}>
-          ⬇️ 다운로드 {info.percent ?? 0}% {info.transferred && info.total ? `(${fmtMB(info.transferred)}/${fmtMB(info.total)})` : ''}
+          <Ic name="download" />다운로드 {info.percent ?? 0}% {info.transferred && info.total ? `(${fmtMB(info.transferred)}/${fmtMB(info.total)})` : ''}
         </span>
       )}
       {status === 'downloaded' && (
         <>
           {installing ? (
             <>
-              <span style={styles.text}>🔄 업데이트 설치 중… 잠시 후 새 버전이 자동으로 열려요 (최대 60초 — 안 뜨면 수동 다운로드)</span>
+              <span style={styles.text}><Ic name="refresh" />업데이트 설치 중… 잠시 후 새 버전이 자동으로 열려요 (최대 60초 — 안 뜨면 수동 다운로드)</span>
               <button
                 onClick={() => window.electronAPI?.updaterOpenDownloadPage()}
                 style={styles.btn}
@@ -141,8 +142,8 @@ export function UpdateBanner() {
           ) : (
             <>
               <span style={styles.text}>
-                ✨ 업데이트 준비 완료 · {info.idleMinutes ?? 10}분간 자리를 비우거나 화면을 잠그면 자동 설치
-                {info.error ? ` — ⚠️ 설치 시작 실패: ${info.error} (다시 시도 가능)` : ''}
+                업데이트 준비 완료 · {info.idleMinutes ?? 10}분간 자리를 비우거나 화면을 잠그면 자동 설치
+                {info.error ? ` — 설치 시작 실패: ${info.error} (다시 시도 가능)` : ''}
               </span>
               <button
                 disabled={installing}
@@ -169,14 +170,14 @@ export function UpdateBanner() {
       )}
       {status === 'error' && (
         <>
-          <span style={styles.text}>⚠️ 자동 업데이트 오류: {info.error}</span>
+          <span style={styles.text}><Ic name="alert" />자동 업데이트 오류: {info.error}</span>
           <button
             onClick={() => window.electronAPI?.updaterOpenDownloadPage()}
             style={styles.btn}
           >
             수동 다운로드
           </button>
-          <button onClick={() => setStatus('idle')} style={styles.dismissBtn}>✕</button>
+          <button onClick={() => setStatus('idle')} style={styles.dismissBtn}><Ic name="x" gap={false} /></button>
         </>
       )}
     </div>
@@ -194,30 +195,30 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   text: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 600,
-    color: '#fff',
+    color: 'var(--on-accent)',
     lineHeight: 1.4,
     flex: '1 1 180px',
     minWidth: 0,
   },
   btn: {
     padding: '3px 10px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 700,
     border: 'none',
     borderRadius: 999,
-    background: 'rgba(255,255,255,0.22)',
-    color: '#fff',
+    background: 'var(--on-accent-soft)',
+    color: 'var(--on-accent)',
     cursor: 'pointer',
     whiteSpace: 'nowrap',
   },
   dismissBtn: {
     padding: '3px 6px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     border: 'none',
     background: 'none',
-    color: 'rgba(255,255,255,0.8)',
+    color: 'var(--on-accent-muted)',
     cursor: 'pointer',
     whiteSpace: 'nowrap',
   },

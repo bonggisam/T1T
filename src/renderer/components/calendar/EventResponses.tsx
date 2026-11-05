@@ -8,8 +8,8 @@ import { showToast } from '../common/Toast';
 
 const LABELS: Record<ResponseStatus, string> = { attend: '참석', absent: '불참', confirm: '확인' };
 const COLORS: Record<ResponseStatus, string> = {
-  attend: 'var(--success, #10B981)',
-  absent: 'var(--danger, #EF4444)',
+  attend: 'var(--success)',
+  absent: 'var(--danger)',
   confirm: 'var(--accent)',
 };
 
@@ -86,7 +86,7 @@ export function EventResponses({ event }: { event: CalendarEvent }) {
                 title={active ? '다시 누르면 취소합니다' : undefined}
                 style={{
                   ...styles.button,
-                  ...(active ? { background: COLORS[status], borderColor: 'transparent', color: '#fff' } : {}),
+                  ...(active ? { background: COLORS[status], borderColor: 'transparent', color: 'var(--on-accent)' } : {}),
                 }}
               >
                 {status === 'absent' ? <X size={12} strokeWidth={2.6} /> : <Check size={12} strokeWidth={2.6} />}
@@ -148,7 +148,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 8,
   },
   label: {
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 700,
     color: 'var(--text-secondary)',
   },
@@ -161,7 +161,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: 3,
     padding: '4px 12px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
     border: '1px solid var(--border-color)',
     borderRadius: 8,
@@ -174,7 +174,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 0,
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     border: 'none',
     background: 'transparent',
     color: 'var(--text-secondary)',
@@ -184,7 +184,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     gap: 3,
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     color: 'var(--text-primary)',
   },
   line: {
@@ -197,7 +197,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-muted)',
   },
   note: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     color: 'var(--text-muted)',
   },
 };

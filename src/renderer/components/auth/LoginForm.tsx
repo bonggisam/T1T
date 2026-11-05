@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
+import { Ic } from '../common/Ic';
 
 interface LoginFormProps {
   onSwitchToSignup: () => void;
@@ -66,7 +67,7 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
 
   return (
     <div className="animate-fade-in" style={styles.container}>
-      <h2 style={styles.title}>📅 T1T</h2>
+      <h2 style={styles.title}><Ic name="calendar" />T1T</h2>
       <p style={styles.subtitle}>학교 일정 공유 시스템</p>
 
       <form onSubmit={handleLogin} style={styles.form}>
@@ -108,13 +109,13 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center',
   },
   title: {
-    fontSize: 22,
+    fontSize: 'var(--fs-display)',
     fontWeight: 700,
     color: 'var(--text-primary)',
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     color: 'var(--text-secondary)',
     marginBottom: 24,
   },
@@ -126,7 +127,7 @@ const styles: Record<string, React.CSSProperties> = {
   input: {
     width: '100%',
     padding: '10px 14px',
-    fontSize: 14,
+    fontSize: 'var(--fs-lead)',
     border: '1px solid var(--border-color)',
     borderRadius: 10,
     background: 'var(--bg-secondary)',
@@ -137,18 +138,18 @@ const styles: Record<string, React.CSSProperties> = {
   submitBtn: {
     width: '100%',
     padding: '10px',
-    fontSize: 14,
+    fontSize: 'var(--fs-lead)',
     fontWeight: 600,
     border: 'none',
     borderRadius: 10,
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--on-accent)',
     cursor: 'pointer',
     transition: 'background 0.15s',
     marginTop: 4,
   },
   error: {
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     color: 'var(--danger)',
     textAlign: 'left',
   },
@@ -163,18 +164,18 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     color: 'var(--accent)',
   },
   divider: {
     color: 'var(--text-muted)',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
   },
   successMsg: {
     display: 'flex',
     flexDirection: 'column',
     gap: 12,
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     color: 'var(--text-secondary)',
   },
 };

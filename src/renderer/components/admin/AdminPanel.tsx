@@ -5,6 +5,7 @@ import { useAuthStore } from '../../store/authStore';
 import { showToast } from '../common/Toast';
 import type { User, UserStatus } from '@shared/types';
 import { SCHOOL_LABELS } from '@shared/types';
+import { Ic } from '../common/Ic';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -24,15 +25,15 @@ function ActiveUserCard({ u, onChangeRole, onDeactivate, onChangeSchool }: Activ
   const isSchoolAssigned = u.school === 'taeseong_middle' || u.school === 'taeseong_high';
   // 슈퍼관리자는 학교 구분 없이 전체 관리
   const schoolBadgeBg = isSuperAdmin
-    ? '#F59E0B'
+    ? 'var(--warning)'
     : u.school === 'taeseong_high'
-      ? '#8B5CF6'
+      ? 'var(--school-high)'
       : u.school === 'taeseong_middle'
-        ? '#10B981'
-        : '#9CA3AF';
+        ? 'var(--school-middle)'
+        : 'var(--neutral-badge)';
   const schoolBadgeText = isSuperAdmin
-    ? '👑 전체'
-    : u.school === 'taeseong_high' ? '🎓 고' : u.school === 'taeseong_middle' ? '🏫 중' : '❓ 미지정';
+    ? '전체'
+    : u.school === 'taeseong_high' ? '고' : u.school === 'taeseong_middle' ? '중' : '미지정';
   return (
     <div style={styles.userCard}>
       <div style={styles.userInfo}>
@@ -46,7 +47,7 @@ function ActiveUserCard({ u, onChangeRole, onDeactivate, onChangeSchool }: Activ
           </span>
           <span style={{
             ...styles.roleBadge,
-            background: u.role === 'head_teacher' ? '#F59E0B' : 'var(--accent)',
+            background: u.role === 'head_teacher' ? 'var(--warning)' : 'var(--accent)',
           }}>
             {u.role === 'super_admin' ? '슈퍼관리자' : u.role === 'admin' ? '관리자' : u.role === 'head_teacher' ? '부장교사' : '교사'}
           </span>
@@ -57,8 +58,8 @@ function ActiveUserCard({ u, onChangeRole, onDeactivate, onChangeSchool }: Activ
         {/* 슈퍼관리자는 학교 배정 불필요 */}
         {!isSuperAdmin && !isSchoolAssigned && (
           <>
-            <button onClick={() => onChangeSchool(u.id, 'taeseong_middle')} style={styles.assignMiddleBtn} aria-label={`${u.name}을 태성중으로 배정`}>🏫 중 배정</button>
-            <button onClick={() => onChangeSchool(u.id, 'taeseong_high')} style={styles.assignHighBtn} aria-label={`${u.name}을 태성고로 배정`}>🎓 고 배정</button>
+            <button onClick={() => onChangeSchool(u.id, 'taeseong_middle')} style={styles.assignMiddleBtn} aria-label={`${u.name}을 태성중으로 배정`}>중 배정</button>
+            <button onClick={() => onChangeSchool(u.id, 'taeseong_high')} style={styles.assignHighBtn} aria-label={`${u.name}을 태성고로 배정`}>고 배정</button>
           </>
         )}
         {/* 학교 배정된 경우 변경 버튼 (반대편 학교로) */}
@@ -72,7 +73,7 @@ function ActiveUserCard({ u, onChangeRole, onDeactivate, onChangeSchool }: Activ
             title="학교 변경"
             aria-label={`${u.name}의 학교를 ${u.school === 'taeseong_high' ? '태성중' : '태성고'}으로 변경`}
           >
-            {u.school === 'taeseong_high' ? '→🏫중' : '→🎓고'}
+            {u.school === 'taeseong_high' ? '→중' : '→고'}
           </button>
         )}
         {u.role === 'teacher' && (
@@ -101,7 +102,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
   if (!isAdmin) {
     return (
       <div style={{ padding: 20, textAlign: 'center' }}>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>관리자 권한이 필요합니다.</p>
+        <p style={{ fontSize: 'var(--fs-control)', color: 'var(--text-muted)' }}>관리자 권한이 필요합니다.</p>
       </div>
     );
   }
@@ -198,8 +199,8 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
   return (
     <div className="animate-fade-in" style={styles.container}>
       <div style={styles.header}>
-        <h3 style={styles.title}>👥 사용자 관리</h3>
-        <button onClick={onClose} style={styles.closeBtn}>✕</button>
+        <h3 style={styles.title}><Ic name="users" />사용자 관리</h3>
+        <button onClick={onClose} style={styles.closeBtn}><Ic name="x" gap={false} /></button>
       </div>
 
       {/* Tab buttons */}
@@ -225,7 +226,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
             const count = s === 'all'
               ? activeUsers.length
               : activeUsers.filter((u) => u.school === s).length;
-            const label = s === 'all' ? '전체' : s === 'taeseong_middle' ? '🏫 태성중' : '🎓 태성고';
+            const label = s === 'all' ? '전체' : s === 'taeseong_middle' ? '태성중' : '태성고';
             return (
               <button
                 key={s}
@@ -250,11 +251,11 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
             pendingUsers.map((u) => {
               const isSchoolAssigned = u.school === 'taeseong_middle' || u.school === 'taeseong_high';
               const badgeBg = u.school === 'taeseong_high'
-                ? '#8B5CF6'
+                ? 'var(--school-high)'
                 : u.school === 'taeseong_middle'
-                  ? '#10B981'
-                  : '#9CA3AF'; // 미지정 회색
-              const badgeText = u.school === 'taeseong_high' ? '🎓 고' : u.school === 'taeseong_middle' ? '🏫 중' : '❓ 미지정';
+                  ? 'var(--school-middle)'
+                  : 'var(--neutral-badge)'; // 미지정 회색
+              const badgeText = u.school === 'taeseong_high' ? '고' : u.school === 'taeseong_middle' ? '중' : '미지정';
               return (
                 <div key={u.id} style={styles.userCard}>
                   <div style={styles.userInfo}>
@@ -267,8 +268,8 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                   <div style={styles.userActions}>
                     {!isSchoolAssigned && (
                       <>
-                        <button onClick={() => handleChangeSchool(u.id, 'taeseong_middle')} style={styles.assignMiddleBtn} aria-label={`${u.name}을 태성중으로 배정`}>🏫 중</button>
-                        <button onClick={() => handleChangeSchool(u.id, 'taeseong_high')} style={styles.assignHighBtn} aria-label={`${u.name}을 태성고로 배정`}>🎓 고</button>
+                        <button onClick={() => handleChangeSchool(u.id, 'taeseong_middle')} style={styles.assignMiddleBtn} aria-label={`${u.name}을 태성중으로 배정`}>중</button>
+                        <button onClick={() => handleChangeSchool(u.id, 'taeseong_high')} style={styles.assignHighBtn} aria-label={`${u.name}을 태성고로 배정`}>고</button>
                       </>
                     )}
                     <button onClick={() => handleApprove(u.id, 'teacher')} style={styles.approveBtn}>교사</button>
@@ -302,26 +303,26 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                   {/* 슈퍼관리자는 학교 구분 없이 상단 표시 */}
                   {superAdmins.length > 0 && (
                     <>
-                      <div style={{ ...styles.groupHeader, color: '#F59E0B' }}>👑 전체 관리자 ({superAdmins.length})</div>
+                      <div style={{ ...styles.groupHeader, color: 'var(--warning)' }}><Ic name="crown" />전체 관리자 ({superAdmins.length})</div>
                       {superAdmins.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} onChangeSchool={handleChangeSchool} />)}
                     </>
                   )}
                   {/* 미지정 교사를 먼저 처리할 수 있게 맨 위 노출 */}
                   {other.length > 0 && (
                     <>
-                      <div style={{ ...styles.groupHeader, color: '#EF4444' }}>⚠️ 학교 미지정 ({other.length}) — 배정이 필요합니다</div>
+                      <div style={{ ...styles.groupHeader, color: 'var(--danger)' }}><Ic name="alert" />학교 미지정 ({other.length}) — 배정이 필요합니다</div>
                       {other.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} onChangeSchool={handleChangeSchool} />)}
                     </>
                   )}
                   {middle.length > 0 && (
                     <>
-                      <div style={styles.groupHeader}>🏫 태성중학교 ({middle.length})</div>
+                      <div style={styles.groupHeader}><Ic name="school" />태성중학교 ({middle.length})</div>
                       {middle.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} onChangeSchool={handleChangeSchool} />)}
                     </>
                   )}
                   {high.length > 0 && (
                     <>
-                      <div style={styles.groupHeader}>🎓 태성고등학교 ({high.length})</div>
+                      <div style={styles.groupHeader}><Ic name="graduation" />태성고등학교 ({high.length})</div>
                       {high.map((u) => <ActiveUserCard key={u.id} u={u} onChangeRole={handleChangeRole} onDeactivate={handleDeactivate} onChangeSchool={handleChangeSchool} />)}
                     </>
                   )}
@@ -352,7 +353,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '10px 0',
   },
   title: {
-    fontSize: 15,
+    fontSize: 'var(--fs-subtitle)',
     fontWeight: 700,
     color: 'var(--text-primary)',
   },
@@ -360,7 +361,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontSize: 14,
+    fontSize: 'var(--fs-lead)',
     color: 'var(--text-muted)',
   },
   tabs: {
@@ -371,7 +372,7 @@ const styles: Record<string, React.CSSProperties> = {
   tab: {
     flex: 1,
     padding: '6px 0',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 500,
     border: 'none',
     borderRadius: 8,
@@ -382,7 +383,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   tabActive: {
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--on-accent)',
   },
   list: {
     flex: 1,
@@ -393,7 +394,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   emptyMsg: {
     textAlign: 'center',
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     color: 'var(--text-muted)',
     marginTop: 40,
   },
@@ -411,7 +412,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 2,
   },
   userName: {
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     fontWeight: 600,
     color: 'var(--text-primary)',
     display: 'flex',
@@ -419,22 +420,22 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 6,
   },
   userEmail: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     color: 'var(--text-muted)',
   },
   roleBadge: {
-    fontSize: 9,
+    fontSize: 'var(--fs-tiny)',
     padding: '1px 6px',
     borderRadius: 4,
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--on-accent)',
     fontWeight: 500,
   },
   schoolBadge: {
-    fontSize: 9,
+    fontSize: 'var(--fs-tiny)',
     padding: '1px 6px',
     borderRadius: 4,
-    color: '#fff',
+    color: 'var(--on-accent)',
     fontWeight: 600,
     marginLeft: 4,
   },
@@ -446,7 +447,7 @@ const styles: Record<string, React.CSSProperties> = {
   subFilterBtn: {
     flex: 1,
     padding: '4px 8px',
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     fontWeight: 600,
     border: '1px solid var(--border-subtle)',
     borderRadius: 6,
@@ -456,11 +457,11 @@ const styles: Record<string, React.CSSProperties> = {
   },
   subFilterBtnActive: {
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--on-accent)',
     border: '1px solid var(--accent)',
   },
   groupHeader: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 700,
     color: 'var(--text-secondary)',
     padding: '8px 4px 4px',
@@ -474,66 +475,66 @@ const styles: Record<string, React.CSSProperties> = {
   },
   approveBtn: {
     padding: '4px 12px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 600,
     border: 'none',
     borderRadius: 6,
     background: 'var(--success)',
-    color: '#fff',
+    color: 'var(--on-accent)',
     cursor: 'pointer',
   },
   rejectBtn: {
     padding: '4px 12px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 600,
     border: 'none',
     borderRadius: 6,
     background: 'var(--danger)',
-    color: '#fff',
+    color: 'var(--on-accent)',
     cursor: 'pointer',
   },
   approveHeadBtn: {
     padding: '4px 12px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 600,
     border: 'none',
     borderRadius: 6,
-    background: '#F59E0B',
-    color: '#fff',
+    background: 'var(--warning)',
+    color: 'var(--on-accent)',
     cursor: 'pointer',
   },
   promoteBtn: {
     padding: '4px 10px',
-    fontSize: 11,
-    border: '1px solid #F59E0B',
+    fontSize: 'var(--fs-label)',
+    border: '1px solid var(--warning)',
     borderRadius: 6,
     background: 'transparent',
-    color: '#F59E0B',
+    color: 'var(--warning)',
     cursor: 'pointer',
   },
   assignMiddleBtn: {
     padding: '4px 10px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 600,
     border: 'none',
     borderRadius: 6,
-    background: '#10B981',
-    color: '#fff',
+    background: 'var(--school-middle)',
+    color: 'var(--on-accent)',
     cursor: 'pointer',
   },
   assignHighBtn: {
     padding: '4px 10px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 600,
     border: 'none',
     borderRadius: 6,
-    background: '#8B5CF6',
-    color: '#fff',
+    background: 'var(--school-high)',
+    color: 'var(--on-accent)',
     cursor: 'pointer',
   },
   switchSchoolBtn: {
     padding: '4px 10px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 500,
     border: '1px dashed var(--text-muted)',
     borderRadius: 6,
@@ -543,7 +544,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   demoteBtn: {
     padding: '4px 10px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     border: '1px solid var(--text-muted)',
     borderRadius: 6,
     background: 'transparent',
@@ -552,7 +553,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   deactivateBtn: {
     padding: '4px 10px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     border: '1px solid var(--danger)',
     borderRadius: 6,
     background: 'transparent',

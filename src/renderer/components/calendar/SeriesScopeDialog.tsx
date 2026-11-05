@@ -35,7 +35,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
-    background: 'rgba(0,0,0,0.3)',
+    background: 'var(--scrim)',
     zIndex: 110,
   },
   box: {
@@ -48,13 +48,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
   title: {
     marginBottom: 4,
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     fontWeight: 700,
     color: 'var(--text-primary)',
   },
   option: {
     padding: '8px 10px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
     textAlign: 'left',
     border: '1px solid var(--border-color)',
@@ -65,7 +65,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   cancel: {
     padding: '6px 10px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     border: 'none',
     background: 'transparent',
     color: 'var(--text-muted)',

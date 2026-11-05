@@ -16,6 +16,7 @@ import { showToast } from '../common/Toast';
 import { formatEventTooltip, formatPersonalTooltip, isEventOnDate, getCreatorTag, canManageEvent, PERSONAL_SUFFIX, getPersonalEventDisplayColor } from '../../utils/calendarHelpers';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { SchoolBadge } from '../common/SchoolBadge';
+import { Ic } from '../common/Ic';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 // 실수 클릭으로 일정이 다른 날로 옮겨가는 사고 방지 — 의도적인 드래그만 활성화
@@ -314,7 +315,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 2 }}>
         {WEEKDAY_LABELS.map((label, i) => (
           <div key={label} style={{
-            textAlign: 'center', fontSize: 11, fontWeight: 700, padding: '3px 0',
+            textAlign: 'center', fontSize: 'var(--fs-label)', fontWeight: 700, padding: '3px 0',
             color: i === 0 ? 'var(--weekend-text)' : i === 6 ? 'var(--accent)' : 'var(--text-secondary)',
             textShadow: 'var(--label-halo)',
           }}>
@@ -392,7 +393,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                   ? 'var(--today-bg)'
                   : holiday
                     ? 'color-mix(in srgb, var(--weekend-text) 7%, transparent)'
-                    : 'rgba(128,128,128,0.02)',
+                    : 'var(--tint-neutral-faint)',
                 // 오늘 셀: 배경색에 더해 안쪽 테두리로 한 번 더 강조 (투명 배경 위에서도 또렷하게)
                 ...(today && !selected ? { boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent)' } : {}),
                 opacity: inMonth ? 1 : 0.35,
@@ -412,7 +413,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
               {/* 날짜 번호 */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 3, marginBottom: 1, flexShrink: 0, minWidth: 0 }}>
                 <span style={{
-                  fontSize: 11, fontWeight: 700, lineHeight: 1.1,
+                  fontSize: 'var(--fs-label)', fontWeight: 700, lineHeight: 1.1,
                   color: dayOfWeek === 0 || holiday ? 'var(--weekend-text)' : dayOfWeek === 6 ? 'var(--accent)' : 'var(--text-primary)',
                   textShadow: 'var(--label-halo)',
                   flexShrink: 0,
@@ -421,7 +422,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                 </span>
                 {holiday && (
                   <span title={holiday} style={{
-                    flex: 1, minWidth: 0, fontSize: 9, fontWeight: 600, lineHeight: 1.1,
+                    flex: 1, minWidth: 0, fontSize: 'var(--fs-tiny)', fontWeight: 600, lineHeight: 1.1,
                     color: 'var(--weekend-text)', textShadow: 'var(--label-halo)',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
@@ -429,7 +430,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                   </span>
                 )}
                 {dayEvents.some((e) => unreadEventIds.has(e.id)) && (
-                  <span style={{ fontSize: 7, fontWeight: 700, color: '#fff', background: '#E74C3C', borderRadius: 3, padding: '0 3px' }}>N</span>
+                  <span style={{ fontSize: 'var(--fs-micro)', fontWeight: 700, color: 'var(--on-event)', background: 'var(--badge)', borderRadius: 3, padding: '0 3px' }}>N</span>
                 )}
               </div>
 
@@ -475,7 +476,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                         ...eventChipStyle,
                         background: getPersonalEventDisplayColor(pe, user?.profileColor),
                         opacity: dragRef.current?.eventId === pe.id ? 0.4 : 0.88,
-                        borderLeft: '3px solid rgba(255,255,255,0.6)',
+                        borderLeft: '3px solid var(--event-edge)',
                         cursor: canDrag ? 'grab' : 'pointer',
                       }}
                       title={formatPersonalTooltip(pe, canDrag)}
@@ -518,13 +519,13 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
       {quickAdd && (
         <div data-quick-add style={{
           position: 'fixed', zIndex: 200, display: 'flex', flexDirection: 'column', gap: 2,
-          padding: 4, borderRadius: 8, background: 'var(--bg-modal, #fff)',
+          padding: 4, borderRadius: 8, background: 'var(--bg-modal)',
           border: '1px solid var(--border-color)', boxShadow: '0 4px 16px rgba(0,0,0,0.25)', minWidth: 140,
           left: Math.min(quickAdd.x - 70, window.innerWidth - 155),
           top: Math.min(quickAdd.y + 2, window.innerHeight - 80),
         }}>
-          <button onClick={handleQuickAddShared} style={quickAddBtnStyle}>📅 공유 일정 추가</button>
-          <button onClick={handleQuickAddPersonal} style={quickAddBtnStyle}>🔒 개인 일정 추가</button>
+          <button onClick={handleQuickAddShared} style={quickAddBtnStyle}><Ic name="calendar" />공유 일정 추가</button>
+          <button onClick={handleQuickAddPersonal} style={quickAddBtnStyle}><Ic name="lock" />개인 일정 추가</button>
         </div>
       )}
     </div>
@@ -548,7 +549,7 @@ const eventChipStyle: React.CSSProperties = {
 };
 
 const eventTextStyle: React.CSSProperties = {
-  fontSize: 'var(--schedule-font-size)', fontWeight: 600, color: '#fff', lineHeight: 1.4,
+  fontSize: 'var(--schedule-font-size)', fontWeight: 600, color: 'var(--on-event)', lineHeight: 1.4,
   display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
   textShadow: '0 1px 2px rgba(0,0,0,0.5)',
   minWidth: 0,
@@ -575,6 +576,6 @@ const moreBtnStyle: React.CSSProperties = {
 
 const quickAddBtnStyle: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px',
-  fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', background: 'transparent',
+  fontSize: 'var(--fs-body)', fontWeight: 600, color: 'var(--text-primary)', background: 'transparent',
   border: 'none', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap',
 };

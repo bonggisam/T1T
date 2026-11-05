@@ -9,6 +9,7 @@ import { expandOccurrences } from '../../utils/repeat';
 import { isGoogleConnected } from '../../utils/calendarSync';
 import { RepeatPicker, repeatProblem } from './RepeatPicker';
 import type { RepeatConfig } from '@shared/types';
+import { Ic } from '../common/Ic';
 
 // 개인 일정용 색상 — 학교 색(태성중 emerald, 태성고 violet)과 겹치지 않는 톤만 포함
 const COLOR_OPTIONS = [
@@ -100,9 +101,9 @@ export function PersonalEventModal({ onClose }: PersonalEventModalProps) {
       });
       // Google Calendar 동기화 상태에 따라 명확한 피드백
       if (result.googleSync === 'success') {
-        showToast('✅ 개인 일정 저장 + Google Calendar 동기화 완료', 'success');
+        showToast('개인 일정 저장 + Google Calendar 동기화 완료', 'success');
       } else if (result.googleSync === 'failed') {
-        showToast(`⚠️ 저장됨 — Google 동기화 실패: ${result.error || '재인증 필요'}`, 'error');
+        showToast(`저장됨 — Google 동기화 실패: ${result.error || '재인증 필요'}`, 'error');
       } else {
         showToast('개인 일정이 추가되었습니다');
       }
@@ -154,7 +155,7 @@ export function PersonalEventModal({ onClose }: PersonalEventModalProps) {
       >
         <div style={styles.header}>
           <h3 style={styles.title}>개인 일정 추가</h3>
-          <button onClick={onClose} style={styles.closeBtn} aria-label="닫기">✕</button>
+          <button onClick={onClose} style={styles.closeBtn} aria-label="닫기"><Ic name="x" gap={false} /></button>
         </div>
 
         <form onSubmit={handleSubmit} style={styles.form}>
@@ -169,13 +170,13 @@ export function PersonalEventModal({ onClose }: PersonalEventModalProps) {
 
           <div style={styles.row}>
             <input type="datetime-local" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={styles.dateInput} />
-            <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>~</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-body)' }}>~</span>
             <input type="datetime-local" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={styles.dateInput} />
           </div>
 
           {/* 빠른 시작 시간 선택 (클릭) */}
           <div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
+            <div style={{ fontSize: 'var(--fs-label)', color: 'var(--text-muted)', marginBottom: 4 }}>
               빠른 시작 시간 선택
             </div>
             <div style={styles.hourGrid}>
@@ -253,7 +254,7 @@ const styles: Record<string, React.CSSProperties> = {
   overlay: {
     position: 'absolute',
     inset: 0,
-    background: 'rgba(0,0,0,0.3)',
+    background: 'var(--scrim)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -274,7 +275,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 12,
   },
   title: {
-    fontSize: 15,
+    fontSize: 'var(--fs-subtitle)',
     fontWeight: 700,
     color: 'var(--text-primary)',
   },
@@ -282,7 +283,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontSize: 14,
+    fontSize: 'var(--fs-lead)',
     color: 'var(--text-muted)',
     padding: '2px 6px',
   },
@@ -294,7 +295,7 @@ const styles: Record<string, React.CSSProperties> = {
   input: {
     width: '100%',
     padding: '8px 12px',
-    fontSize: 14,
+    fontSize: 'var(--fs-lead)',
     border: '1px solid var(--border-color)',
     borderRadius: 8,
     background: 'var(--bg-secondary)',
@@ -309,7 +310,7 @@ const styles: Record<string, React.CSSProperties> = {
   dateInput: {
     flex: 1,
     padding: '6px 8px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     border: '1px solid var(--border-color)',
     borderRadius: 8,
     background: 'var(--bg-secondary)',
@@ -324,7 +325,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   hourBtn: {
     padding: '4px 0',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 600,
     border: '1px solid var(--border-color)',
     borderRadius: 6,
@@ -335,14 +336,14 @@ const styles: Record<string, React.CSSProperties> = {
   },
   hourBtnActive: {
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--on-accent)',
     border: '1px solid transparent',
     fontWeight: 700,
   },
   textarea: {
     width: '100%',
     padding: '8px 12px',
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     border: '1px solid var(--border-color)',
     borderRadius: 8,
     background: 'var(--bg-secondary)',
@@ -352,7 +353,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: 'inherit',
   },
   sectionLabel: {
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
     color: 'var(--text-secondary)',
     marginBottom: 4,
@@ -377,7 +378,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   cancelBtn: {
     padding: '6px 16px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     border: '1px solid var(--border-color)',
     borderRadius: 8,
     background: 'transparent',
@@ -386,12 +387,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
   submitBtn: {
     padding: '6px 20px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
     border: 'none',
     borderRadius: 8,
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--on-accent)',
     cursor: 'pointer',
   },
 };

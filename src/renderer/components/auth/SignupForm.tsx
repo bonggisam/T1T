@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import type { School } from '@shared/types';
+import { Ic } from '../common/Ic';
 
 interface SignupFormProps {
   onSwitchToLogin: () => void;
@@ -92,11 +93,11 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
         <div style={styles.schoolSelector}>
           <label style={{ ...styles.schoolOption, ...(school === 'taeseong_middle' ? styles.schoolOptionActive : {}) }}>
             <input type="radio" name="school" value="taeseong_middle" checked={school === 'taeseong_middle'} onChange={() => setSchool('taeseong_middle')} style={{ display: 'none' }} />
-            🏫 태성중학교
+            <Ic name="school" />태성중학교
           </label>
           <label style={{ ...styles.schoolOption, ...(school === 'taeseong_high' ? styles.schoolOptionActive : {}) }}>
             <input type="radio" name="school" value="taeseong_high" checked={school === 'taeseong_high'} onChange={() => setSchool('taeseong_high')} style={{ display: 'none' }} />
-            🎓 태성고등학교
+            <Ic name="graduation" />태성고등학교
           </label>
         </div>
         <input
@@ -152,13 +153,13 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center',
   },
   title: {
-    fontSize: 20,
+    fontSize: 'var(--fs-display)',
     fontWeight: 700,
     color: 'var(--text-primary)',
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     color: 'var(--text-secondary)',
     marginBottom: 20,
   },
@@ -170,7 +171,7 @@ const styles: Record<string, React.CSSProperties> = {
   input: {
     width: '100%',
     padding: '10px 14px',
-    fontSize: 14,
+    fontSize: 'var(--fs-lead)',
     border: '1px solid var(--border-color)',
     borderRadius: 10,
     background: 'var(--bg-secondary)',
@@ -180,17 +181,17 @@ const styles: Record<string, React.CSSProperties> = {
   submitBtn: {
     width: '100%',
     padding: '10px',
-    fontSize: 14,
+    fontSize: 'var(--fs-lead)',
     fontWeight: 600,
     border: 'none',
     borderRadius: 10,
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--on-accent)',
     cursor: 'pointer',
     marginTop: 4,
   },
   error: {
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     color: 'var(--danger)',
     textAlign: 'left',
   },
@@ -202,19 +203,19 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 16,
   },
   linkText: {
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     color: 'var(--text-muted)',
   },
   linkBtn: {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     color: 'var(--accent)',
     fontWeight: 600,
   },
   successMsg: {
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     color: 'var(--text-secondary)',
     lineHeight: 1.8,
     margin: '16px 0',
@@ -228,7 +229,7 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     padding: '10px 6px',
     textAlign: 'center',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
     color: 'var(--text-secondary)',
     background: 'var(--bg-secondary)',

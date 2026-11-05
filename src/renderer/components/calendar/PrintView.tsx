@@ -7,6 +7,7 @@ import { getHoliday } from '../../utils/holidays';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { getCreatorTag, PERSONAL_SUFFIX } from '../../utils/calendarHelpers';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
+import { Ic } from '../common/Ic';
 
 const CATEGORY_LABELS: Record<string, string> = {
   event: '행사',
@@ -80,7 +81,7 @@ export function PrintView({ onClose }: PrintViewProps) {
       <div style={styles.toolbar} className="no-print">
         <span style={styles.toolbarTitle}>인쇄 미리보기</span>
         <div style={styles.toolbarActions}>
-          <button onClick={handlePrint} style={styles.printBtn}>🖨️ 인쇄</button>
+          <button onClick={handlePrint} style={styles.printBtn}><Ic name="printer" />인쇄</button>
           <button onClick={onClose} style={styles.closeBtn}>닫기</button>
         </div>
       </div>

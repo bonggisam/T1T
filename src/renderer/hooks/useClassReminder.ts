@@ -38,10 +38,10 @@ export function useClassReminder() {
         notifiedRef.current.add(key);
 
         const room = `${p.grade}학년 ${p.classNum}반`;
-        showToast(`🔔 ${diff}분 후 ${formatClassLabel(p)}`, 'info');
+        showToast(`${diff}분 후 ${formatClassLabel(p)}`, 'info');
         if (notificationSound) playNotificationSound();
         // 개인 일정을 가린 동안에도 띄운다. 내용은 수업 정보뿐이고 미루면 수업을 놓친다.
-        showDesktopNotification(`🔔 ${diff}분 후 ${p.period}교시`, `${p.subject} · ${room}`, { immediate: true });
+        showDesktopNotification(`${diff}분 후 ${p.period}교시`, `${p.subject} · ${room}`, { immediate: true });
       }
 
       // 날짜가 바뀌면 지난 기록 정리

@@ -47,6 +47,78 @@
   /* 투명 창 너머 바탕화면 위에서도 날짜 숫자가 읽히도록 주는 은은한 테두리광 (테마별 방향 반대) */
   --label-halo: 0 0 5px rgba(255, 255, 255, 0.75);
   --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+
+  /* 창 판. 글자는 그대로 두고 판의 농도만 조절한다 (displayPrefs가 --plate-alpha를 정한다) */
+  --plate-rgb: 246 247 250;
+  --plate-alpha: 0.85;
+
+  /* 채운 배경 위 글자 */
+  --on-accent: #fff;
+  --on-accent-soft: rgba(255, 255, 255, 0.22);
+  --on-accent-muted: rgba(255, 255, 255, 0.8);
+  --on-event: #fff;
+  --on-event-muted: rgba(255, 255, 255, 0.9);
+  --event-edge: rgba(255, 255, 255, 0.5); /* 개인 일정 왼쪽 줄 */
+  --event-default: #4A90E2;
+
+  /* 상태색의 연한 배경 */
+  --success-deep: #059669;
+  --success-soft: rgba(16, 185, 129, 0.15);
+  --warning-soft: rgba(245, 158, 11, 0.12);
+  --warning-edge: rgba(245, 158, 11, 0.3);
+  --danger-soft: rgba(239, 68, 68, 0.1);
+
+  /* 학교 색. 채움은 테마와 상관없이 같고, 글자용은 테마에 맞춘다 */
+  --school-middle: #10B981;
+  --school-middle-bright: #34D399;
+  --school-high: #8B5CF6;
+  --school-high-bright: #C4B5FD;
+  --school-all: #3B82F6;
+  --school-middle-ink: #059669;
+  --school-high-ink: #7C3AED;
+  --school-middle-tint: rgba(5, 150, 105, 0.15);
+  --school-high-tint: rgba(124, 58, 237, 0.15);
+  --school-high-edge: rgba(124, 58, 237, 0.35);
+
+  /* 그 밖의 기능 색 */
+  --now-line: #E74C3C;
+  --now-line-glow: rgba(231, 76, 60, 0.5);
+  --personal-tag: #2ECC71;
+  --badge: #E74C3C;
+  --neutral-badge: #9CA3AF;
+  --library: #D97706;
+  --library-soft: rgba(217, 119, 6, 0.18);
+  --library-edge: rgba(217, 119, 6, 0.5);
+  --tpass: #EC4899;
+  --toast-success: #2ECC71;
+  --toast-error: #E74C3C;
+  --toast-info: #3498DB;
+  --paper: #fff; /* 외부 페이지를 띄우는 자리. 테마와 상관없이 흰 바탕 */
+  --paper-soft: rgba(255, 255, 255, 0.9);
+
+  /* 덮개와 중립 틴트 */
+  --scrim: rgba(0, 0, 0, 0.3);
+  --scrim-soft: rgba(0, 0, 0, 0.15);
+  --tint-neutral-faint: rgba(128, 128, 128, 0.02);
+  --tint-neutral: rgba(128, 128, 128, 0.05);
+  --tint-neutral-mid: rgba(128, 128, 128, 0.08);
+  --tint-neutral-strong: rgba(128, 128, 128, 0.1);
+
+  /* 글자 크기 */
+  --fs-micro: 8px;
+  --fs-tiny: 9px;
+  --fs-caption: 10px;
+  --fs-label: 11px;
+  --fs-body: 12px;
+  --fs-control: 13px;
+  --fs-lead: 14px;
+  --fs-subtitle: 15px;
+  --fs-title: 16px;
+  --fs-title-lg: 17px;
+  --fs-heading: 18px;
+  --fs-display: 20px;
+  --fs-icon: 24px;
+  --fs-hero: 36px;
 }
 
 [data-theme='dark'] {
@@ -75,10 +147,15 @@
   --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.35);
   --focus-ring: 0 0 0 3px rgba(91, 141, 255, 0.28);
   --label-halo: 0 0 5px rgba(0, 0, 0, 0.6);
+  --plate-rgb: 17 19 24;
+  --school-middle-ink: #34D399;
+  --school-high-ink: #C4B5FD;
+  --school-middle-tint: rgba(52, 211, 153, 0.18);
+  --school-high-tint: rgba(196, 181, 253, 0.18);
+  --school-high-edge: rgba(196, 181, 253, 0.4);
 }
 
 [data-theme='dark'] .glass {
-  background: rgba(17, 19, 24, 0.62);
   border-color: rgba(255, 255, 255, 0.1);
 }
 
@@ -123,7 +200,7 @@ html, body, #root {
 
 /* Glassmorphism base — light grey tint for readability + 은은한 깊이감 */
 .glass {
-  background: rgba(246, 247, 250, 0.66);
+  background: rgb(var(--plate-rgb) / var(--plate-alpha));
   border: 1px solid rgba(15, 23, 42, 0.1);
   border-radius: 14px;
   box-shadow: var(--shadow-sm), var(--shadow-md);

@@ -51,9 +51,9 @@ const styles: Record<string, React.CSSProperties> = {
   banner: {
     flexShrink: 0,
     padding: '3px 10px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 600,
-    color: '#fff',
+    color: 'var(--on-accent)',
     background: 'var(--accent)',
   },
   row: {
@@ -72,7 +72,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
     display: 'flex',
     padding: 1,
-    color: '#fff',
+    color: 'var(--on-accent)',
     background: 'transparent',
     border: 'none',
     cursor: 'pointer',
@@ -80,10 +80,10 @@ const styles: Record<string, React.CSSProperties> = {
   button: {
     flexShrink: 0,
     padding: '1px 8px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 700,
     color: 'var(--accent)',
-    background: '#fff',
+    background: 'var(--on-accent)',
     border: 'none',
     borderRadius: 6,
     cursor: 'pointer',

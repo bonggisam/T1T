@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useKeyphoneStore, type KeyphoneEntry } from '../../store/keyphoneStore';
 import { showToast } from '../common/Toast';
 import type { School } from '@shared/types';
+import { Ic, type IconName } from '../common/Ic';
 
 interface KeyphoneViewProps {
   onBack: () => void;
@@ -14,8 +15,8 @@ interface KeyphoneViewProps {
  * 다크 모드에서 보라가 너무 어두워 안 보이는 문제 해결을 위해 밝은 색조 사용.
  */
 const SCHOOL_COLORS = {
-  taeseong_middle: { light: '#10B981', dark: '#34D399' }, // 그린(light) → 그린-400(dark)
-  taeseong_high:   { light: '#8B5CF6', dark: '#C4B5FD' }, // 바이올렛-500 → 바이올렛-300 (훨씬 밝게)
+  taeseong_middle: { light: 'var(--school-middle)', dark: 'var(--school-middle-bright)' }, // 그린(light) → 그린-400(dark)
+  taeseong_high:   { light: 'var(--school-high)', dark: 'var(--school-high-bright)' }, // 바이올렛-500 → 바이올렛-300 (훨씬 밝게)
 };
 
 /** 키폰 번호부 — 양교 전화번호 조회 + 관리자 편집. */
@@ -40,9 +41,9 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
     return () => obs.disconnect();
   }, []);
 
-  const SCHOOLS = useMemo<{ key: School; label: string; icon: string; color: string }[]>(() => [
-    { key: 'taeseong_middle', label: '태성중학교', icon: '🏫', color: isDark ? SCHOOL_COLORS.taeseong_middle.dark : SCHOOL_COLORS.taeseong_middle.light },
-    { key: 'taeseong_high',   label: '태성고등학교', icon: '🎓', color: isDark ? SCHOOL_COLORS.taeseong_high.dark : SCHOOL_COLORS.taeseong_high.light },
+  const SCHOOLS = useMemo<{ key: School; label: string; icon: IconName; color: string }[]>(() => [
+    { key: 'taeseong_middle', label: '태성중학교', icon: 'school', color: isDark ? SCHOOL_COLORS.taeseong_middle.dark : SCHOOL_COLORS.taeseong_middle.light },
+    { key: 'taeseong_high',   label: '태성고등학교', icon: 'graduation', color: isDark ? SCHOOL_COLORS.taeseong_high.dark : SCHOOL_COLORS.taeseong_high.light },
   ], [isDark]);
 
   const defaultSchool: School = (user?.school === 'taeseong_middle' || user?.school === 'taeseong_high')
@@ -211,7 +212,7 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
   }
 
   async function handleReset() {
-    if (!confirm('⚠️ 기존 키폰 번호부를 모두 삭제하고 초기 데이터(2026.3.1 기준)로 다시 채울까요?\n이 작업은 되돌릴 수 없습니다.')) return;
+    if (!confirm('기존 키폰 번호부를 모두 삭제하고 초기 데이터(2026.3.1 기준)로 다시 채울까요?\n이 작업은 되돌릴 수 없습니다.')) return;
     setSeeding(true);
     try {
       const n = await resetAndReseed();
@@ -229,7 +230,7 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
         <button onClick={onBack} style={styles.backBtn} title="돌아가기" aria-label="뒤로">
           <ArrowLeft size={18} />
         </button>
-        <span style={styles.headerTitle}>📞 키폰 번호부</span>
+        <span style={styles.headerTitle}><Ic name="phone" />키폰 번호부</span>
         <span style={{ flex: 1 }} />
         {isSuperAdmin && !isEmpty && (
           <button onClick={handleReset} disabled={seeding} style={styles.resetBtn} title="기존 데이터 삭제 후 초기 데이터로 재등록">
@@ -249,15 +250,15 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
               onClick={() => setSelectedSchool(s.key)}
               style={{
                 ...styles.tab,
-                background: active ? `${s.color}22` : 'transparent',
+                background: active ? `color-mix(in srgb, ${s.color} 13%, transparent)` : 'transparent',
                 color: active ? s.color : 'var(--text-secondary)',
                 borderColor: active ? s.color : 'var(--border-subtle)',
               }}
             >
-              {s.icon} {s.label}
+              <Ic name={s.icon} />{s.label}
               <span style={{
                 ...styles.countPill,
-                background: active ? `${s.color}33` : 'var(--bg-hover)',
+                background: active ? `color-mix(in srgb, ${s.color} 20%, transparent)` : 'var(--bg-hover)',
                 color: active ? s.color : 'var(--text-muted)',
               }}>{count}</span>
             </button>
@@ -289,15 +290,15 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
           <div style={styles.placeholder}>로딩 중…</div>
         ) : isEmpty ? (
           <div style={styles.placeholder}>
-            <div style={{ fontSize: 36, marginBottom: 8 }}>📞</div>
-            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>키폰 번호부 준비 중…</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: 'var(--fs-hero)', marginBottom: 8 }}><Ic name="phone" gap={false} /></div>
+            <div style={{ fontSize: 'var(--fs-lead)', fontWeight: 600, marginBottom: 4 }}>키폰 번호부 준비 중…</div>
+            <div style={{ fontSize: 'var(--fs-body)', color: 'var(--text-muted)' }}>
               {canEdit ? '잠시 후 초기 데이터가 자동 등록됩니다.' : '관리자가 처음 접속하면 초기 데이터가 자동 등록됩니다.'}
             </div>
           </div>
         ) : filtered.length === 0 ? (
           <div style={styles.placeholder}>
-            <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>검색 결과가 없습니다</div>
+            <div style={{ fontSize: 'var(--fs-lead)', color: 'var(--text-muted)' }}>검색 결과가 없습니다</div>
           </div>
         ) : (
           <>
@@ -324,8 +325,8 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
                     style={{
                       ...styles.groupHeader,
                       color: palette.color,
-                      borderBottomColor: `${palette.color}55`,
-                      background: `${palette.color}14`,
+                      borderBottomColor: `color-mix(in srgb, ${palette.color} 33%, transparent)`,
+                      background: `color-mix(in srgb, ${palette.color} 8%, transparent)`,
                     }}
                   >
                     {dept}
@@ -361,8 +362,8 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
                             style={{
                               ...styles.copyBtn,
                               color: palette.color,
-                              borderColor: `${palette.color}66`,
-                              background: `${palette.color}18`,
+                              borderColor: `color-mix(in srgb, ${palette.color} 40%, transparent)`,
+                              background: `color-mix(in srgb, ${palette.color} 9%, transparent)`,
                             }}
                             title={`복사: ${e.keyphone}`}
                           >
@@ -415,7 +416,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderBottom: '1px solid var(--border-subtle)',
   },
   headerTitle: {
-    fontSize: 15,
+    fontSize: 'var(--fs-subtitle)',
     fontWeight: 700,
     color: 'var(--text-primary)',
   },
@@ -434,7 +435,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: 4,
     padding: '5px 10px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 600,
     background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
     color: 'var(--accent)',
@@ -447,11 +448,11 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: 4,
     padding: '4px 8px',
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     fontWeight: 600,
-    background: 'rgba(245,158,11,0.12)',
-    color: '#F59E0B',
-    border: '1px solid rgba(245,158,11,0.3)',
+    background: 'var(--warning-soft)',
+    color: 'var(--warning)',
+    border: '1px solid var(--warning-edge)',
     borderRadius: 6,
     cursor: 'pointer',
   },
@@ -466,7 +467,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: 6,
     padding: '6px 12px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 700, // 다크모드 가독성
     border: '1px solid',
     borderRadius: 8,
@@ -474,7 +475,7 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'all 0.15s',
   },
   countPill: {
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     fontWeight: 700,
     padding: '1px 6px',
     borderRadius: 8,
@@ -503,14 +504,14 @@ const styles: Record<string, React.CSSProperties> = {
     outline: 'none',
     background: 'transparent',
     color: 'var(--text-primary)',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
   },
   addBtn: {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 4,
     padding: '6px 12px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 600,
     border: 'none',
     borderRadius: 8,
@@ -535,7 +536,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
   },
   groupHeader: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 700,
     padding: '4px 8px 3px',
     borderBottom: '1px solid',
@@ -544,7 +545,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
   },
   groupCount: {
-    fontSize: 9,
+    fontSize: 'var(--fs-tiny)',
     color: 'var(--text-secondary)',
     marginLeft: 6,
     fontWeight: 500,
@@ -555,13 +556,13 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: 8,
     padding: '5px 8px',
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     lineHeight: 1.4,
     borderBottom: '1px solid var(--border-subtle)',
   },
   nameText: {
     fontWeight: 500, // 사용자 요청 — 진하게 X (700 → 500)
-    fontSize: 14,    // 사용자 요청 — 이름 크게 (12 → 14)
+    fontSize: 'var(--fs-lead)',    // 사용자 요청 — 이름 크게 (12 → 14)
     color: 'var(--text-primary)',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
@@ -570,7 +571,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   roleInline: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 500,
     color: 'var(--text-secondary)',
     marginLeft: 4,
@@ -582,14 +583,14 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: 4,
     padding: '6px 8px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     borderRadius: 6,
   },
   copyBtn: {
     display: 'inline-flex',
     alignItems: 'center',
     padding: '3px 9px',
-    fontSize: 13, // 사용자 요청 — 키폰 번호 조금 더 크게 (11.5 → 13)
+    fontSize: 'var(--fs-control)', // 사용자 요청 — 키폰 번호 조금 더 크게 (11.5 → 13)
     fontWeight: 800,
     background: 'transparent',
     border: '1px solid',
@@ -605,7 +606,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     color: 'var(--text-primary)',
     padding: '2px 5px',
-    fontSize: 12, // 전화번호 (11.5 → 12)
+    fontSize: 'var(--fs-body)', // 전화번호 (11.5 → 12)
     fontFamily: '"SF Mono", "Consolas", "Menlo", monospace',
     fontWeight: 600,
     textAlign: 'left',
@@ -631,10 +632,10 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
   },
   iconBtnSuccess: {
-    background: 'rgba(16,185,129,0.15)',
+    background: 'var(--success-soft)',
     border: 'none',
     cursor: 'pointer',
-    color: '#10B981',
+    color: 'var(--success)',
     padding: 4,
     borderRadius: 4,
     display: 'inline-flex',
@@ -642,7 +643,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   editInput: {
     padding: '3px 5px',
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     border: '1px solid var(--border-color)',
     borderRadius: 3,
     background: 'var(--bg-hover)',
@@ -658,11 +659,11 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     padding: 40,
     color: 'var(--text-secondary)',
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
   },
   footnote: {
     padding: '8px 14px',
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     color: 'var(--text-muted)',
     borderTop: '1px solid var(--border-subtle)',
     textAlign: 'center',

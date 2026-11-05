@@ -22,7 +22,7 @@ export function PendingApproval() {
   return (
     <div style={styles.container}>
       <div className="animate-fade-in" style={styles.content}>
-        <div style={styles.icon}>⏳</div>
+        <div style={styles.icon}></div>
         <h2 style={styles.title}>승인 대기 중</h2>
         <p style={styles.message}>
           관리자의 승인을 기다리고 있습니다.
@@ -48,28 +48,28 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center',
   },
   icon: {
-    fontSize: 40,
+    fontSize: 'var(--fs-hero)',
     marginBottom: 12,
   },
   title: {
-    fontSize: 18,
+    fontSize: 'var(--fs-heading)',
     fontWeight: 700,
     color: 'var(--text-primary)',
     marginBottom: 8,
   },
   message: {
-    fontSize: 14,
+    fontSize: 'var(--fs-lead)',
     color: 'var(--text-secondary)',
     marginBottom: 4,
   },
   submessage: {
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     color: 'var(--text-muted)',
     marginBottom: 20,
   },
   logoutBtn: {
     padding: '8px 24px',
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     border: '1px solid var(--border-color)',
     borderRadius: 10,
     background: 'transparent',

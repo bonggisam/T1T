@@ -2,17 +2,18 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useUIStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
 import type { School } from '@shared/types';
+import { Ic, type IconName } from '../common/Ic';
 
-const LIBRARY_URLS: Record<School, { url: string; label: string; emoji: string }> = {
+const LIBRARY_URLS: Record<School, { url: string; label: string; icon: IconName }> = {
   taeseong_middle: {
     url: 'https://read365.edunet.net/PureScreen/SchoolSearch?schoolName=%ED%83%9C%EC%84%B1%EC%A4%91%ED%95%99%EA%B5%90&provCode=J10&neisCode=J100000822',
     label: '태성중학교',
-    emoji: '🏫',
+    icon: 'school',
   },
   taeseong_high: {
     url: 'https://read365.edunet.net/PureScreen/SchoolSearch?schoolName=%ED%83%9C%EC%84%B1%EA%B3%A0%EB%93%B1%ED%95%99%EA%B5%90&provCode=J10&neisCode=J100000822',
     label: '태성고등학교',
-    emoji: '🎓',
+    icon: 'graduation',
   },
 };
 
@@ -100,7 +101,7 @@ export function LibraryView({ onBack }: LibraryViewProps) {
       {/* 툴바: 뒤로 + 학교 선택 + 새로고침 + 외부 열기 */}
       <div style={styles.toolbar}>
         <button onClick={onBack} style={styles.backBtn} title="캘린더로 돌아가기">
-          📅 캘린더
+          <Ic name="calendar" />캘린더
         </button>
         <div style={styles.schoolToggle}>
           {(['taeseong_middle', 'taeseong_high'] as School[]).map((sk) => {
@@ -115,13 +116,13 @@ export function LibraryView({ onBack }: LibraryViewProps) {
                   ...(active ? styles.schoolBtnActive : {}),
                 }}
               >
-                {info.emoji} {info.label}
+                <Ic name={info.icon} />{info.label}
               </button>
             );
           })}
         </div>
         <button onClick={handleRefresh} style={styles.iconBtn} title="새로고침" aria-label="새로고침">
-          🔄
+          <Ic name="refresh" gap={false} />
         </button>
         <button onClick={handleOpenExternal} style={styles.iconBtn} title="외부 브라우저로 열기" aria-label="외부 열기">
           ↗
@@ -151,7 +152,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '6px 10px',
     borderBottom: '1px solid var(--border-subtle)',
     flexShrink: 0,
-    background: 'rgba(128,128,128,0.05)',
+    background: 'var(--tint-neutral)',
   },
   backBtn: {
     background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
@@ -159,7 +160,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     padding: '4px 10px',
     borderRadius: 6,
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
     color: 'var(--accent)',
     flexShrink: 0,
@@ -176,20 +177,20 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     padding: '4px 10px',
     borderRadius: 6,
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 600,
     color: 'var(--text-secondary)',
   },
   schoolBtnActive: {
-    background: 'rgba(217,119,6,0.18)',
-    borderColor: 'rgba(217,119,6,0.5)',
-    color: '#D97706',
+    background: 'var(--library-soft)',
+    borderColor: 'var(--library-edge)',
+    color: 'var(--library)',
   },
   iconBtn: {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontSize: 14,
+    fontSize: 'var(--fs-lead)',
     padding: '4px 8px',
     borderRadius: 6,
     color: 'var(--text-secondary)',
@@ -203,13 +204,13 @@ const styles: Record<string, React.CSSProperties> = {
   loadingProgress: {
     height: '100%',
     width: '30%',
-    background: '#D97706',
+    background: 'var(--library)',
     animation: 'tpass-loading 1.2s ease-in-out infinite',
     borderRadius: 2,
   },
   webviewContainer: {
     flex: 1,
     overflow: 'hidden',
-    background: '#fff',
+    background: 'var(--paper)',
   },
 };

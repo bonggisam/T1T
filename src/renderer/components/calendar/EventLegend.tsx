@@ -51,7 +51,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
   },
   legendTitle: {
-    fontSize: 9,
+    fontSize: 'var(--fs-tiny)',
     fontWeight: 700,
     color: 'var(--text-muted)',
     marginRight: 2,
@@ -68,7 +68,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   label: {
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     color: 'var(--text-secondary)',
   },
 };

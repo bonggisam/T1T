@@ -61,14 +61,14 @@ export function useReminder() {
 
           // 가린 동안에는 화면에 띄우지 않는다. 알림은 나중에 보이므로 "N분 후" 대신 시작 시각으로 적는다.
           const hidden = isPersonalHidden();
-          if (!hidden) showToast(`⏰ ${timeLabel} 후: ${event.title}`, 'info');
+          if (!hidden) showToast(`${timeLabel} 후: ${event.title}`, 'info');
 
           if (user.settings?.notificationSound) {
             playNotificationSound();
           }
 
           showDesktopNotification(
-            `⏰ 일정 알림`,
+            `일정 알림`,
             hidden
               ? `${format(new Date(start), 'M/d HH:mm')} "${event.title}" 시작`
               : `${timeLabel} 후 "${event.title}" 시작`,

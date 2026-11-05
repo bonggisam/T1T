@@ -1,4 +1,5 @@
 import type { WeatherData } from '@shared/types';
+import type { IconName } from '../components/common/Ic';
 
 /**
  * 날씨·미세먼지 표시 헬퍼.
@@ -10,19 +11,19 @@ const CACHE_KEY = 'tonet-weather-cache';
 export const WEATHER_REFRESH_MS = 30 * 60 * 1000;
 
 /** WMO weather code → 아이콘 + 한글 설명 */
-export function describeWeather(code: number | null): { icon: string; label: string } {
-  if (code === null) return { icon: '🌡️', label: '날씨' };
-  if (code === 0) return { icon: '☀️', label: '맑음' };
-  if (code <= 2) return { icon: '🌤️', label: '구름 조금' };
-  if (code === 3) return { icon: '☁️', label: '흐림' };
-  if (code === 45 || code === 48) return { icon: '🌫️', label: '안개' };
-  if (code >= 51 && code <= 57) return { icon: '🌦️', label: '이슬비' };
-  if (code >= 61 && code <= 67) return { icon: '🌧️', label: '비' };
-  if (code >= 71 && code <= 77) return { icon: '🌨️', label: '눈' };
-  if (code >= 80 && code <= 82) return { icon: '🌧️', label: '소나기' };
-  if (code === 85 || code === 86) return { icon: '🌨️', label: '소낙눈' };
-  if (code >= 95) return { icon: '⛈️', label: '뇌우' };
-  return { icon: '🌡️', label: '날씨' };
+export function describeWeather(code: number | null): { icon: IconName; label: string } {
+  if (code === null) return { icon: 'thermometer', label: '날씨' };
+  if (code === 0) return { icon: 'sun', label: '맑음' };
+  if (code <= 2) return { icon: 'cloudSun', label: '구름 조금' };
+  if (code === 3) return { icon: 'cloud', label: '흐림' };
+  if (code === 45 || code === 48) return { icon: 'cloudFog', label: '안개' };
+  if (code >= 51 && code <= 57) return { icon: 'cloudDrizzle', label: '이슬비' };
+  if (code >= 61 && code <= 67) return { icon: 'cloudRain', label: '비' };
+  if (code >= 71 && code <= 77) return { icon: 'cloudSnow', label: '눈' };
+  if (code >= 80 && code <= 82) return { icon: 'cloudRain', label: '소나기' };
+  if (code === 85 || code === 86) return { icon: 'cloudSnow', label: '소낙눈' };
+  if (code >= 95) return { icon: 'cloudLightning', label: '뇌우' };
+  return { icon: 'thermometer', label: '날씨' };
 }
 
 export type AirGrade = { label: '좋음' | '보통' | '나쁨' | '매우나쁨'; color: string; level: number };

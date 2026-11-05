@@ -13,6 +13,7 @@ import {
 import { getTimedPeriods, getCurrentAndNext, formatClassLabel, formatMinutes, isTimetableStale } from '../../utils/classPeriods';
 import { collectDDays, formatDDay } from '../../utils/dday';
 import { usePersonalHidden } from '../../store/privacyStore';
+import { Ic } from '../common/Ic';
 
 const MAX_DDAY_CHIPS = 6;
 const NO_CUSTOM_DDAYS: never[] = [];
@@ -97,13 +98,13 @@ function WeatherCard() {
         </button>
       </div>
       <div style={styles.weatherMain}>
-        <span style={{ fontSize: 22, lineHeight: 1 }}>{icon}</span>
+        <span style={{ fontSize: 'var(--fs-display)', lineHeight: 1 }}><Ic name={icon} gap={false} /></span>
         <span style={styles.bigText}>{round(data.temperature)}°</span>
         <span style={styles.muted}>{label}</span>
       </div>
       <div style={styles.subRow}>
         <span>{round(data.tempMin)}° / {round(data.tempMax)}°</span>
-        {data.precipProbability !== null && <span>☔ {data.precipProbability}%</span>}
+        {data.precipProbability !== null && <span><Ic name="umbrella" />{data.precipProbability}%</span>}
         {air && (
           <span style={{ ...styles.airBadge, background: air.color }}>
             미세 {air.label}
@@ -140,7 +141,7 @@ function NextClassCard() {
   if (periods.length === 0) {
     body = <div style={styles.muted}>오늘은 수업이 없어요</div>;
   } else if (!current && !next) {
-    body = <div style={styles.muted}>오늘 수업 {periods.length}개 모두 끝났어요 👏</div>;
+    body = <div style={styles.muted}>오늘 수업 {periods.length}개 모두 끝났어요 </div>;
   } else {
     body = (
       <>
@@ -153,7 +154,7 @@ function NextClassCard() {
         )}
         {next && (
           <div style={styles.classLine}>
-            <span style={{ ...styles.classTag, background: 'var(--success, #22C55E)' }}>
+            <span style={{ ...styles.classTag, background: 'var(--success)' }}>
               {next.startMin - nowMin}분 후
             </span>
             <span style={styles.classText}>{formatClassLabel(next)}</span>
@@ -293,7 +294,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'space-between',
   },
   cardLabel: {
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     fontWeight: 600,
     color: 'var(--text-muted)',
   },
@@ -311,12 +312,12 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 6,
   },
   bigText: {
-    fontSize: 18,
+    fontSize: 'var(--fs-heading)',
     fontWeight: 700,
     color: 'var(--text-primary)',
   },
   muted: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     color: 'var(--text-muted)',
   },
   subRow: {
@@ -324,15 +325,15 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 8,
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     color: 'var(--text-secondary)',
   },
   staleRow: {
     fontWeight: 600,
-    color: 'var(--danger, #EF4444)',
+    color: 'var(--danger)',
   },
   airBadge: {
-    color: '#fff',
+    color: 'var(--on-accent)',
     fontWeight: 700,
     padding: '1px 6px',
     borderRadius: 8,
@@ -345,16 +346,16 @@ const styles: Record<string, React.CSSProperties> = {
   },
   classTag: {
     flexShrink: 0,
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     fontWeight: 700,
-    color: '#fff',
+    color: 'var(--on-accent)',
     padding: '1px 6px',
     borderRadius: 8,
   },
   classText: {
     flex: 1,
     minWidth: 0,
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
     color: 'var(--text-primary)',
     overflow: 'hidden',
@@ -372,7 +373,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: 4,
     maxWidth: '100%',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     padding: '2px 4px 2px 8px',
     borderRadius: 12,
     border: '1px solid var(--border-color)',
@@ -380,8 +381,8 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-primary)',
   },
   ddayChipSoon: {
-    borderColor: 'var(--danger, #EF4444)',
-    color: 'var(--danger, #EF4444)',
+    borderColor: 'var(--danger)',
+    color: 'var(--danger)',
   },
   ddayTitle: {
     overflow: 'hidden',
@@ -402,7 +403,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 2,
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     padding: '2px 8px',
     borderRadius: 12,
     border: '1px dashed var(--border-color)',
@@ -416,7 +417,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 4,
   },
   ddayInput: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     padding: '2px 6px',
     borderRadius: 6,
     border: '1px solid var(--border-color)',
@@ -424,12 +425,12 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-primary)',
   },
   ddayAddBtn: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     padding: '2px 8px',
     borderRadius: 6,
     border: 'none',
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--on-accent)',
     cursor: 'pointer',
   },
 };

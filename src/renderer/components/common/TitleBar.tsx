@@ -9,10 +9,10 @@ import { useNotificationStore } from '../../store/notificationStore';
 import { useComciganStore } from '../../store/comciganStore';
 import { usePersonalHidden, usePrivacyStore } from '../../store/privacyStore';
 import { useUIStore } from '../../store/uiStore';
-import { useDarkMode } from '../../hooks/useDarkMode';
 import { useHorizontalScroll } from '../../hooks/useHorizontalScroll';
 import { SCHOOL_LABELS } from '@shared/types';
 import type { School } from '@shared/types';
+import { Ic } from './Ic';
 
 interface TitleBarProps {
   onToggleSettings: () => void;
@@ -58,13 +58,12 @@ export function TitleBar({
   const { showTimetable, toggleTimetable } = useComciganStore();
   const { viewingSchool, setViewingSchool } = useUIStore();
   const [widgetMode, setWidgetMode] = useState(true);
-  const isDark = useDarkMode();
   const centerScrollRef = useHorizontalScroll<HTMLDivElement>();
-  // 다크모드 가독성: 보라/그린 텍스트 색상 — 라이트는 진하게, 다크는 밝게
-  const HIGH_TEXT = isDark ? '#C4B5FD' : '#7C3AED'; // violet-300 / violet-600
-  const MIDDLE_TEXT = isDark ? '#34D399' : '#059669'; // emerald-400 / emerald-600
-  const HIGH_BG = isDark ? 'rgba(196,181,253,0.18)' : 'rgba(124,58,237,0.15)';
-  const MIDDLE_BG = isDark ? 'rgba(52,211,153,0.18)' : 'rgba(5,150,105,0.15)';
+  // 학교 표시는 테마에 맞춘 토큰을 쓴다
+  const HIGH_TEXT = 'var(--school-high-ink)';
+  const MIDDLE_TEXT = 'var(--school-middle-ink)';
+  const HIGH_BG = 'var(--school-high-tint)';
+  const MIDDLE_BG = 'var(--school-middle-tint)';
 
   useEffect(() => {
     window.electronAPI?.getWidgetMode().then((v) => setWidgetMode(v)).catch(() => {});
@@ -82,7 +81,7 @@ export function TitleBar({
 
   // 아이콘 색상 — TPass만 강조, 나머지는 기본 그레이(undefined)
   const ICON_COLORS = {
-    tpass: '#EC4899', // 핑크 - TPass만 강조
+    tpass: 'var(--tpass)', // 핑크 - TPass만 강조
   };
 
   // Widget mode: 미니멀이지만 필수 탭 버튼은 포함
@@ -111,14 +110,14 @@ export function TitleBar({
             <IconBtn Icon={Phone} active={showKeyphone} onClick={onToggleKeyphone} title={showKeyphone ? '캘린더로' : '키폰 번호'} compact />
           )}
           {user && onToggleLibrary && (
-            <IconBtn Icon={BookMarked} active={showLibrary} onClick={onToggleLibrary} title={showLibrary ? '캘린더로' : '도서관 도서검색'} compact color="#D97706" />
+            <IconBtn Icon={BookMarked} active={showLibrary} onClick={onToggleLibrary} title={showLibrary ? '캘린더로' : '도서관 도서검색'} compact color="var(--library)" />
           )}
           {user && onToggleTPass && (
             <button
               onClick={onToggleTPass}
               style={{
                 ...styles.iconBtnCompact,
-                background: showTPass ? `${ICON_COLORS.tpass}22` : 'transparent',
+                background: showTPass ? `color-mix(in srgb, ${ICON_COLORS.tpass} 13%, transparent)` : 'transparent',
                 color: ICON_COLORS.tpass,
               }}
               title={showTPass ? '캘린더로' : 'TPass 출결'}
@@ -165,10 +164,10 @@ export function TitleBar({
         {user && (user.role === 'super_admin' ? (
           <span style={{
             ...styles.schoolPill,
-            background: 'rgba(245, 158, 11, 0.15)',
-            color: '#F59E0B',
+            background: 'var(--warning-soft)',
+            color: 'var(--warning)',
           }}>
-            👑 전체 관리자
+            <Ic name="crown" />전체 관리자
           </span>
         ) : user.school === 'taeseong_high' ? (
           <span style={{
@@ -209,14 +208,14 @@ export function TitleBar({
               <IconBtn Icon={Phone} active={showKeyphone} onClick={onToggleKeyphone} title={showKeyphone ? '캘린더로' : '키폰 번호'} />
             )}
             {onToggleLibrary && (
-              <IconBtn Icon={BookMarked} active={showLibrary} onClick={onToggleLibrary} title={showLibrary ? '캘린더로' : '도서관 도서검색'} color="#D97706" />
+              <IconBtn Icon={BookMarked} active={showLibrary} onClick={onToggleLibrary} title={showLibrary ? '캘린더로' : '도서관 도서검색'} color="var(--library)" />
             )}
             {onToggleTPass && (
               <button
                 onClick={onToggleTPass}
                 style={{
                   ...styles.iconBtn,
-                  background: showTPass ? `${ICON_COLORS.tpass}22` : 'transparent',
+                  background: showTPass ? `color-mix(in srgb, ${ICON_COLORS.tpass} 13%, transparent)` : 'transparent',
                 }}
                 title={showTPass ? '캘린더로' : 'TPass 출결'}
                 aria-label="TPass"
@@ -284,18 +283,16 @@ function WidgetSchoolToggle({
   setViewingSchool: (s: 'all' | School) => void;
 }) {
   const order: (School | 'all')[] = ['taeseong_middle', 'taeseong_high', 'all'];
-  const labels: Record<string, string> = {
-    taeseong_middle: '🏫중',
-    taeseong_high: '🎓고',
-    all: '🌐',
+  const labels: Record<string, React.ReactNode> = {
+    taeseong_middle: <><Ic name="school" />중</>,
+    taeseong_high: <><Ic name="graduation" />고</>,
+    all: <Ic name="globe" gap={false} />,
   };
   const currentIdx = order.indexOf(viewingSchool);
-  const currentLabel = labels[viewingSchool] ?? '🌐';
-  const isDarkLocal = useDarkMode();
-  // 다크 모드에서 보라색 가독성 강화
-  const bg = isDarkLocal ? 'rgba(196,181,253,0.18)' : 'rgba(124,58,237,0.15)';
-  const border = isDarkLocal ? 'rgba(196,181,253,0.4)' : 'rgba(124,58,237,0.35)';
-  const text = isDarkLocal ? '#C4B5FD' : '#7C3AED';
+  const currentLabel = labels[viewingSchool] ?? <Ic name="globe" gap={false} />;
+  const bg = 'var(--school-high-tint)';
+  const border = 'var(--school-high-edge)';
+  const text = 'var(--school-high-ink)';
   return (
     <button
       onClick={() => setViewingSchool(order[(currentIdx + 1) % order.length])}
@@ -304,7 +301,7 @@ function WidgetSchoolToggle({
         border: `1px solid ${border}`,
         cursor: 'pointer',
         padding: '3px 8px',
-        fontSize: 11,
+        fontSize: 'var(--fs-label)',
         fontWeight: 700,
         color: text,
         borderRadius: 6,
@@ -357,7 +354,7 @@ function IconBtn({ Icon, icon, title, onClick, active, accent, compact, color }:
       onClick={onClick}
       style={{
         ...(compact ? styles.iconBtnCompact : styles.iconBtn),
-        background: active && color ? `${color}22` : active ? 'var(--bg-hover)' : 'transparent',
+        background: active && color ? `color-mix(in srgb, ${color} 13%, transparent)` : active ? 'var(--bg-hover)' : 'transparent',
         color: iconColor,
         opacity: active === false ? 0.78 : 1,
         transition: 'all 0.15s',
@@ -401,7 +398,7 @@ const styles: Record<string, React.CSSProperties> = {
     opacity: 0,
     transition: 'opacity 0.3s',
     borderBottom: '1px solid var(--grid-line)',
-    background: 'rgba(128,128,128,0.08)',
+    background: 'var(--tint-neutral-mid)',
   },
   widgetRight: {
     display: 'flex',
@@ -419,7 +416,7 @@ const styles: Record<string, React.CSSProperties> = {
     scrollbarWidth: 'none',
   },
   widgetTitle: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 600,
     color: 'var(--text-muted)',
     letterSpacing: 1,
@@ -431,7 +428,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: 'none',
     cursor: 'pointer',
     padding: '2px 6px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 700,
     color: 'var(--text-secondary)',
     letterSpacing: 0.5,
@@ -457,8 +454,8 @@ const styles: Record<string, React.CSSProperties> = {
     height: 16,
     borderRadius: 3,
     background: 'var(--accent)',
-    color: '#fff',
-    fontSize: 10,
+    color: 'var(--on-accent)',
+    fontSize: 'var(--fs-caption)',
     fontWeight: 800,
     lineHeight: 1,
     fontFamily: 'Arial, sans-serif',
@@ -469,17 +466,17 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 8,
   },
   logo: {
-    fontSize: 20,
+    fontSize: 'var(--fs-display)',
     lineHeight: 1,
   },
   title: {
-    fontSize: 14,
+    fontSize: 'var(--fs-lead)',
     fontWeight: 800,
     color: 'var(--text-primary)',
     letterSpacing: '-0.02em',
   },
   schoolPill: {
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     fontWeight: 700,
     padding: '3px 8px',
     borderRadius: 10,
@@ -524,11 +521,11 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'all 0.15s',
   },
   iconText: {
-    fontSize: 16,
+    fontSize: 'var(--fs-title)',
     lineHeight: 1,
   },
   iconTextCompact: {
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     lineHeight: 1,
   },
   tpassIcon: {
@@ -539,8 +536,8 @@ const styles: Record<string, React.CSSProperties> = {
     height: 22,
     borderRadius: 5,
     background: 'var(--accent)',
-    color: '#fff',
-    fontSize: 14,
+    color: 'var(--on-accent)',
+    fontSize: 'var(--fs-lead)',
     fontWeight: 800,
     lineHeight: 1,
     fontFamily: 'Arial, sans-serif',
@@ -551,7 +548,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     padding: '5px 10px',
     borderRadius: 8,
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     fontWeight: 600,
     color: 'var(--accent)',
     justifySelf: 'end',
@@ -566,8 +563,8 @@ const styles: Record<string, React.CSSProperties> = {
     top: 2,
     right: 2,
     background: 'var(--danger)',
-    color: '#fff',
-    fontSize: 9,
+    color: 'var(--on-accent)',
+    fontSize: 'var(--fs-tiny)',
     fontWeight: 700,
     borderRadius: 8,
     minWidth: 16,

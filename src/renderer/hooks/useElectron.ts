@@ -11,10 +11,6 @@ export function useElectron() {
     window.electronAPI?.close();
   }, []);
 
-  const setOpacity = useCallback((opacity: number) => {
-    window.electronAPI?.setOpacity(opacity);
-  }, []);
-
   const toggleAlwaysOnTop = useCallback((value: boolean) => {
     window.electronAPI?.toggleAlwaysOnTop(value);
   }, []);
@@ -31,7 +27,6 @@ export function useElectron() {
     isElectron,
     minimize,
     close,
-    setOpacity,
     toggleAlwaysOnTop,
     toggleClickThrough,
     setTrayBadge,

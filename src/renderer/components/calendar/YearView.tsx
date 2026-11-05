@@ -7,6 +7,7 @@ import { ko } from 'date-fns/locale';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { getHoliday } from '../../utils/holidays';
+import { Ic } from '../common/Ic';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -65,13 +66,13 @@ export function YearView() {
             <div key={i} style={styles.monthCard}>
               <div style={styles.monthHeader}>
                 <span style={styles.monthTitle}>{i + 1}월</span>
-                <span style={styles.eventCount}>📅 {eventCountByMonth[i]}</span>
+                <span style={styles.eventCount}><Ic name="calendar" />{eventCountByMonth[i]}</span>
               </div>
               <div style={styles.weekRow}>
                 {WEEKDAYS.map((w, j) => (
                   <span key={j} style={{
                     ...styles.weekdayLabel,
-                    color: j === 0 ? '#EF4444' : j === 6 ? '#3B82F6' : 'var(--text-muted)',
+                    color: j === 0 ? 'var(--weekend-text)' : j === 6 ? 'var(--saturday-text)' : 'var(--text-muted)',
                   }}>{w}</span>
                 ))}
               </div>
@@ -90,14 +91,14 @@ export function YearView() {
                       style={{
                         ...styles.day,
                         color: !isCurrentMonth ? 'var(--text-muted)' :
-                               day.getDay() === 0 || holiday ? '#EF4444' :
-                               day.getDay() === 6 ? '#3B82F6' : 'var(--text-primary)',
+                               day.getDay() === 0 || holiday ? 'var(--weekend-text)' :
+                               day.getDay() === 6 ? 'var(--saturday-text)' : 'var(--text-primary)',
                         opacity: !isCurrentMonth ? 0.3 : 1,
                         background: today ? 'var(--accent)' : 'transparent',
                         fontWeight: today ? 700 : 400,
                       }}
                     >
-                      <span style={{ color: today ? '#fff' : undefined }}>{format(day, 'd')}</span>
+                      <span style={{ color: today ? 'var(--on-accent)' : undefined }}>{format(day, 'd')}</span>
                       {hasEvt && isCurrentMonth && !today && <span style={styles.dot} />}
                     </button>
                   );
@@ -115,25 +116,25 @@ const styles: Record<string, React.CSSProperties> = {
   container: { display: 'flex', flexDirection: 'column', height: '100%', padding: 8, overflow: 'auto' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 4px', marginBottom: 8 },
   navBtn: {
-    padding: '4px 10px', fontSize: 11, fontWeight: 600,
+    padding: '4px 10px', fontSize: 'var(--fs-label)', fontWeight: 600,
     border: 'none', borderRadius: 6,
     background: 'var(--bg-secondary)', color: 'var(--text-secondary)', cursor: 'pointer',
   },
-  yearTitle: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' },
+  yearTitle: { fontSize: 'var(--fs-title)', fontWeight: 700, color: 'var(--text-primary)' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 },
   monthCard: {
     padding: 8, borderRadius: 10,
     background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)',
   },
   monthHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  monthTitle: { fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' },
-  eventCount: { fontSize: 9, color: 'var(--text-muted)' },
+  monthTitle: { fontSize: 'var(--fs-body)', fontWeight: 700, color: 'var(--text-primary)' },
+  eventCount: { fontSize: 'var(--fs-tiny)', color: 'var(--text-muted)' },
   weekRow: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1 },
-  weekdayLabel: { fontSize: 8, textAlign: 'center', fontWeight: 600, padding: '2px 0' },
+  weekdayLabel: { fontSize: 'var(--fs-micro)', textAlign: 'center', fontWeight: 600, padding: '2px 0' },
   daysGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1, marginTop: 2 },
   day: {
     position: 'relative',
-    fontSize: 9, padding: '3px 0',
+    fontSize: 'var(--fs-tiny)', padding: '3px 0',
     border: 'none', borderRadius: 4,
     textAlign: 'center', cursor: 'pointer',
     minHeight: 16,

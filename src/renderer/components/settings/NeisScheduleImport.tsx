@@ -7,6 +7,7 @@ import {
 import { showToast } from '../common/Toast';
 import { SCHOOL_LABELS } from '@shared/types';
 import type { School } from '@shared/types';
+import { Ic } from '../common/Ic';
 
 interface SchoolSearchResult {
   code: string;
@@ -37,11 +38,11 @@ export function NeisScheduleImport() {
   if (!user) return null;
   const isAdmin = user.role === 'admin' || user.role === 'super_admin';
   if (!isAdmin) {
-    return <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>관리자만 학사일정을 가져올 수 있습니다.</p>;
+    return <p style={{ fontSize: 'var(--fs-label)', color: 'var(--text-muted)' }}>관리자만 학사일정을 가져올 수 있습니다.</p>;
   }
   if (!isSuperAdmin && user.school !== 'taeseong_middle' && user.school !== 'taeseong_high') {
     return (
-      <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+      <p style={{ fontSize: 'var(--fs-label)', color: 'var(--text-muted)' }}>
         학교가 미지정되어 학사일정을 가져올 수 없습니다.
         <br />본인 계정의 학교를 먼저 지정해주세요.
       </p>
@@ -139,16 +140,16 @@ export function NeisScheduleImport() {
           <button
             onClick={() => setTargetSchool('taeseong_middle')}
             style={{ ...styles.tabBtn, ...(targetSchool === 'taeseong_middle' ? styles.tabBtnActive : {}) }}
-          >🏫 태성중</button>
+          ><Ic name="school" />태성중</button>
           <button
             onClick={() => setTargetSchool('taeseong_high')}
             style={{ ...styles.tabBtn, ...(targetSchool === 'taeseong_high' ? styles.tabBtnActive : {}) }}
-          >🎓 태성고</button>
+          ><Ic name="graduation" />태성고</button>
         </div>
       )}
 
       <p style={styles.desc}>
-        📚 {schoolLabel} 학사일정을 NEIS에서 가져옵니다.
+        <Ic name="book" />{schoolLabel} 학사일정을 NEIS에서 가져옵니다.
         <br />
         <span style={{ color: 'var(--text-muted)' }}>학교 코드만 입력하면 자동으로 교육청이 조회됩니다.</span>
       </p>
@@ -157,7 +158,7 @@ export function NeisScheduleImport() {
         <>
           {/* 방법 1: 학교 코드 직접 입력 */}
           <div style={styles.methodSection}>
-            <span style={styles.methodLabel}>1️⃣ 학교 코드 직접 입력</span>
+            <span style={styles.methodLabel}>1. 학교 코드 직접 입력</span>
             <div style={styles.inputRow}>
               <input
                 type="text"
@@ -176,7 +177,7 @@ export function NeisScheduleImport() {
 
           {/* 방법 2: 학교 이름 검색 */}
           <div style={styles.methodSection}>
-            <span style={styles.methodLabel}>2️⃣ 학교 이름으로 검색</span>
+            <span style={styles.methodLabel}>2. 학교 이름으로 검색</span>
             <div style={styles.inputRow}>
               <input
                 type="text"
@@ -187,7 +188,7 @@ export function NeisScheduleImport() {
                 onKeyDown={(e) => { if (e.nativeEvent.isComposing) return; if (e.key === 'Enter') { e.preventDefault(); handleSearch(); } }}
               />
               <button onClick={handleSearch} disabled={searching || searchQuery.trim().length < 2} style={styles.primaryBtn}>
-                {searching ? '검색 중...' : '🔍 검색'}
+                {searching ? '검색 중...' : '검색'}
               </button>
             </div>
             {searchResults.length > 0 && (
@@ -199,12 +200,12 @@ export function NeisScheduleImport() {
                     style={styles.resultItem}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>{r.name}</span>
-                      <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'var(--accent)', color: '#fff' }}>
+                      <span style={{ fontSize: 'var(--fs-label)', fontWeight: 700, color: 'var(--text-primary)' }}>{r.name}</span>
+                      <span style={{ fontSize: 'var(--fs-tiny)', padding: '1px 5px', borderRadius: 3, background: 'var(--accent)', color: 'var(--on-accent)' }}>
                         {r.kind}
                       </span>
                     </div>
-                    <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>{r.region} · {r.code}</div>
+                    <div style={{ fontSize: 'var(--fs-tiny)', color: 'var(--text-muted)' }}>{r.region} · {r.code}</div>
                   </button>
                 ))}
               </div>
@@ -212,7 +213,7 @@ export function NeisScheduleImport() {
           </div>
 
           <p style={styles.hint}>
-            💡 학교 코드는{' '}
+            <Ic name="bulb" />학교 코드는{' '}
             <a href="https://open.neis.go.kr/portal/guide/actKnowHow.do" target="_blank" rel="noreferrer" style={styles.link}>
               NEIS 교육정보개방포털
             </a>에서 조회 가능합니다.
@@ -227,8 +228,8 @@ export function NeisScheduleImport() {
       ) : (
         <>
           <div style={styles.currentConfig}>
-            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>현재 설정:</span>
-            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)' }}>
+            <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--text-muted)' }}>현재 설정:</span>
+            <span style={{ fontSize: 'var(--fs-label)', fontWeight: 600, color: 'var(--text-primary)' }}>
               {currentConfig.education} / {currentConfig.school}
             </span>
             {!isCustom && (
@@ -251,9 +252,9 @@ export function NeisScheduleImport() {
             >{isCustom ? '재설정' : '변경'}</button>
           </div>
           <button onClick={handleImport} disabled={importing} style={styles.primaryBtn}>
-            {importing ? '가져오는 중...' : `📥 ${schoolLabel} 학사일정 가져오기`}
+            {importing ? '가져오는 중...' : `${schoolLabel} 학사일정 가져오기`}
           </button>
-          <p style={styles.hint}>💡 중복된 일정은 자동으로 건너뜁니다.</p>
+          <p style={styles.hint}><Ic name="bulb" />중복된 일정은 자동으로 건너뜁니다.</p>
         </>
       )}
     </div>
@@ -262,19 +263,19 @@ export function NeisScheduleImport() {
 
 const styles: Record<string, React.CSSProperties> = {
   container: { display: 'flex', flexDirection: 'column', gap: 8 },
-  desc: { fontSize: 11, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 },
+  desc: { fontSize: 'var(--fs-label)', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 },
   link: { color: 'var(--accent)', textDecoration: 'none' },
   methodSection: {
     display: 'flex', flexDirection: 'column', gap: 4,
     padding: '8px 10px', borderRadius: 6,
     background: 'var(--bg-secondary)',
   },
-  methodLabel: { fontSize: 10, fontWeight: 700, color: 'var(--text-muted)' },
+  methodLabel: { fontSize: 'var(--fs-caption)', fontWeight: 700, color: 'var(--text-muted)' },
   inputRow: { display: 'flex', gap: 4 },
   input: {
-    flex: 1, padding: '6px 10px', fontSize: 11,
+    flex: 1, padding: '6px 10px', fontSize: 'var(--fs-label)',
     border: '1px solid var(--border-color)', borderRadius: 6,
-    background: 'var(--bg-primary, #fff)', color: 'var(--text-primary)', outline: 'none',
+    background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none',
   },
   resultsList: {
     display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4,
@@ -283,7 +284,7 @@ const styles: Record<string, React.CSSProperties> = {
   resultItem: {
     display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2,
     padding: '6px 8px', borderRadius: 4,
-    background: 'var(--bg-primary, #fff)', border: '1px solid var(--border-subtle)',
+    background: 'var(--bg-primary)', border: '1px solid var(--border-subtle)',
     cursor: 'pointer', textAlign: 'left',
   },
   currentConfig: {
@@ -292,34 +293,34 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'var(--bg-secondary)',
   },
   primaryBtn: {
-    padding: '6px 12px', fontSize: 11, fontWeight: 600,
+    padding: '6px 12px', fontSize: 'var(--fs-label)', fontWeight: 600,
     border: 'none', borderRadius: 6,
-    background: 'var(--accent)', color: '#fff', cursor: 'pointer',
+    background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer',
     whiteSpace: 'nowrap',
   },
-  hint: { fontSize: 10, color: 'var(--text-muted)', margin: 0 },
+  hint: { fontSize: 'var(--fs-caption)', color: 'var(--text-muted)', margin: 0 },
   schoolTabs: { display: 'flex', gap: 4 },
   tabBtn: {
-    flex: 1, padding: '5px 0', fontSize: 11, fontWeight: 600,
+    flex: 1, padding: '5px 0', fontSize: 'var(--fs-label)', fontWeight: 600,
     border: '1px solid var(--border-subtle)', borderRadius: 6,
     background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer',
   },
   tabBtnActive: {
-    background: 'var(--accent)', color: '#fff', border: '1px solid var(--accent)',
+    background: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--accent)',
   },
   cancelEditBtn: {
-    padding: '4px 10px', fontSize: 10,
+    padding: '4px 10px', fontSize: 'var(--fs-caption)',
     border: '1px solid var(--border-color)', borderRadius: 4,
     background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer',
   },
   defaultBadge: {
-    fontSize: 9, fontWeight: 700,
+    fontSize: 'var(--fs-tiny)', fontWeight: 700,
     padding: '1px 6px', borderRadius: 3,
-    background: 'rgba(16,185,129,0.15)',
-    color: '#10B981',
+    background: 'var(--success-soft)',
+    color: 'var(--success)',
   },
   resetBtn: {
-    marginLeft: 'auto', padding: '2px 8px', fontSize: 10,
+    marginLeft: 'auto', padding: '2px 8px', fontSize: 'var(--fs-caption)',
     border: '1px solid var(--border-color)', borderRadius: 4,
     background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer',
   },

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Ic } from './Ic';
 
 interface State {
   hasError: boolean;
@@ -39,7 +40,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
       }
       return (
         <div style={styles.container}>
-          <div style={styles.icon}>⚠️</div>
+          <div style={styles.icon}><Ic name="alert" gap={false} /></div>
           <div style={styles.title}>화면을 표시할 수 없습니다</div>
           <div style={styles.message}>{this.state.error.message}</div>
           <button onClick={this.reset} style={styles.button}>다시 시도</button>
@@ -66,10 +67,10 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-primary)',
     textAlign: 'center',
   },
-  icon: { fontSize: 36, marginBottom: 8 },
-  title: { fontSize: 15, fontWeight: 700, marginBottom: 4 },
+  icon: { fontSize: 'var(--fs-hero)', marginBottom: 8 },
+  title: { fontSize: 'var(--fs-subtitle)', fontWeight: 700, marginBottom: 4 },
   message: {
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     color: 'var(--text-secondary)',
     marginBottom: 12,
     maxWidth: '90%',
@@ -77,10 +78,10 @@ const styles: Record<string, React.CSSProperties> = {
   },
   button: {
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--on-accent)',
     border: 'none',
     padding: '6px 16px',
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
     borderRadius: 6,
     cursor: 'pointer',
@@ -89,12 +90,12 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 16,
     width: '100%',
     maxWidth: 400,
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
   },
   summary: {
     cursor: 'pointer',
     color: 'var(--text-muted)',
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
   },
   pre: {
     background: 'var(--bg-secondary)',
@@ -102,7 +103,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 4,
     overflow: 'auto',
     maxHeight: 200,
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     color: 'var(--text-muted)',
     textAlign: 'left',
   },

@@ -10,6 +10,7 @@ import { PERSONAL_SUFFIX, CONFLICTING_PERSONAL_COLORS } from '../../utils/calend
 import { describeRepeat } from '../../utils/repeat';
 import { SeriesScopeDialog } from './SeriesScopeDialog';
 import type { PersonalEvent, ChecklistItem, SeriesScope } from '@shared/types';
+import { Ic } from '../common/Ic';
 
 interface PersonalEventDetailProps {
   event: PersonalEvent;
@@ -146,8 +147,8 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
         return;
       }
       const r = await updatePersonalEvent(user.id, event.id, updates);
-      if (r.googleSync === 'success') showToast('✅ 수정 + Google 동기화 완료', 'success');
-      else if (r.googleSync === 'failed') showToast(`⚠️ 수정됨 — Google 동기화 실패: ${r.error || ''}`, 'error');
+      if (r.googleSync === 'success') showToast('수정 + Google 동기화 완료', 'success');
+      else if (r.googleSync === 'failed') showToast(`수정됨 — Google 동기화 실패: ${r.error || ''}`, 'error');
       else showToast('수정되었습니다');
       setEditing(false);
     } catch (err) {
@@ -188,9 +189,9 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
       if (!r.deleted) {
         // Google 삭제 실패 → 로컬도 지우지 않음 (Google에 고아가 남아 다음 pull에서 중복으로 되살아나는 것 방지).
         // 상세창은 열어 두어 바로 재시도할 수 있게 한다.
-        showToast(`⚠️ ${r.error || 'Google 삭제 실패 — 삭제를 취소했습니다'}`, 'error');
+        showToast(`${r.error || 'Google 삭제 실패 — 삭제를 취소했습니다'}`, 'error');
       } else {
-        if (r.googleSync === 'success') showToast('✅ 삭제 + Google에서도 제거됨', 'success');
+        if (r.googleSync === 'success') showToast('삭제 + Google에서도 제거됨', 'success');
         else showToast('삭제되었습니다');
         onClose();
       }
@@ -208,12 +209,12 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
           <h3 style={styles.title}>
             {event.title} <span style={styles.suffix}>{PERSONAL_SUFFIX}</span>
           </h3>
-          <button onClick={onClose} style={styles.closeBtn}>✕</button>
+          <button onClick={onClose} style={styles.closeBtn}><Ic name="x" gap={false} /></button>
         </div>
 
         {event.source !== 'local' && (
           <div style={styles.externalNote}>
-            🔗 외부 캘린더({event.source}) 일정 — 수정·삭제는 원본 캘린더에서 해주세요.
+            <Ic name="link" />외부 캘린더({event.source}) 일정 — 수정·삭제는 원본 캘린더에서 해주세요.
           </div>
         )}
 
@@ -229,7 +230,7 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
             />
             <div style={styles.row}>
               <input type="datetime-local" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={styles.dateInput} />
-              <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>~</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-body)' }}>~</span>
               <input type="datetime-local" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={styles.dateInput} />
             </div>
             <textarea
@@ -240,7 +241,7 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
               rows={3}
             />
             <div style={styles.colorRow}>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', marginRight: 4 }}>색상:</span>
+              <span style={{ fontSize: 'var(--fs-label)', color: 'var(--text-muted)', marginRight: 4 }}>색상:</span>
               {COLOR_OPTIONS.map((c) => (
                 <button
                   key={c}
@@ -249,7 +250,7 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
                   style={{
                     width: 20, height: 20, borderRadius: '50%',
                     background: c,
-                    border: color === c ? '2px solid #000' : '2px solid transparent',
+                    border: color === c ? '2px solid var(--text-primary)' : '2px solid transparent',
                     cursor: 'pointer',
                   }}
                   aria-label={`색상 ${c}`}
@@ -259,7 +260,7 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
 
             {/* 체크리스트 편집 */}
             <div style={styles.checklistSection}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>체크리스트</span>
+              <span style={{ fontSize: 'var(--fs-label)', fontWeight: 600, color: 'var(--text-secondary)' }}>체크리스트</span>
               {checklist.map((item) => (
                 <div key={item.id} style={styles.checkItem}>
                   <input
@@ -268,11 +269,11 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
                     onChange={() => toggleCheck(item.id)}
                   />
                   <span style={{
-                    flex: 1, fontSize: 11, color: 'var(--text-primary)',
+                    flex: 1, fontSize: 'var(--fs-label)', color: 'var(--text-primary)',
                     textDecoration: item.checked ? 'line-through' : 'none',
                     opacity: item.checked ? 0.6 : 1,
                   }}>{item.text}</span>
-                  <button type="button" onClick={() => removeCheckItem(item.id)} style={styles.removeCheckBtn}>✕</button>
+                  <button type="button" onClick={() => removeCheckItem(item.id)} style={styles.removeCheckBtn}><Ic name="x" gap={false} /></button>
                 </div>
               ))}
               <div style={styles.addCheckRow}>
@@ -342,7 +343,7 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
                         }}
                       />
                       <span style={{
-                        fontSize: 11, color: 'var(--text-primary)',
+                        fontSize: 'var(--fs-label)', color: 'var(--text-primary)',
                         textDecoration: item.checked ? 'line-through' : 'none',
                         opacity: item.checked ? 0.6 : 1,
                       }}>{item.text}</span>
@@ -353,9 +354,9 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
             )}
             {canEdit && (
               <div style={styles.actions}>
-                <button onClick={() => setEditing(true)} style={styles.editBtn}>✏️ 수정</button>
+                <button onClick={() => setEditing(true)} style={styles.editBtn}><Ic name="pencil" />수정</button>
                 <button onClick={handleDelete} disabled={deleting} style={styles.deleteBtn}>
-                  {deleting ? '삭제 중...' : '🗑️ 삭제'}
+                  {deleting ? '삭제 중...' : <><Ic name="trash" />삭제</>}
                 </button>
               </div>
             )}
@@ -378,38 +379,38 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
 const styles: Record<string, React.CSSProperties> = {
   overlay: {
     position: 'absolute', inset: 0,
-    background: 'rgba(0,0,0,0.3)',
+    background: 'var(--scrim)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     zIndex: 100, padding: 16,
   },
   modal: { width: '100%', maxWidth: 380, maxHeight: '90%', overflow: 'auto', padding: 16 },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  title: { fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' },
-  suffix: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', marginLeft: 4 },
-  closeBtn: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text-muted)' },
+  title: { fontSize: 'var(--fs-subtitle)', fontWeight: 700, color: 'var(--text-primary)' },
+  suffix: { fontSize: 'var(--fs-label)', fontWeight: 700, color: 'var(--accent)', marginLeft: 4 },
+  closeBtn: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 'var(--fs-lead)', color: 'var(--text-muted)' },
   externalNote: {
-    fontSize: 11, color: '#F59E0B',
+    fontSize: 'var(--fs-label)', color: 'var(--warning)',
     padding: '6px 10px', borderRadius: 6,
-    background: 'rgba(245,158,11,0.1)',
+    background: 'var(--warning-soft)',
     marginBottom: 10,
   },
   form: { display: 'flex', flexDirection: 'column', gap: 8 },
   detail: { display: 'flex', flexDirection: 'column', gap: 8 },
   row: { display: 'flex', alignItems: 'center', gap: 8 },
-  label: { fontSize: 11, color: 'var(--text-muted)', minWidth: 40, fontWeight: 600 },
-  value: { fontSize: 12, color: 'var(--text-primary)', flex: 1, margin: 0, lineHeight: 1.5 },
+  label: { fontSize: 'var(--fs-label)', color: 'var(--text-muted)', minWidth: 40, fontWeight: 600 },
+  value: { fontSize: 'var(--fs-body)', color: 'var(--text-primary)', flex: 1, margin: 0, lineHeight: 1.5 },
   input: {
-    padding: '8px 12px', fontSize: 13,
+    padding: '8px 12px', fontSize: 'var(--fs-control)',
     border: '1px solid var(--border-color)', borderRadius: 8,
     background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none',
   },
   dateInput: {
-    flex: 1, padding: '6px 8px', fontSize: 11,
+    flex: 1, padding: '6px 8px', fontSize: 'var(--fs-label)',
     border: '1px solid var(--border-color)', borderRadius: 8,
     background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none',
   },
   textarea: {
-    padding: '8px 12px', fontSize: 12,
+    padding: '8px 12px', fontSize: 'var(--fs-body)',
     border: '1px solid var(--border-color)', borderRadius: 8,
     background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none',
     resize: 'vertical', fontFamily: 'inherit',
@@ -423,38 +424,38 @@ const styles: Record<string, React.CSSProperties> = {
   },
   removeCheckBtn: {
     background: 'none', border: 'none', cursor: 'pointer',
-    color: 'var(--danger)', fontSize: 10, padding: '0 4px',
+    color: 'var(--danger)', fontSize: 'var(--fs-caption)', padding: '0 4px',
   },
   addCheckRow: { display: 'flex', gap: 4 },
   checkInput: {
-    flex: 1, padding: '4px 8px', fontSize: 11,
+    flex: 1, padding: '4px 8px', fontSize: 'var(--fs-label)',
     border: '1px solid var(--border-color)', borderRadius: 4,
     background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none',
   },
   addCheckBtn: {
-    padding: '4px 10px', fontSize: 12, fontWeight: 700,
+    padding: '4px 10px', fontSize: 'var(--fs-body)', fontWeight: 700,
     border: 'none', borderRadius: 4,
-    background: 'var(--accent)', color: '#fff', cursor: 'pointer',
+    background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer',
   },
   actions: { display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 8 },
   cancelBtn: {
-    padding: '6px 14px', fontSize: 12,
+    padding: '6px 14px', fontSize: 'var(--fs-body)',
     border: '1px solid var(--border-color)', borderRadius: 6,
     background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer',
   },
   saveBtn: {
-    padding: '6px 16px', fontSize: 12, fontWeight: 600,
+    padding: '6px 16px', fontSize: 'var(--fs-body)', fontWeight: 600,
     border: 'none', borderRadius: 6,
-    background: 'var(--accent)', color: '#fff', cursor: 'pointer',
+    background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer',
   },
   editBtn: {
-    padding: '6px 12px', fontSize: 12, fontWeight: 500,
+    padding: '6px 12px', fontSize: 'var(--fs-body)', fontWeight: 500,
     border: '1px solid var(--accent)', borderRadius: 6,
     background: 'transparent', color: 'var(--accent)', cursor: 'pointer',
   },
   deleteBtn: {
-    padding: '6px 12px', fontSize: 12, fontWeight: 600,
+    padding: '6px 12px', fontSize: 'var(--fs-body)', fontWeight: 600,
     border: 'none', borderRadius: 6,
-    background: '#EF4444', color: '#fff', cursor: 'pointer',
+    background: 'var(--danger)', color: 'var(--on-accent)', cursor: 'pointer',
   },
 };

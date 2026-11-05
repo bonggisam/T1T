@@ -47,7 +47,7 @@ export function ToastContainer() {
           key={t.id}
           style={{
             ...styles.toast,
-            background: t.type === 'success' ? '#2ECC71' : t.type === 'error' ? '#E74C3C' : '#3498DB',
+            background: t.type === 'success' ? 'var(--toast-success)' : t.type === 'error' ? 'var(--toast-error)' : 'var(--toast-info)',
           }}
         >
           <span style={styles.icon}>
@@ -80,18 +80,18 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 8,
     padding: '8px 16px',
     borderRadius: 8,
-    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+    boxShadow: '0 4px 12px var(--scrim)',
     animation: 'slideUp 0.25s ease-out',
     pointerEvents: 'auto',
   },
   icon: {
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     flexShrink: 0,
   },
   text: {
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
-    color: '#fff',
+    color: 'var(--on-accent)',
     whiteSpace: 'nowrap',
   },
 };

@@ -16,6 +16,7 @@ import { formatEventTooltip, formatPersonalTooltip, getCreatorTag, canManageEven
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { useTimelineScroll } from '../../hooks/useTimelineScroll';
 import { SchoolBadge } from '../common/SchoolBadge';
+import { Ic } from '../common/Ic';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
@@ -315,7 +316,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
             return (
               <div key={dayIdx} style={{
                 ...styles.allDayCell,
-                background: isDropTarget ? 'color-mix(in srgb, var(--accent) 20%, transparent)' : 'rgba(128,128,128,0.02)',
+                background: isDropTarget ? 'color-mix(in srgb, var(--accent) 20%, transparent)' : 'var(--tint-neutral-faint)',
                 outline: isDropTarget ? '2px dashed var(--accent)' : 'none',
                 outlineOffset: -1,
               }}>
@@ -355,7 +356,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
                       }}
                       style={{
                         ...styles.eventBlock, background: getPersonalEventDisplayColor(pe, user?.profileColor), opacity: 0.85,
-                        borderLeft: '2px solid rgba(255,255,255,0.5)',
+                        borderLeft: '2px solid var(--event-edge)',
                         cursor: canDrag ? 'grab' : 'pointer',
                       }}
                       title={formatPersonalTooltip(pe, canDrag)}
@@ -383,10 +384,10 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
                   width: 'calc((100% - 40px) / 7)',
                   top: `${((nowMinute % 60) / 60) * 100}%`,
                   height: 2,
-                  background: '#E74C3C',
+                  background: 'var(--now-line)',
                   zIndex: 10,
                   pointerEvents: 'none',
-                  boxShadow: '0 0 4px rgba(231,76,60,0.5)',
+                  boxShadow: '0 0 4px var(--now-line-glow)',
                 }}>
                   <div style={{
                     position: 'absolute',
@@ -395,7 +396,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
                     width: 8,
                     height: 8,
                     borderRadius: '50%',
-                    background: '#E74C3C',
+                    background: 'var(--now-line)',
                   }} />
                 </div>
               )}
@@ -425,7 +426,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
                     }}
                     style={{
                     ...styles.hourCell,
-                    background: isDropTarget ? 'color-mix(in srgb, var(--accent) 20%, transparent)' : 'rgba(128,128,128,0.02)',
+                    background: isDropTarget ? 'color-mix(in srgb, var(--accent) 20%, transparent)' : 'var(--tint-neutral-faint)',
                     outline: isDropTarget ? '2px dashed var(--accent)' : 'none',
                     outlineOffset: -1,
                   }}>
@@ -463,7 +464,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
                           }}
                           style={{
                             ...styles.eventBlock, background: getPersonalEventDisplayColor(pe, user?.profileColor), opacity: 0.85,
-                            borderLeft: '2px solid rgba(255,255,255,0.5)',
+                            borderLeft: '2px solid var(--event-edge)',
                             cursor: canDrag ? 'grab' : 'pointer',
                           }}
                           title={formatPersonalTooltip(pe, canDrag)}
@@ -477,7 +478,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
                     {comciganPeriods.map((cp) => (
                       <div key={`cc-${cp.weekday}-${cp.period}`} style={styles.comciganBlock}
                         title={`${cp.period}교시 ${cp.grade}-${cp.classNum}`}>
-                        <span style={styles.comciganText}>📚{cp.period} {cp.subject} {cp.grade}-{cp.classNum}</span>
+                        <span style={styles.comciganText}><Ic name="book" />{cp.period} {cp.subject} {cp.grade}-{cp.classNum}</span>
                       </div>
                     ))}
                   </div>
@@ -492,16 +493,16 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
       {quickAdd && (
         <div data-quick-add style={{
           position: 'fixed', zIndex: 200, display: 'flex', flexDirection: 'column', gap: 2,
-          padding: 4, borderRadius: 8, background: 'var(--bg-modal, #fff)',
+          padding: 4, borderRadius: 8, background: 'var(--bg-modal)',
           border: '1px solid var(--border-color)', boxShadow: '0 4px 16px rgba(0,0,0,0.25)', minWidth: 140,
           left: Math.min(quickAdd.x - 70, window.innerWidth - 155),
           top: Math.min(quickAdd.y, window.innerHeight - 80),
         }}>
-          <div style={{ fontSize: 10, color: 'var(--text-muted)', padding: '2px 10px', fontWeight: 600 }}>
+          <div style={{ fontSize: 'var(--fs-caption)', color: 'var(--text-muted)', padding: '2px 10px', fontWeight: 600 }}>
             {format(days[quickAdd.dayIdx], 'M/d')} {quickAdd.hour.toString().padStart(2, '0')}:00
           </div>
-          <button onClick={handleQuickAddShared} style={quickAddBtnStyle}>📅 공유 일정 추가</button>
-          <button onClick={handleQuickAddPersonal} style={quickAddBtnStyle}>🔒 개인 일정 추가</button>
+          <button onClick={handleQuickAddShared} style={quickAddBtnStyle}><Ic name="calendar" />공유 일정 추가</button>
+          <button onClick={handleQuickAddPersonal} style={quickAddBtnStyle}><Ic name="lock" />개인 일정 추가</button>
         </div>
       )}
     </div>
@@ -510,7 +511,7 @@ export function WeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps)
 
 const quickAddBtnStyle: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px',
-  fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', background: 'transparent',
+  fontSize: 'var(--fs-body)', fontWeight: 600, color: 'var(--text-primary)', background: 'transparent',
   border: 'none', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap',
 };
 
@@ -520,20 +521,20 @@ const styles: Record<string, React.CSSProperties> = {
   timeGutter: { width: 40, flexShrink: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 2 },
   dayHeader: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 0', borderRight: '1px solid var(--grid-line)' },
   todayHeader: {},
-  dayName: { fontSize: 10, color: 'var(--text-muted)' },
-  holidayName: { maxWidth: '100%', padding: '0 2px', fontSize: 9, fontWeight: 600, color: 'var(--weekend-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  dayNum: { fontSize: 14, fontWeight: 700, textShadow: 'var(--label-halo)' },
-  todayNum: { background: 'var(--accent)', color: '#fff', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 },
+  dayName: { fontSize: 'var(--fs-caption)', color: 'var(--text-muted)' },
+  holidayName: { maxWidth: '100%', padding: '0 2px', fontSize: 'var(--fs-tiny)', fontWeight: 600, color: 'var(--weekend-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  dayNum: { fontSize: 'var(--fs-lead)', fontWeight: 700, textShadow: 'var(--label-halo)' },
+  todayNum: { background: 'var(--accent)', color: 'var(--on-event)', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--fs-body)' },
   allDayRow: { display: 'grid', gridTemplateColumns: '40px repeat(7, 1fr)', gap: 1, borderBottom: '1px solid var(--grid-line)', flexShrink: 0, maxHeight: 84, overflowX: 'hidden', overflowY: 'auto' },
   // overflow: hidden을 주면 행이 내용만큼 커지지 않아 넘친 일정이 스크롤 없이 잘린다
   allDayCell: { padding: 1, minWidth: 0, borderRight: '1px solid var(--grid-line)' },
   gridScroll: { flex: 1, overflow: 'auto' },
   grid: { display: 'flex', flexDirection: 'column' },
   hourRow: { display: 'grid', gridTemplateColumns: '40px repeat(7, 1fr)', gap: 1, minHeight: 40, borderBottom: '1px solid var(--grid-line)' },
-  timeLabel: { fontSize: 9, color: 'var(--text-muted)' },
+  timeLabel: { fontSize: 'var(--fs-tiny)', color: 'var(--text-muted)' },
   hourCell: { padding: 1, overflow: 'hidden', borderRight: '1px solid var(--grid-line)' },
   eventBlock: { borderRadius: 3, padding: '1px 4px', marginBottom: 1, cursor: 'pointer' },
-  eventText: { fontSize: 'var(--schedule-font-size)', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', textShadow: '0 0 2px rgba(0,0,0,0.3)' },
+  eventText: { fontSize: 'var(--schedule-font-size)', color: 'var(--on-event)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', textShadow: '0 0 2px rgba(0,0,0,0.3)' },
   comciganBlock: { borderRadius: 3, padding: '1px 4px', marginBottom: 1, background: 'var(--comcigan-bg)', cursor: 'default' },
   comciganText: { fontSize: 'var(--schedule-font-size)', fontWeight: 600, color: 'var(--comcigan-text)', lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', textShadow: 'var(--comcigan-shadow)' },
 };

@@ -12,6 +12,7 @@ import { getCreatorTag, PERSONAL_SUFFIX, formatEventTooltip, formatPersonalToolt
 import { SchoolBadge } from '../common/SchoolBadge';
 import { useComciganStore } from '../../store/comciganStore';
 import { TodayWidgets } from './TodayWidgets';
+import { Ic } from '../common/Ic';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const DEFAULT_PERIOD_START_HOURS: Record<number, number> = { 1: 9, 2: 10, 3: 11, 4: 12, 5: 13, 6: 14, 7: 15, 8: 16 };
@@ -150,8 +151,8 @@ export function TodayView({ onAddPersonalEvent, onPersonalClick }: TodayViewProp
       <div style={styles.list}>
         {totalCount === 0 && (
           <div style={styles.empty}>
-            <span style={{ fontSize: 36 }}>📭</span>
-            <div style={{ marginTop: 8, fontSize: 13, color: 'var(--text-muted)' }}>
+            <span style={{ fontSize: 'var(--fs-hero)' }}><Ic name="inbox" gap={false} /></span>
+            <div style={{ marginTop: 8, fontSize: 'var(--fs-control)', color: 'var(--text-muted)' }}>
               이 기간에는 일정이 없습니다
             </div>
             {user && (
@@ -308,7 +309,7 @@ function DayTimeline({
       {/* 빈 상태 — 스크롤 위치와 상관없이 보이도록 격자 밖에 둔다 */}
       {events.length === 0 && personalEvents.length === 0 && user && (
         <div style={timelineStyles.emptyBar}>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>📭 오늘 일정 없음</span>
+          <span style={{ fontSize: 'var(--fs-body)', color: 'var(--text-muted)' }}><Ic name="inbox" />오늘 일정 없음</span>
           <button onClick={onAddShared} style={timelineStyles.addBtn}>+ 공유 일정</button>
           {onAddPersonal && (
             <button onClick={onAddPersonal} style={timelineStyles.addBtnSecondary}>+ 개인 일정</button>
@@ -387,7 +388,7 @@ function DayTimeline({
               alignItems: 'center',
               paddingLeft: 8,
             }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent)', background: 'var(--bg-modal, #fff)', padding: '1px 6px', borderRadius: 3 }}>
+              <span style={{ fontSize: 'var(--fs-caption)', fontWeight: 700, color: 'var(--accent)', background: 'var(--bg-modal)', padding: '1px 6px', borderRadius: 3 }}>
                 + {hoverInfo.hour.toString().padStart(2, '0')}:{hoverInfo.minute.toString().padStart(2, '0')} 일정 추가
               </span>
             </div>
@@ -400,9 +401,9 @@ function DayTimeline({
               left: 52, right: 4,
               top: (nowMinute / 60) * HOUR_HEIGHT,
               height: 2,
-              background: '#E74C3C',
+              background: 'var(--now-line)',
               zIndex: 5,
-              boxShadow: '0 0 4px rgba(231,76,60,0.6)',
+              boxShadow: '0 0 4px var(--now-line-glow)',
               pointerEvents: 'none',
             }}>
               <div style={{
@@ -410,15 +411,15 @@ function DayTimeline({
                 left: -5, top: -4,
                 width: 10, height: 10,
                 borderRadius: '50%',
-                background: '#E74C3C',
+                background: 'var(--now-line)',
               }} />
               <div style={{
                 position: 'absolute',
                 right: 0, top: -16,
-                fontSize: 10, fontWeight: 700,
-                color: '#E74C3C',
+                fontSize: 'var(--fs-caption)', fontWeight: 700,
+                color: 'var(--now-line)',
                 padding: '0 4px',
-                background: 'var(--bg-primary, #fff)',
+                background: 'var(--bg-primary)',
                 borderRadius: 3,
               }}>
                 {Math.floor(nowMinute / 60).toString().padStart(2, '0')}:{(nowMinute % 60).toString().padStart(2, '0')}
@@ -467,7 +468,7 @@ function DayTimeline({
                     ...block,
                     background: getPersonalEventDisplayColor(pe, user?.profileColor),
                     opacity: 0.88,
-                    borderLeft: '3px solid rgba(255,255,255,0.5)',
+                    borderLeft: '3px solid var(--event-edge)',
                   }}
                   title={formatPersonalTooltip(pe, pe.source === 'local')}
                 >
@@ -500,7 +501,7 @@ function DayTimeline({
                     border: '1px dashed color-mix(in srgb, var(--accent) 50%, transparent)',
                     borderRadius: 5,
                     padding: '3px 6px',
-                    fontSize: 10,
+                    fontSize: 'var(--fs-caption)',
                     fontWeight: 600,
                     color: 'var(--text-secondary)',
                     pointerEvents: 'none',
@@ -508,7 +509,7 @@ function DayTimeline({
                   }}
                   title={`${cp.period}교시 ${cp.grade}학년 ${cp.classNum}반 ${cp.subject}`}
                 >
-                  📚 {cp.period}교시 {cp.subject} ({cp.grade}-{cp.classNum})
+                  <Ic name="book" />{cp.period}교시 {cp.subject} ({cp.grade}-{cp.classNum})
                 </div>
               );
             })}
@@ -535,7 +536,7 @@ const timelineStyles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   allDayLabel: {
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     fontWeight: 700,
     color: 'var(--text-muted)',
     padding: '3px 6px',
@@ -551,11 +552,11 @@ const timelineStyles: Record<string, React.CSSProperties> = {
     border: 'none',
     borderRadius: 4,
     padding: '3px 8px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 600,
-    color: '#fff',
+    color: 'var(--on-event)',
     cursor: 'pointer',
-    textShadow: '0 0 2px rgba(0,0,0,0.3)',
+    textShadow: '0 0 2px var(--scrim)',
   },
   emptyBar: {
     display: 'flex',
@@ -574,7 +575,7 @@ const timelineStyles: Record<string, React.CSSProperties> = {
   hourLabel: {
     width: 48,
     flexShrink: 0,
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     color: 'var(--text-muted)',
     padding: '2px 4px 0 0',
     textAlign: 'right' as const,
@@ -586,7 +587,7 @@ const timelineStyles: Record<string, React.CSSProperties> = {
     borderRadius: 5,
     border: 'none',
     cursor: 'pointer',
-    color: '#fff',
+    color: 'var(--on-event)',
     textAlign: 'left' as const,
     overflow: 'hidden',
     display: 'flex',
@@ -595,16 +596,16 @@ const timelineStyles: Record<string, React.CSSProperties> = {
     boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
   },
   eventTitle: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     fontWeight: 700,
-    textShadow: '0 0 2px rgba(0,0,0,0.3)',
+    textShadow: '0 0 2px var(--scrim)',
     whiteSpace: 'nowrap' as const,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   },
   eventTime: {
-    fontSize: 9,
-    color: 'rgba(255,255,255,0.9)',
+    fontSize: 'var(--fs-tiny)',
+    color: 'var(--on-event-muted)',
     fontWeight: 500,
   },
   addBtn: {
@@ -612,18 +613,18 @@ const timelineStyles: Record<string, React.CSSProperties> = {
     borderRadius: 8,
     border: 'none',
     background: 'var(--accent)',
-    color: '#fff',
-    fontSize: 12,
+    color: 'var(--on-event)',
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
     cursor: 'pointer',
   },
   addBtnSecondary: {
     padding: '6px 12px',
     borderRadius: 8,
-    border: '1px solid var(--success, #10B981)',
+    border: '1px solid var(--success)',
     background: 'transparent',
-    color: 'var(--success, #10B981)',
-    fontSize: 12,
+    color: 'var(--success)',
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
     cursor: 'pointer',
   },
@@ -710,7 +711,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--border-color)',
     background: 'var(--bg-secondary)',
     color: 'var(--text-primary)',
-    fontSize: 20,
+    fontSize: 'var(--fs-display)',
     fontWeight: 700,
     cursor: 'pointer',
     display: 'flex',
@@ -723,12 +724,12 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center' as const,
   },
   dateMain: {
-    fontSize: 16,
+    fontSize: 'var(--fs-title)',
     fontWeight: 700,
     color: 'var(--text-primary)',
   },
   dateSub: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     marginTop: 2,
     fontWeight: 500,
     color: 'var(--text-muted)',
@@ -756,22 +757,22 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 2,
   },
   dateHeaderMain: {
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 700,
     display: 'flex',
     alignItems: 'center',
     gap: 6,
   },
   todayBadge: {
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     fontWeight: 700,
     padding: '1px 6px',
     borderRadius: 8,
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--on-event)',
   },
   dateHeaderCount: {
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     fontWeight: 600,
     color: 'var(--text-muted)',
   },
@@ -789,14 +790,14 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
   },
   time: {
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
     color: 'var(--text-secondary)',
     minWidth: 92,
     fontVariantNumeric: 'tabular-nums' as any,
   },
   title: {
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     fontWeight: 600,
     color: 'var(--text-primary)',
     flex: 1,
@@ -806,26 +807,26 @@ const styles: Record<string, React.CSSProperties> = {
   },
   tag: {
     display: 'inline-block',
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     fontWeight: 700,
     padding: '1px 5px',
     marginRight: 6,
     borderRadius: 4,
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--on-event)',
   },
   personalTag: {
     display: 'inline-block',
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     fontWeight: 700,
     padding: '1px 5px',
     borderRadius: 4,
-    background: 'var(--success, #10B981)',
-    color: '#fff',
+    background: 'var(--success)',
+    color: 'var(--on-event)',
     marginLeft: 4,
   },
   author: {
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     color: 'var(--text-muted)',
     flexShrink: 0,
   },
@@ -836,7 +837,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   emptyRow: {
     padding: '6px 12px',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     color: 'var(--text-muted)',
     fontStyle: 'italic' as const,
   },
@@ -851,18 +852,18 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 8,
     border: 'none',
     background: 'var(--accent)',
-    color: '#fff',
-    fontSize: 12,
+    color: 'var(--on-event)',
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
     cursor: 'pointer',
   },
   addBtnSecondary: {
     padding: '6px 12px',
     borderRadius: 8,
-    border: '1px solid var(--success, #10B981)',
+    border: '1px solid var(--success)',
     background: 'transparent',
-    color: 'var(--success, #10B981)',
-    fontSize: 12,
+    color: 'var(--success)',
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
     cursor: 'pointer',
   },

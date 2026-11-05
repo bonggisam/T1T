@@ -5,6 +5,7 @@ import { useNotificationStore } from '../../store/notificationStore';
 import { useAuthStore } from '../../store/authStore';
 import { useCalendarStore } from '../../store/calendarStore';
 import { showToast } from '../common/Toast';
+import { Ic } from '../common/Ic';
 
 export function NotificationPanel() {
   const { notifications, markAsRead, markAllAsRead, setShowPanel } = useNotificationStore();
@@ -59,14 +60,14 @@ export function NotificationPanel() {
         }}
       >
         <div style={styles.header}>
-          <h4 style={styles.title}>🔔 알림</h4>
+          <h4 style={styles.title}><Ic name="bell" />알림</h4>
           <div style={styles.headerActions}>
             {notifications.some((n) => !n.read) && user && (
               <button onClick={() => markAllAsRead(user.id).catch((err) => { console.warn('[Notification] markAllAsRead failed:', err); showToast('모두 읽음 표시 실패', 'error'); })} style={styles.readAllBtn}>
                 모두 읽음
               </button>
             )}
-            <button onClick={() => setShowPanel(false)} style={styles.closeBtn}>✕</button>
+            <button onClick={() => setShowPanel(false)} style={styles.closeBtn}><Ic name="x" gap={false} /></button>
           </div>
         </div>
 
@@ -84,10 +85,10 @@ export function NotificationPanel() {
                 }}
               >
                 <div style={styles.itemIcon}>
-                  {n.type === 'new_event' && '📅'}
-                  {n.type === 'event_updated' && '✏️'}
-                  {n.type === 'event_deleted' && '🗑️'}
-                  {n.type === 'approval' && '✅'}
+                  {n.type === 'new_event' && <Ic name="calendar" gap={false} />}
+                  {n.type === 'event_updated' && <Ic name="pencil" gap={false} />}
+                  {n.type === 'event_deleted' && <Ic name="trash" gap={false} />}
+                  {n.type === 'approval' && <Ic name="checkCircle" gap={false} />}
                 </div>
                 <div style={styles.itemContent}>
                   <p style={styles.itemMessage}>{n.message}</p>
@@ -109,7 +110,7 @@ const styles: Record<string, React.CSSProperties> = {
   overlay: {
     position: 'absolute',
     inset: 0,
-    background: 'rgba(0,0,0,0.15)',
+    background: 'var(--scrim-soft)',
     zIndex: 90,
   },
   panel: {
@@ -130,7 +131,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderBottom: '1px solid var(--border-subtle)',
   },
   title: {
-    fontSize: 14,
+    fontSize: 'var(--fs-lead)',
     fontWeight: 700,
     color: 'var(--text-primary)',
   },
@@ -143,14 +144,14 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontSize: 11,
+    fontSize: 'var(--fs-label)',
     color: 'var(--accent)',
   },
   closeBtn: {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     color: 'var(--text-muted)',
   },
   list: {
@@ -160,7 +161,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   empty: {
     textAlign: 'center',
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     color: 'var(--text-muted)',
     padding: 30,
   },
@@ -174,7 +175,7 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'background 0.12s',
   },
   itemIcon: {
-    fontSize: 16,
+    fontSize: 'var(--fs-title)',
     flexShrink: 0,
     marginTop: 1,
   },
@@ -183,12 +184,12 @@ const styles: Record<string, React.CSSProperties> = {
     minWidth: 0,
   },
   itemMessage: {
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     color: 'var(--text-primary)',
     lineHeight: 1.4,
   },
   itemTime: {
-    fontSize: 10,
+    fontSize: 'var(--fs-caption)',
     color: 'var(--text-muted)',
   },
   unreadDot: {

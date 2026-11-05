@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Ic } from '../common/Ic';
 
 // 주소는 빌드 시 .env의 VITE_TPASS_URL에서 주입한다. 저장소에는 값을 두지 않는다.
 // 주입된 값은 설치 파일에서 꺼낼 수 있으므로, 실제 접근 통제는 Apps Script 쪽 권한으로 한다.
@@ -57,7 +58,7 @@ export function TPassView({ onBack }: TPassViewProps) {
     <div style={styles.container}>
       <div style={styles.toolbar}>
         <button onClick={onBack} style={styles.backBtn} title="캘린더로 돌아가기">
-          📅 캘린더
+          <Ic name="calendar" />캘린더
         </button>
         <span style={styles.label}>TPass</span>
         <button
@@ -65,7 +66,7 @@ export function TPassView({ onBack }: TPassViewProps) {
           style={styles.refreshBtn}
           title="새로고침"
         >
-          🔄
+          <Ic name="refresh" gap={false} />
         </button>
       </div>
       {TPASS_URL && loading && (
@@ -98,7 +99,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '6px 12px',
     borderBottom: '1px solid var(--border-subtle)',
     flexShrink: 0,
-    background: 'rgba(128,128,128,0.05)',
+    background: 'var(--tint-neutral)',
   },
   backBtn: {
     background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
@@ -106,13 +107,13 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     padding: '4px 10px',
     borderRadius: 6,
-    fontSize: 12,
+    fontSize: 'var(--fs-body)',
     fontWeight: 600,
     color: 'var(--accent)',
   },
   label: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     fontWeight: 700,
     color: 'var(--text-primary)',
     textAlign: 'center',
@@ -121,7 +122,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontSize: 14,
+    fontSize: 'var(--fs-lead)',
     padding: '4px 6px',
     borderRadius: 6,
   },
@@ -148,7 +149,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-    fontSize: 13,
+    fontSize: 'var(--fs-control)',
     color: 'var(--text-muted)',
     textAlign: 'center',
   },

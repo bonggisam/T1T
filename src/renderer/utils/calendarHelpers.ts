@@ -114,7 +114,7 @@ export function formatEventTooltip(event: CalendarEvent, isOwner: boolean): stri
   if (event.category) lines.push(`[${CATEGORY_LABELS[event.category] || event.category}]`);
   if (event.adminName) lines.push(`작성: ${event.adminName}`);
   if (event.description) lines.push(`\n${event.description}`);
-  if (isOwner) lines.push('\n🖱 드래그로 이동 | 하단 드래그로 시간 조절');
+  if (isOwner) lines.push('\n드래그로 이동 | 하단 드래그로 시간 조절');
   return lines.join('\n');
 }
 
@@ -124,7 +124,7 @@ export function formatPersonalTooltip(pe: PersonalEvent, canDrag: boolean): stri
   const end = new Date(pe.endDate);
   lines.push(`${format(start, 'M/d HH:mm')} ~ ${format(end, 'M/d HH:mm')}`);
   if (pe.description) lines.push(`\n${pe.description}`);
-  if (canDrag) lines.push('\n🖱 드래그로 이동 | 하단 드래그로 시간 조절');
+  if (canDrag) lines.push('\n드래그로 이동 | 하단 드래그로 시간 조절');
   return lines.join('\n');
 }
 
