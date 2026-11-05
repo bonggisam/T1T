@@ -15,7 +15,13 @@ import { db } from '../utils/firebase';
 import { notifyAllUsers } from '../utils/notifications';
 import { cacheEvents, getCachedEvents } from '../utils/offlineCache';
 import { getSchoolTag, getCreatorTag } from '../utils/calendarHelpers';
-import type { CalendarEvent, CalendarView, ChecklistItem, ReadReceipt, School } from '@shared/types';
+import { commitInBatches } from '../utils/firestoreBatch';
+import { deleteAllResponses } from '../utils/eventResponses';
+import { describeRepeat, newSeriesId, shiftRepeatDays, type Occurrence } from '../utils/repeat';
+import type { CalendarEvent, CalendarView, ChecklistItem, ReadReceipt, RepeatConfig, School, SeriesScope } from '@shared/types';
+
+type NewEvent = Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt'>;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 interface CalendarState {
   events: CalendarEvent[];
@@ -37,11 +43,57 @@ interface CalendarState {
   navigateMonth: (direction: -1 | 1) => void;
   subscribeToEvents: () => void;
   cleanup: () => void;
-  addEvent: (event: Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
+  addEvent: (event: NewEvent) => Promise<string>;
+  /** 반복 일정을 회차마다 한 문서로 저장한다. 알림은 묶음당 한 번만 보낸다. */
+  addEventSeries: (event: NewEvent, occurrences: Occurrence[], repeat: RepeatConfig) => Promise<number>;
   updateEvent: (id: string, updates: Partial<CalendarEvent>) => Promise<void>;
+  /** 이 회차 이후 또는 전체를 고친다. 날짜와 시각은 고친 만큼 모든 회차를 함께 옮긴다. */
+  updateEventSeries: (event: CalendarEvent, scope: Exclude<SeriesScope, 'this'>, updates: Partial<CalendarEvent>) => Promise<number>;
   deleteEvent: (id: string) => Promise<void>;
+  deleteEventSeries: (event: CalendarEvent, scope: Exclude<SeriesScope, 'this'>) => Promise<number>;
   updateChecklist: (eventId: string, checklist: ChecklistItem[]) => Promise<void>;
   markAsRead: (eventId: string, userId: string, userName: string) => Promise<void>;
+}
+
+/** 일정 문서로 저장할 값. undefined는 Firestore가 거부하므로 정리한다. */
+function toEventDoc(event: NewEvent): Record<string, unknown> {
+  const data: Record<string, unknown> = {
+    title: event.title,
+    description: event.description ?? '',
+    allDay: event.allDay ?? false,
+    category: event.category,
+    // school 필드 필수 (기본값 'all'로 안전망)
+    school: event.school || 'all',
+    createdBy: event.createdBy,
+    adminName: event.adminName ?? '',
+    adminColor: event.adminColor || '#4A90E2',
+    repeat: event.repeat ?? null,
+    attachments: event.attachments ?? [],
+    checklist: event.checklist ?? [],
+    readBy: event.readBy ?? {},
+    startDate: Timestamp.fromDate(event.startDate),
+    endDate: Timestamp.fromDate(event.endDate),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+  // 아래는 값 있을 때만 넣는다
+  if (event.creatorSchool === 'taeseong_middle' || event.creatorSchool === 'taeseong_high') {
+    data.creatorSchool = event.creatorSchool;
+  }
+  if (event.seriesId) data.seriesId = event.seriesId;
+  if (event.responseType) data.responseType = event.responseType;
+  return data;
+}
+
+function creatorPrefix(event: Pick<NewEvent, 'creatorSchool'>, school: School | 'all'): string {
+  const tag = getCreatorTag({ creatorSchool: event.creatorSchool, school });
+  return tag ? `${tag} ` : '';
+}
+
+function seriesMembers(events: CalendarEvent[], event: CalendarEvent, scope: Exclude<SeriesScope, 'this'>): CalendarEvent[] {
+  return events.filter((e) => (
+    e.seriesId === event.seriesId && (scope === 'all' || e.startDate.getTime() >= event.startDate.getTime())
+  ));
 }
 
 function firestoreToEvent(id: string, data: any): CalendarEvent {
@@ -59,6 +111,8 @@ function firestoreToEvent(id: string, data: any): CalendarEvent {
     adminName: data.adminName || '',
     adminColor: data.adminColor || '#4A90E2',
     repeat: data.repeat || null,
+    seriesId: data.seriesId || null,
+    responseType: data.responseType || null,
     attachments: data.attachments || [],
     checklist: (data.checklist || []).map((item: any, idx: number) => ({
       id: item.id || String(idx),
@@ -136,45 +190,43 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
   },
 
   addEvent: async (event) => {
-    // school 필드 필수 (기본값 'all'로 안전망)
     const schoolValue = event.school || 'all';
-    // undefined 값은 Firestore가 거부하므로 명시적으로 정리
-    const cleanedEvent: any = {
-      title: event.title,
-      description: event.description ?? '',
-      allDay: event.allDay ?? false,
-      category: event.category,
-      school: schoolValue,
-      createdBy: event.createdBy,
-      adminName: event.adminName ?? '',
-      adminColor: event.adminColor || '#4A90E2',
-      repeat: event.repeat ?? null,
-      attachments: event.attachments ?? [],
-      checklist: event.checklist ?? [],
-      readBy: event.readBy ?? {},
-      startDate: Timestamp.fromDate(event.startDate),
-      endDate: Timestamp.fromDate(event.endDate),
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
-    // creatorSchool은 값 있을 때만 포함 (Firestore undefined 거부 방지)
-    if (event.creatorSchool === 'taeseong_middle' || event.creatorSchool === 'taeseong_high') {
-      cleanedEvent.creatorSchool = event.creatorSchool;
-    }
-    const docRef = await addDoc(collection(db, 'events'), cleanedEvent);
+    const docRef = await addDoc(collection(db, 'events'), toEventDoc(event));
     // Notify all users
     const dateStr = event.startDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
-    // 작성자 학교 기반 태그 (M/H)
-    const creatorTag = getCreatorTag({ creatorSchool: event.creatorSchool, school: schoolValue });
-    const tagPrefix = creatorTag ? `${creatorTag} ` : '';
+    const ask = event.responseType ? ' 응답 요청' : '';
     notifyAllUsers(
       'new_event',
-      `새 일정: ${tagPrefix}"${event.title}" (${dateStr})`,
+      `새 일정: ${creatorPrefix(event, schoolValue)}"${event.title}" (${dateStr})${ask}`,
       docRef.id,
       event.createdBy,
       schoolValue, // 해당 학교 사용자에게만 알림
     );
     return docRef.id;
+  },
+
+  addEventSeries: async (event, occurrences, repeat) => {
+    const schoolValue = event.school || 'all';
+    const seriesId = newSeriesId();
+    const firstId = doc(collection(db, 'events')).id;
+    const items = occurrences.map((occurrence, index) => ({
+      // 알림에서 첫 회차로 바로 갈 수 있도록 첫 문서의 ID를 미리 정한다
+      ref: index === 0 ? doc(db, 'events', firstId) : doc(collection(db, 'events')),
+      data: toEventDoc({ ...event, startDate: occurrence.start, endDate: occurrence.end, repeat, seriesId }),
+    }));
+    const saved = await commitInBatches(items, (batch, item) => batch.set(item.ref, item.data));
+    const first = occurrences[0].start;
+    const dateStr = first.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
+    const ask = event.responseType ? ' 응답 요청' : '';
+    // 회차마다 알리면 교사마다 알림이 수십 건 쌓인다. 묶음당 한 번만 보낸다.
+    notifyAllUsers(
+      'new_event',
+      `새 반복 일정: ${creatorPrefix(event, schoolValue)}"${event.title}" (${dateStr}부터, ${describeRepeat(repeat, first)}, ${saved}회)${ask}`,
+      firstId,
+      event.createdBy,
+      schoolValue,
+    );
+    return saved;
   },
 
   updateEvent: async (id, updates) => {
@@ -208,8 +260,44 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
     }
   },
 
+  updateEventSeries: async (event, scope, updates) => {
+    const members = seriesMembers(get().events, event, scope);
+    const newStart = updates.startDate ?? event.startDate;
+    const newEnd = updates.endDate ?? event.endDate;
+    const shift = newStart.getTime() - event.startDate.getTime();
+    const duration = newEnd.getTime() - newStart.getTime();
+    // 날짜를 옮겼으면 요일 지정 설명도 함께 옮긴다
+    const dayShift = Math.round(shift / DAY_MS);
+    const repeat = event.repeat ? shiftRepeatDays(event.repeat, dayShift) : null;
+    const { startDate: _start, endDate: _end, ...rest } = updates;
+
+    const fields: Record<string, unknown> = { updatedAt: serverTimestamp() };
+    for (const [key, value] of Object.entries(rest)) {
+      if (value !== undefined) fields[key] = value;
+    }
+    if (repeat) fields.repeat = repeat;
+
+    const saved = await commitInBatches(members, (batch, member) => {
+      const start = new Date(member.startDate.getTime() + shift);
+      batch.update(doc(db, 'events', member.id), {
+        ...fields,
+        startDate: Timestamp.fromDate(start),
+        endDate: Timestamp.fromDate(new Date(start.getTime() + duration)),
+      });
+    });
+    notifyAllUsers(
+      'event_updated',
+      `일정 수정: "${updates.title || event.title}" (반복 ${saved}회)`,
+      event.id,
+      event.createdBy,
+      updates.school ?? event.school,
+    );
+    return saved;
+  },
+
   deleteEvent: async (id) => {
     const event = get().events.find((e) => e.id === id);
+    if (event?.responseType) await deleteAllResponses(id);
     await deleteDoc(doc(db, 'events', id));
     // Notify all users
     if (event) {
@@ -221,6 +309,22 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
         event.school,
       );
     }
+  },
+
+  deleteEventSeries: async (event, scope) => {
+    const members = seriesMembers(get().events, event, scope);
+    for (const member of members) {
+      if (member.responseType) await deleteAllResponses(member.id);
+    }
+    const saved = await commitInBatches(members, (batch, member) => batch.delete(doc(db, 'events', member.id)));
+    notifyAllUsers(
+      'event_deleted',
+      `일정 삭제: "${event.title}" (반복 ${saved}회)`,
+      undefined,
+      event.createdBy,
+      event.school,
+    );
+    return saved;
   },
 
   updateChecklist: async (eventId, checklist) => {

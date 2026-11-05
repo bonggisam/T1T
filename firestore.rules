@@ -52,9 +52,30 @@ service cloud.firestore {
         && (resource.data.createdBy == request.auth.uid || isAdmin())
         && (!('school' in request.resource.data.diff(resource.data).affectedKeys())
             || request.resource.data.school in ['taeseong_middle', 'taeseong_high', 'all']);
+      // 읽음 표시 — 활성 교사는 자기 읽음 표시만 남긴다. 다른 필드와 남의 표시는 바꿀 수 없다.
+      allow update: if isActive()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy'])
+        && request.resource.data.readBy.diff(resource.data.get('readBy', {})).affectedKeys().hasOnly([request.auth.uid]);
       // DELETE: request.resource는 null이므로 diff() 호출 불가 — 별도 규칙
       allow delete: if isActive()
         && (resource.data.createdBy == request.auth.uid || isAdmin());
+    }
+
+    // 일정 응답 — 사람마다 한 건. 본인 것만 쓰고 활성 교사는 볼 수 있다. 사유 칸은 받지 않는다.
+    match /events/{eventId}/responses/{userId} {
+      allow read: if isActive();
+      allow create, update: if isActive() && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['userId', 'name', 'status', 'respondedAt'])
+        && request.resource.data.userId == userId
+        && request.resource.data.status in ['attend', 'absent', 'confirm']
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 50;
+      // 본인 철회. 일정을 지우기 전 정리는 일정 작성자와 관리자가 한다.
+      allow delete: if isActive() && (
+        request.auth.uid == userId
+        || get(/databases/$(database)/documents/events/$(eventId)).data.createdBy == request.auth.uid
+        || isAdmin()
+      );
     }
 
     // Personal events

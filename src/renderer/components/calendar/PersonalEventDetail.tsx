@@ -7,7 +7,9 @@ import { showToast } from '../common/Toast';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useDisableClickThrough } from '../../hooks/useDisableClickThrough';
 import { PERSONAL_SUFFIX, CONFLICTING_PERSONAL_COLORS } from '../../utils/calendarHelpers';
-import type { PersonalEvent, ChecklistItem } from '@shared/types';
+import { describeRepeat } from '../../utils/repeat';
+import { SeriesScopeDialog } from './SeriesScopeDialog';
+import type { PersonalEvent, ChecklistItem, SeriesScope } from '@shared/types';
 
 interface PersonalEventDetailProps {
   event: PersonalEvent;
@@ -16,8 +18,13 @@ interface PersonalEventDetailProps {
 
 export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps) {
   const { user } = useAuthStore();
-  const { updatePersonalEvent, deletePersonalEvent } = usePersonalEventStore();
+  const { updatePersonalEvent, deletePersonalEvent, updatePersonalSeries, deletePersonalSeries, personalEvents } = usePersonalEventStore();
   const [editing, setEditing] = useState(false);
+  // 반복 일정을 고치거나 지울 때 범위를 묻는 동안의 동작
+  const [askScope, setAskScope] = useState<'edit' | 'delete' | null>(null);
+  const seriesEvents = event.seriesId ? personalEvents.filter((p) => p.seriesId === event.seriesId) : [];
+  const isSeries = seriesEvents.length > 1;
+  const followingCount = seriesEvents.filter((p) => p.startDate.getTime() >= event.startDate.getTime()).length;
   const [title, setTitle] = useState(event.title);
   const [description, setDescription] = useState(event.description);
   const [startDate, setStartDate] = useState(formatDTL(event.startDate));
@@ -110,16 +117,35 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
     if (isNaN(start.getTime()) || isNaN(end.getTime())) { showToast('날짜가 올바르지 않습니다', 'error'); return; }
     if (end < start) { showToast('종료 시간이 시작 시간보다 앞설 수 없습니다', 'error'); return; }
 
+    if (isSeries) {
+      setAskScope('edit');
+      return;
+    }
+    await saveWithScope('this');
+  }
+
+  async function saveWithScope(scope: SeriesScope) {
+    if (!user) return;
+    setAskScope(null);
     setSaving(true);
     try {
-      const r = await updatePersonalEvent(user.id, event.id, {
-        title: trimTitle,
+      const updates = {
+        title: title.trim().slice(0, 100),
         description: description.trim().slice(0, 1000),
-        startDate: start,
-        endDate: end,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
         color,
         checklist,
-      });
+      };
+      if (scope !== 'this') {
+        const { saved, googleFailed } = await updatePersonalSeries(user.id, event, scope, updates);
+        if (googleFailed > 0) showToast(`${saved}회 수정됨 — Google 동기화 실패 ${googleFailed}건`, 'error');
+        else showToast(`반복 일정 ${saved}회를 수정했습니다`);
+        setEditing(false);
+        setSaving(false);
+        return;
+      }
+      const r = await updatePersonalEvent(user.id, event.id, updates);
       if (r.googleSync === 'success') showToast('✅ 수정 + Google 동기화 완료', 'success');
       else if (r.googleSync === 'failed') showToast(`⚠️ 수정됨 — Google 동기화 실패: ${r.error || ''}`, 'error');
       else showToast('수정되었습니다');
@@ -133,9 +159,31 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
 
   async function handleDelete() {
     if (!user) return;
+    if (isSeries) {
+      setAskScope('delete');
+      return;
+    }
     if (!window.confirm(`개인 일정 "${event.title}"을(를) 삭제하시겠습니까?`)) return;
+    await deleteWithScope('this');
+  }
+
+  async function deleteWithScope(scope: SeriesScope) {
+    if (!user) return;
+    setAskScope(null);
     setDeleting(true);
     try {
+      if (scope !== 'this') {
+        const { deleted, failed } = await deletePersonalSeries(user.id, event, scope);
+        if (failed > 0) {
+          // 구글에서 지우지 못한 회차는 남아 있다. 창을 열어 두어 다시 시도할 수 있게 한다.
+          showToast(`${deleted}회 삭제, ${failed}회는 구글에서 지우지 못해 남겨 두었습니다`, 'error');
+        } else {
+          showToast(`반복 일정 ${deleted}회를 삭제했습니다`);
+          onClose();
+        }
+        setDeleting(false);
+        return;
+      }
       const r = await deletePersonalEvent(user.id, event.id);
       if (!r.deleted) {
         // Google 삭제 실패 → 로컬도 지우지 않음 (Google에 고아가 남아 다음 pull에서 중복으로 되살아나는 것 방지).
@@ -258,6 +306,14 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
               <span style={styles.label}>종료</span>
               <span style={styles.value}>{format(event.endDate, 'yyyy-MM-dd HH:mm', { locale: ko })}</span>
             </div>
+            {event.repeat && isSeries && (
+              <div style={styles.row}>
+                <span style={styles.label}>반복</span>
+                <span style={styles.value}>
+                  {describeRepeat(event.repeat, event.startDate)} · {seriesEvents.length - followingCount + 1}/{seriesEvents.length}회
+                </span>
+              </div>
+            )}
             {event.description && (
               <div style={{ ...styles.row, alignItems: 'flex-start' }}>
                 <span style={styles.label}>설명</span>
@@ -306,6 +362,15 @@ export function PersonalEventDetail({ event, onClose }: PersonalEventDetailProps
           </div>
         )}
       </div>
+      {askScope && (
+        <SeriesScopeDialog
+          action={askScope}
+          followingCount={followingCount}
+          allCount={seriesEvents.length}
+          onChoose={(scope) => (askScope === 'edit' ? saveWithScope(scope) : deleteWithScope(scope))}
+          onCancel={() => setAskScope(null)}
+        />
+      )}
     </div>
   );
 }

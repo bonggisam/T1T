@@ -15,7 +15,11 @@ import {
 import { db } from '../../utils/firebase';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
-import type { ChecklistItem, EventComment, EventCategory, School } from '@shared/types';
+import { Repeat } from 'lucide-react';
+import type { ChecklistItem, EventComment, EventCategory, ResponseType, School, SeriesScope } from '@shared/types';
+import { describeRepeat } from '../../utils/repeat';
+import { EventResponses } from './EventResponses';
+import { SeriesScopeDialog } from './SeriesScopeDialog';
 import { showToast } from '../common/Toast';
 import { getCreatorTag } from '../../utils/calendarHelpers';
 import { MentionInput, renderMentions, extractMentions } from '../common/MentionInput';
@@ -40,8 +44,14 @@ const CATEGORIES: { key: EventCategory; label: string }[] = [
 ];
 
 export function EventDetail() {
-  const { selectedEvent, setShowEventDetail, setSelectedEvent, deleteEvent, updateChecklist, markAsRead, updateEvent } = useCalendarStore();
+  const {
+    selectedEvent, setShowEventDetail, setSelectedEvent, deleteEvent, deleteEventSeries,
+    updateChecklist, markAsRead, updateEvent, updateEventSeries, events,
+  } = useCalendarStore();
   const { user } = useAuthStore();
+  // 반복 일정을 고치거나 지울 때 범위를 묻는 동안의 동작
+  const [askScope, setAskScope] = useState<'edit' | 'delete' | null>(null);
+  const [editResponseType, setEditResponseType] = useState<ResponseType | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showReadList, setShowReadList] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -124,6 +134,10 @@ export function EventDetail() {
   const totalCount = selectedEvent.checklist.length;
   const progress = totalCount > 0 ? Math.round((checkedCount / totalCount) * 100) : 0;
 
+  const seriesEvents = selectedEvent.seriesId ? events.filter((e) => e.seriesId === selectedEvent.seriesId) : [];
+  const isSeries = seriesEvents.length > 1;
+  const followingCount = seriesEvents.filter((e) => e.startDate.getTime() >= selectedEvent.startDate.getTime()).length;
+
   async function handleToggleCheck(item: ChecklistItem) {
     if (!canEdit) return;
     const updated = selectedEvent!.checklist.map((c) =>
@@ -142,10 +156,24 @@ export function EventDetail() {
       );
       if (!ok) return;
     }
+    if (isSeries) {
+      setAskScope('delete');
+      return;
+    }
+    await deleteWithScope('this');
+  }
+
+  async function deleteWithScope(scope: SeriesScope) {
+    setAskScope(null);
     setDeleting(true);
     try {
-      await deleteEvent(selectedEvent!.id);
-      showToast('일정이 삭제되었습니다');
+      if (scope === 'this') {
+        await deleteEvent(selectedEvent!.id);
+        showToast('일정이 삭제되었습니다');
+      } else {
+        const count = await deleteEventSeries(selectedEvent!, scope);
+        showToast(`반복 일정 ${count}회가 삭제되었습니다`);
+      }
       setShowEventDetail(false);
       setSelectedEvent(null);
       setEditing(false);
@@ -236,6 +264,7 @@ export function EventDetail() {
     setEditCategory(selectedEvent.category);
     setEditSchool(selectedEvent.school || 'all');
     setEditAllDay(selectedEvent.allDay);
+    setEditResponseType(selectedEvent.responseType ?? null);
     editStartedAtRef.current = selectedEvent.updatedAt instanceof Date
       ? new Date(selectedEvent.updatedAt.getTime())
       : null;
@@ -267,6 +296,19 @@ export function EventDetail() {
       }
     }
 
+    if (isSeries) {
+      setAskScope('edit');
+      return;
+    }
+    await saveWithScope('this');
+  }
+
+  async function saveWithScope(scope: SeriesScope) {
+    if (!selectedEvent) return;
+    setAskScope(null);
+    const trimTitle = editTitle.trim().slice(0, 100);
+    const start = new Date(editStart);
+    const end = new Date(editEnd);
     setSaving(true);
     try {
       const updates = {
@@ -277,11 +319,17 @@ export function EventDetail() {
         category: editCategory,
         school: editSchool,
         allDay: editAllDay,
+        responseType: editResponseType,
       };
-      await updateEvent(selectedEvent.id, updates);
+      if (scope === 'this') {
+        await updateEvent(selectedEvent.id, updates);
+        showToast('일정이 수정되었습니다');
+      } else {
+        const count = await updateEventSeries(selectedEvent, scope, updates);
+        showToast(`반복 일정 ${count}회가 수정되었습니다`);
+      }
       // 편집 후 selectedEvent 갱신 (updatedAt도 현재 시각으로)
       setSelectedEvent({ ...selectedEvent, ...updates, updatedAt: new Date() });
-      showToast('일정이 수정되었습니다');
       setEditing(false);
     } catch (err) {
       showToast('수정에 실패했습니다', 'error');
@@ -337,6 +385,16 @@ export function EventDetail() {
               <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>~</span>
               <input type="datetime-local" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} style={styles.editDateInput} />
             </div>
+            <select
+              value={editResponseType ?? ''}
+              onChange={(e) => setEditResponseType((e.target.value || null) as ResponseType | null)}
+              style={styles.editSelect}
+              aria-label="응답 받기"
+            >
+              <option value="">응답 받지 않음</option>
+              <option value="attendance">참석·불참 받기</option>
+              <option value="confirm">확인 받기</option>
+            </select>
             <textarea
               value={editDesc}
               onChange={(e) => setEditDesc(e.target.value)}
@@ -367,6 +425,18 @@ export function EventDetail() {
               {selectedEvent.allDay && <span>종일</span>}
             </div>
 
+            {/* 반복 */}
+            {selectedEvent.repeat && isSeries && (
+              <div style={styles.repeatLine}>
+                <Repeat size={12} strokeWidth={2.4} />
+                <span>
+                  {describeRepeat(selectedEvent.repeat, new Date(selectedEvent.startDate))}
+                  {' · '}
+                  {seriesEvents.length - followingCount + 1}/{seriesEvents.length}회
+                </span>
+              </div>
+            )}
+
             {/* Description */}
             {selectedEvent.description && (
               <div style={styles.descSection}>
@@ -375,6 +445,9 @@ export function EventDetail() {
             )}
           </>
         )}
+
+        {/* 응답 */}
+        {!editing && <EventResponses event={selectedEvent} />}
 
         {/* Checklist */}
         {selectedEvent.checklist.length > 0 && (
@@ -529,11 +602,28 @@ export function EventDetail() {
           </div>
         )}
       </div>
+      {askScope && (
+        <SeriesScopeDialog
+          action={askScope}
+          followingCount={followingCount}
+          allCount={seriesEvents.length}
+          onChoose={(scope) => (askScope === 'edit' ? saveWithScope(scope) : deleteWithScope(scope))}
+          onCancel={() => setAskScope(null)}
+        />
+      )}
     </div>
   );
 }
 
 const styles: Record<string, React.CSSProperties> = {
+  repeatLine: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 10,
+    fontSize: 12,
+    color: 'var(--text-secondary)',
+  },
   overlay: {
     position: 'absolute',
     inset: 0,

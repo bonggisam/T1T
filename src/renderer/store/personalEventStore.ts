@@ -23,8 +23,10 @@ import {
 } from '../utils/calendarSync';
 import { cachePersonalEvents, getCachedPersonalEvents } from '../utils/offlineCache';
 import { loadSharedPushedGoogleIds, cleanupOrphanedT1TGoogleEvents, T1T_PUSHED_TITLE_RE, deriveGoogleEventId } from '../utils/sharedEventsGoogleSync';
+import { commitInBatches } from '../utils/firestoreBatch';
+import { newSeriesId, shiftRepeatDays, type Occurrence } from '../utils/repeat';
 import { useAuthStore } from './authStore';
-import type { PersonalEvent } from '@shared/types';
+import type { PersonalEvent, RepeatConfig, SeriesScope } from '@shared/types';
 import { startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 
 // ─── 모듈 상태 (스토어 밖) ───
@@ -50,6 +52,10 @@ interface PersonalEventState {
   addPersonalEvent: (userId: string, event: Omit<PersonalEvent, 'id'>) => Promise<{ id: string; googleSync: 'none' | 'success' | 'failed'; error?: string }>;
   updatePersonalEvent: (userId: string, eventId: string, updates: Partial<PersonalEvent>) => Promise<{ googleSync: 'none' | 'success' | 'failed'; error?: string }>;
   deletePersonalEvent: (userId: string, eventId: string) => Promise<{ deleted: boolean; googleSync: 'none' | 'success' | 'failed'; error?: string }>;
+  /** 반복 개인 일정을 회차마다 한 문서로 저장한다. 구글에는 동기화 때 나누어 올린다. */
+  addPersonalSeries: (userId: string, event: Omit<PersonalEvent, 'id' | 'startDate' | 'endDate'>, occurrences: Occurrence[], repeat: RepeatConfig) => Promise<number>;
+  updatePersonalSeries: (userId: string, event: PersonalEvent, scope: Exclude<SeriesScope, 'this'>, updates: Partial<PersonalEvent>) => Promise<{ saved: number; googleFailed: number }>;
+  deletePersonalSeries: (userId: string, event: PersonalEvent, scope: Exclude<SeriesScope, 'this'>) => Promise<{ deleted: number; failed: number }>;
   cleanup: () => void;
   allPersonalEvents: () => PersonalEvent[];
 }
@@ -96,6 +102,8 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
           externalId: data.externalId || null,
           checklist: data.checklist || [],
           color: data.color || '#2ECC71',
+          repeat: data.repeat || null,
+          seriesId: data.seriesId || null,
         };
       });
       set({ personalEvents: events });
@@ -344,6 +352,64 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
     }
     await deleteDoc(doc(db, 'personal_events', userId, 'events', eventId));
     return { deleted: true, googleSync: 'none' };
+  },
+
+  addPersonalSeries: async (userId, event, occurrences, repeat) => {
+    const seriesId = newSeriesId();
+    const eventsCollection = collection(db, 'personal_events', userId, 'events');
+    const saved = await commitInBatches(occurrences, (batch, occurrence) => {
+      batch.set(doc(eventsCollection), {
+        ...event,
+        externalId: null,
+        repeat,
+        seriesId,
+        startDate: Timestamp.fromDate(occurrence.start),
+        endDate: Timestamp.fromDate(occurrence.end),
+      });
+    });
+    // 구글에는 한꺼번에 보내지 않는다. 동기화의 재푸시가 고정 ID로 몇 건씩 올리고, 막혀도 나중에 다시 시도한다.
+    get().syncExternalCalendars().catch((err) => console.warn('[PersonalEventStore] Series sync failed:', err));
+    return saved;
+  },
+
+  updatePersonalSeries: async (userId, event, scope, updates) => {
+    const members = get().personalEvents.filter((p) => (
+      p.seriesId === event.seriesId && (scope === 'all' || p.startDate.getTime() >= event.startDate.getTime())
+    ));
+    const newStart = updates.startDate ?? event.startDate;
+    const newEnd = updates.endDate ?? event.endDate;
+    const shift = newStart.getTime() - event.startDate.getTime();
+    const duration = newEnd.getTime() - newStart.getTime();
+    const dayShift = Math.round(shift / (24 * 60 * 60 * 1000));
+    const repeat = event.repeat ? shiftRepeatDays(event.repeat, dayShift) : null;
+    let googleFailed = 0;
+    // 건마다 구글 복사본도 고치므로 차례로 처리한다
+    for (const member of members) {
+      const start = new Date(member.startDate.getTime() + shift);
+      const result = await get().updatePersonalEvent(userId, member.id, {
+        ...updates,
+        repeat,
+        startDate: start,
+        endDate: new Date(start.getTime() + duration),
+      });
+      if (result.googleSync === 'failed') googleFailed += 1;
+    }
+    return { saved: members.length, googleFailed };
+  },
+
+  deletePersonalSeries: async (userId, event, scope) => {
+    const members = get().personalEvents.filter((p) => (
+      p.seriesId === event.seriesId && (scope === 'all' || p.startDate.getTime() >= event.startDate.getTime())
+    ));
+    let deleted = 0;
+    let failed = 0;
+    // 구글에서 지우지 못한 회차는 남겨 둔다. 고아가 다시 나타나는 것을 막는 단건 삭제 규칙과 같다.
+    for (const member of members) {
+      const result = await get().deletePersonalEvent(userId, member.id);
+      if (result.deleted) deleted += 1;
+      else failed += 1;
+    }
+    return { deleted, failed };
   },
 
   cleanup: () => {

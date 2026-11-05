@@ -5,6 +5,10 @@ import { useCalendarStore } from '../../store/calendarStore';
 import { showToast } from '../common/Toast';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useDisableClickThrough } from '../../hooks/useDisableClickThrough';
+import { expandOccurrences } from '../../utils/repeat';
+import { isGoogleConnected } from '../../utils/calendarSync';
+import { RepeatPicker, repeatProblem } from './RepeatPicker';
+import type { RepeatConfig } from '@shared/types';
 
 // 개인 일정용 색상 — 학교 색(태성중 emerald, 태성고 violet)과 겹치지 않는 톤만 포함
 const COLOR_OPTIONS = [
@@ -23,7 +27,7 @@ interface PersonalEventModalProps {
 }
 
 export function PersonalEventModal({ onClose }: PersonalEventModalProps) {
-  const { addPersonalEvent } = usePersonalEventStore();
+  const { addPersonalEvent, addPersonalSeries } = usePersonalEventStore();
   const { user } = useAuthStore();
   const { selectedDate } = useCalendarStore();
 
@@ -41,6 +45,7 @@ export function PersonalEventModal({ onClose }: PersonalEventModalProps) {
   // 기본 색 = 사용자의 프로필 색 (없으면 파랑 — 학교 색과 안 겹침)
   const [color, setColor] = useState(user?.profileColor || '#4A90E2');
   const [saving, setSaving] = useState(false);
+  const [repeat, setRepeat] = useState<RepeatConfig | null>(null);
 
   // ESC 키로 닫기
   useEscapeKey(onClose);
@@ -63,18 +68,35 @@ export function PersonalEventModal({ onClose }: PersonalEventModalProps) {
     if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
     if (end < start) { showToast('종료 시간이 시작 시간보다 앞설 수 없습니다.', 'error'); return; }
 
+    const problem = repeatProblem(start, end, repeat);
+    if (problem) { showToast(problem, 'error'); return; }
+
     setSaving(true);
     try {
-      const result = await addPersonalEvent(user.id, {
+      const base = {
         title: trimTitle,
         description: trimDesc,
-        startDate: start,
-        endDate: end,
         allDay: false, // 개인 일정은 기본 시간 지정
-        source: 'local',
+        source: 'local' as const,
         externalId: null,
         checklist: [],
         color,
+      };
+      const occurrences = repeat ? expandOccurrences(start, end, repeat).occurrences : [];
+      if (repeat && occurrences.length > 1) {
+        const count = await addPersonalSeries(user.id, base, occurrences, repeat);
+        showToast(isGoogleConnected()
+          ? `반복 개인 일정 ${count}회를 추가했습니다. 구글 캘린더에는 차례로 올라갑니다`
+          : `반복 개인 일정 ${count}회를 추가했습니다`);
+        onClose();
+        setSaving(false);
+        return;
+      }
+      // 맞는 날이 하루뿐이면 반복이 아니다. 그날 한 번으로 저장한다.
+      const result = await addPersonalEvent(user.id, {
+        ...base,
+        startDate: occurrences[0]?.start ?? start,
+        endDate: occurrences[0]?.end ?? end,
       });
       // Google Calendar 동기화 상태에 따라 명확한 피드백
       if (result.googleSync === 'success') {
@@ -182,6 +204,8 @@ export function PersonalEventModal({ onClose }: PersonalEventModalProps) {
               })}
             </div>
           </div>
+
+          <RepeatPicker start={new Date(startDate)} end={new Date(endDate)} value={repeat} onChange={setRepeat} />
 
           <textarea
             placeholder="메모 (선택)"

@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
-import type { EventCategory, ChecklistItem, School } from '@shared/types';
+import type { EventCategory, ChecklistItem, RepeatConfig, ResponseType, School } from '@shared/types';
 import { showToast } from '../common/Toast';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useDisableClickThrough } from '../../hooks/useDisableClickThrough';
 import { parseNaturalDate, stripDateText } from '../../utils/naturalDateParse';
+import { expandOccurrences } from '../../utils/repeat';
+import { RepeatPicker, repeatProblem } from './RepeatPicker';
 
 const CATEGORIES: { key: EventCategory; label: string }[] = [
   { key: 'event', label: '행사' },
@@ -17,7 +19,7 @@ const CATEGORIES: { key: EventCategory; label: string }[] = [
 ];
 
 export function EventModal() {
-  const { addEvent, setShowEventModal, selectedDate } = useCalendarStore();
+  const { addEvent, addEventSeries, setShowEventModal, selectedDate } = useCalendarStore();
   const { user } = useAuthStore();
   const { viewingSchool, setViewingSchool } = useUIStore();
 
@@ -51,6 +53,8 @@ export function EventModal() {
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [newCheckItem, setNewCheckItem] = useState('');
   const [saving, setSaving] = useState(false);
+  const [repeat, setRepeat] = useState<RepeatConfig | null>(null);
+  const [responseType, setResponseType] = useState<ResponseType | null>(null);
 
   // ESC 키로 닫기 (캡처 우선)
   useEscapeKey(() => setShowEventModal(false));
@@ -113,10 +117,13 @@ export function EventModal() {
     if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
     if (end < start) { showToast('종료 시간이 시작 시간보다 앞설 수 없습니다.', 'error'); return; }
 
+    const problem = repeatProblem(start, end, repeat);
+    if (problem) { showToast(problem, 'error'); return; }
+
     // 시간 겹침 검사 제거 — 같은 시간대 다중 일정 허용
     setSaving(true);
     try {
-      await addEvent({
+      const base = {
         title: trimTitle,
         description: trimDesc,
         startDate: start,
@@ -129,10 +136,22 @@ export function EventModal() {
         adminName: user.name,
         adminColor: user.profileColor || '#4A90E2',
         repeat: null,
+        responseType,
         attachments: [],
         checklist,
         readBy: {},
-      });
+      };
+      const occurrences = repeat ? expandOccurrences(start, end, repeat).occurrences : [];
+      let count = 1;
+      if (repeat && occurrences.length > 1) {
+        count = await addEventSeries(base, occurrences, repeat);
+      } else {
+        // 맞는 날이 하루뿐이면 반복이 아니다. 그날 한 번으로 저장한다.
+        await addEvent(occurrences.length === 1
+          ? { ...base, startDate: occurrences[0].start, endDate: occurrences[0].end }
+          : base);
+      }
+      const saved = count > 1 ? `반복 일정 ${count}회가 등록되었습니다` : '일정이 등록되었습니다';
       // 등록한 일정이 현재 뷰에서 안 보이면 자동으로 보이는 뷰로 전환
       // (e.g. 태성중 뷰 + 태성고 일정 등록 시 → 전체 뷰로 전환)
       const visibleInCurrentView =
@@ -141,15 +160,16 @@ export function EventModal() {
         scope === viewingSchool;
       if (!visibleInCurrentView) {
         setViewingSchool('all');
-        showToast('일정이 등록되었습니다 — 전체 뷰로 전환합니다', 'success');
+        showToast(`${saved} — 전체 뷰로 전환합니다`, 'success');
       } else {
-        showToast('일정이 등록되었습니다');
+        showToast(saved);
       }
       setShowEventModal(false);
     } catch (err) {
       console.error('Failed to add event:', err);
       const msg = err instanceof Error ? err.message : '일정 등록에 실패했습니다';
-      showToast(`❌ ${msg}`, 'error');
+      const savedCount = (err as { savedCount?: number }).savedCount;
+      showToast(savedCount ? `❌ ${savedCount}회까지만 저장되었습니다: ${msg}` : `❌ ${msg}`, 'error');
     }
     setSaving(false);
   }
@@ -319,6 +339,22 @@ export function EventModal() {
             </div>
           )}
 
+          <RepeatPicker start={new Date(startDate)} end={new Date(endDate)} value={repeat} onChange={setRepeat} />
+
+          <div style={styles.responseRow}>
+            <span style={styles.responseLabel}>응답</span>
+            <select
+              value={responseType ?? ''}
+              onChange={(e) => setResponseType((e.target.value || null) as ResponseType | null)}
+              style={{ ...styles.select, flex: 1 }}
+              aria-label="응답 받기"
+            >
+              <option value="">받지 않음</option>
+              <option value="attendance">참석·불참 받기</option>
+              <option value="confirm">확인 받기</option>
+            </select>
+          </div>
+
           <textarea
             placeholder="상세 설명 (선택)"
             value={description}
@@ -362,6 +398,18 @@ export function EventModal() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
+  responseRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+  },
+  responseLabel: {
+    flexShrink: 0,
+    width: 40,
+    fontSize: 12,
+    fontWeight: 600,
+    color: 'var(--text-secondary)',
+  },
   overlay: {
     position: 'absolute',
     inset: 0,

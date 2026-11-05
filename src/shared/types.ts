@@ -70,6 +70,10 @@ export interface CalendarEvent {
   adminName?: string;
   adminColor: string;
   repeat: RepeatConfig | null;
+  /** 같은 반복으로 만든 회차를 묶는 값. 없으면 한 번뿐인 일정 */
+  seriesId?: string | null;
+  /** 응답을 받는 일정이면 그 종류 */
+  responseType?: ResponseType | null;
   attachments: Attachment[];
   checklist: ChecklistItem[];
   readBy: Record<string, ReadReceipt>; // userId -> { name, readAt }
@@ -80,14 +84,32 @@ export interface CalendarEvent {
 export type EventCategory = 'event' | 'meeting' | 'deadline' | 'notice' | 'other';
 
 /**
- * 반복 일정 설정 (아직 UI 미노출 — 향후 구현 예정).
- * CalendarEvent.repeat은 항상 null로 저장되며, UI에서 편집 불가.
+ * 반복 규칙. 표시와 다시 계산에 쓰는 설명이고, 일정 자체는 회차마다 문서 하나로 저장한다.
+ * 구글 동기화가 문서 단위이고 고정 ID로 중복을 막으므로, 회차를 문서로 두면 그 구조를 그대로 쓴다.
  */
 export interface RepeatConfig {
-  type: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
+  /** weekdays=평일 매일, weekly=요일 지정, monthly=매월 같은 날, monthlyNth=매월 N째 요일 */
+  type: 'weekdays' | 'weekly' | 'monthly' | 'monthlyNth';
+  /** weekly에서 몇 주마다인지. 1=매주, 2=격주 */
   interval: number;
-  endDate?: Date;
+  /** 마지막 날 (포함, yyyy-MM-dd) */
+  until: string;
   daysOfWeek?: number[]; // 0=Sun, 6=Sat
+  skipHolidays: boolean;
+}
+
+/** 수정, 삭제를 적용할 회차 범위 */
+export type SeriesScope = 'this' | 'following' | 'all';
+
+/** attendance=참석·불참, confirm=확인 */
+export type ResponseType = 'attendance' | 'confirm';
+export type ResponseStatus = 'attend' | 'absent' | 'confirm';
+
+export interface EventResponse {
+  userId: string;
+  name: string;
+  status: ResponseStatus;
+  respondedAt: Date;
 }
 
 export interface Attachment {
@@ -117,6 +139,8 @@ export interface PersonalEvent {
   externalId: string | null;
   checklist: ChecklistItem[];
   color: string;
+  repeat?: RepeatConfig | null;
+  seriesId?: string | null;
 }
 
 // Todos
