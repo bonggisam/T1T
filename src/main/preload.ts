@@ -21,6 +21,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('widget-mode-changed', listener);
     return () => ipcRenderer.removeListener('widget-mode-changed', listener);
   },
+  onSystemWoke: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('system:woke', listener);
+    return () => ipcRenderer.removeListener('system:woke', listener);
+  },
   onClickThroughChanged: (callback: (enabled: boolean) => void) => {
     const listener = (_event: any, enabled: boolean) => callback(enabled);
     ipcRenderer.on('click-through-changed', listener);

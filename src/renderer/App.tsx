@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from './store/authStore';
 import { useCalendarStore } from './store/calendarStore';
 import { useNotificationStore } from './store/notificationStore';
@@ -209,6 +209,45 @@ export function App() {
     return () => clearTimeout(t);
   }, [user?.id, user?.school, sharedEvents]);
 
+  // 날짜가 바뀌거나 절전에서 돌아오면 오늘 표시와 일정을 새로 맞춘다.
+  // 달력은 켜 둔 채 며칠씩 지나가므로, 자정 넘어 옛 날짜가 오늘로 남지 않아야 한다.
+  const [dayKey, setDayKey] = useState(() => new Date().toDateString());
+  const dayKeyRef = useRef(dayKey);
+  useEffect(() => {
+    const refreshDay = () => {
+      const now = new Date();
+      const next = now.toDateString();
+      if (dayKeyRef.current === next) return;
+      const calendar = useCalendarStore.getState();
+      // 오늘을 보고 있던 사람만 새 날짜로 옮긴다. 다른 날을 보던 사람의 화면은 건드리지 않는다.
+      if (calendar.selectedDate.toDateString() === dayKeyRef.current) {
+        calendar.setSelectedDate(now);
+        calendar.setCurrentMonth(now);
+      }
+      dayKeyRef.current = next;
+      setDayKey(next);
+    };
+    const timer = setInterval(refreshDay, 60 * 1000);
+    const unsubscribe = window.electronAPI?.onSystemWoke(() => {
+      refreshDay();
+      if (useAuthStore.getState().user?.status === 'active') {
+        usePersonalEventStore.getState().syncExternalCalendars().catch(() => {});
+      }
+    });
+    return () => {
+      clearInterval(timer);
+      unsubscribe?.();
+    };
+  }, []);
+
+  // 저장된 항상 위 설정을 적용. 위젯 모드에서는 메인 프로세스가 기억만 하고 해제할 때 쓴다.
+  const savedAlwaysOnTop = user?.settings?.alwaysOnTop;
+  useEffect(() => {
+    if (typeof savedAlwaysOnTop !== 'boolean') return;
+    window.electronAPI?.toggleAlwaysOnTop(savedAlwaysOnTop)
+      .catch((err) => console.warn('[Window] toggleAlwaysOnTop failed:', err));
+  }, [savedAlwaysOnTop]);
+
   // Apply saved schedule font size on startup
   useEffect(() => {
     const savedFontSize = localStorage.getItem('tonet-schedule-font-size');
@@ -383,7 +422,7 @@ export function App() {
           ) : showLibrary ? (
             <LibraryView onBack={() => setActiveTab(null)} />
           ) : (
-            <Calendar onAddPersonalEvent={() => setShowPersonalModal(true)} />
+            <Calendar key={dayKey} onAddPersonalEvent={() => setShowPersonalModal(true)} />
           )}
         </ErrorBoundary>
         {/* 설정은 모달 오버레이로 표시 — 메인 콘텐츠를 가리지 않음 */}

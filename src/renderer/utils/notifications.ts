@@ -123,13 +123,28 @@ export function playNotificationSound(): void {
  * Show desktop notification (works in Electron)
  */
 export function showDesktopNotification(title: string, body: string): void {
-  if ('Notification' in window && Notification.permission === 'granted') {
-    new Notification(title, { body, icon: '/favicon.ico' });
-  } else if ('Notification' in window && Notification.permission !== 'denied') {
+  // OS 알림은 막힐 수 있다: 서명 안 된 Mac 앱(Electron 42+), 방해 금지, 발표 중. 실패하면 앱 안에 표시한다.
+  const fallback = () => {
+    import('../components/common/Toast')
+      .then(({ showToast }) => showToast(`${title}: ${body}`, 'info'))
+      .catch(() => {});
+  };
+  if (!('Notification' in window)) { fallback(); return; }
+  const show = () => {
+    try {
+      const n = new Notification(title, { body });
+      n.onerror = fallback;
+    } catch {
+      fallback();
+    }
+  };
+  if (Notification.permission === 'granted') {
+    show();
+  } else if (Notification.permission !== 'denied') {
     Notification.requestPermission().then((perm) => {
-      if (perm === 'granted') {
-        new Notification(title, { body });
-      }
-    });
+      if (perm === 'granted') show(); else fallback();
+    }).catch(fallback);
+  } else {
+    fallback();
   }
 }

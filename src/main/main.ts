@@ -6,6 +6,8 @@ import * as fs from 'fs';
 import * as dotenv from 'dotenv';
 import { autoUpdater } from 'electron-updater';
 import { comciganService } from './comcigan';
+import { defaultBounds, isReachable, parseSavedState, resolveBounds } from './windowPlacement';
+import type { DisplayArea, Rect, SavedWindowState } from './windowPlacement';
 import * as macUpdater from './macUpdater';
 import { GOOGLE_CLIENT_ID as INJECTED_GOOGLE_ID, GOOGLE_CLIENT_SECRET as INJECTED_GOOGLE_SECRET } from './credentials.gen';
 
@@ -38,6 +40,12 @@ let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isClickThrough = false;
 let isWidgetMode = true; // Desktop widget mode (pinned behind windows)
+/** 사용자가 고른 항상 위 설정. 위젯 모드를 끄면 이 값으로 돌아간다 */
+let alwaysOnTopPref = true;
+/** 사용자가 직접 누른 최소화인지 구분 (Win+D 복귀와 구별) */
+let userMinimizing = false;
+/** 화면 구성이 바뀌는 동안에는 창 위치를 저장하지 않는다 */
+let suspendSaveUntil = 0;
 let updaterInterval: NodeJS.Timeout | null = null;
 // 진짜 종료 중인지 — 창 close 핸들러는 평소엔 hide(트레이 상주)로 바꾸지만, 이 플래그가 서면 그대로 닫힌다.
 // app.quit()은 창 하나라도 close를 preventDefault하면 취소되므로, 이 플래그 없이는 어떤 경로로도 종료가 완료되지 않았다.
@@ -105,63 +113,79 @@ function toggleClickThrough(): void {
 
 const isDev = !app.isPackaged;
 
-// macOS 26 (Tahoe) beta workaround: disable sandbox to prevent V8 crash
-// TODO: Electron 42+ 업그레이드 시 이 플래그가 여전히 필요한지 재검증 필요
+// macOS에서 투명 창 표시 안정성을 위해 GPU 가속을 끈다.
+// 예전에 함께 쓰던 no-sandbox는 Electron 45에서 필요 없어 제거했다. 외부 페이지를 띄우는 앱이라 샌드박스를 유지한다.
 if (process.platform === 'darwin') {
-  app.commandLine.appendSwitch('no-sandbox');
   app.commandLine.appendSwitch('disable-gpu');
 }
 
 // 창 위치/크기 영구 저장 (userData/window-state.json)
-interface WindowState { x?: number; y?: number; width: number; height: number; }
 function getWindowStatePath(): string {
   return path.join(app.getPath('userData'), 'window-state.json');
 }
-function loadWindowState(): WindowState | null {
+function loadWindowState(): SavedWindowState | null {
   try {
     const p = getWindowStatePath();
-    if (fs.existsSync(p)) {
-      const data = JSON.parse(fs.readFileSync(p, 'utf-8'));
-      if (typeof data.width === 'number' && typeof data.height === 'number') {
-        // 너무 작거나 비정상 크기는 기본값으로 fallback
-        const MIN_W = 320, MIN_H = 280, MAX_W = 4000, MAX_H = 4000;
-        if (data.width < MIN_W || data.height < MIN_H) return null;
-        if (data.width > MAX_W || data.height > MAX_H) return null;
-        return data;
-      }
-    }
+    if (fs.existsSync(p)) return parseSavedState(JSON.parse(fs.readFileSync(p, 'utf-8')));
   } catch (e) { console.warn('[Window] loadState failed:', e); }
   return null;
 }
 function saveWindowState(): void {
   try {
     if (!mainWindow || mainWindow.isDestroyed()) return;
+    // 모니터를 뺀 직후에 끌려온 위치로 저장 위치를 덮어쓰면, 다시 꽂아도 원래 자리로 못 돌아간다
+    if (Date.now() < suspendSaveUntil) return;
     const b = mainWindow.getBounds();
-    fs.writeFileSync(getWindowStatePath(), JSON.stringify(b), 'utf-8');
+    const state: SavedWindowState = { ...b, displayId: screen.getDisplayMatching(b).id };
+    fs.writeFileSync(getWindowStatePath(), JSON.stringify(state), 'utf-8');
   } catch (e) { console.warn('[Window] saveState failed:', e); }
+}
+function currentDisplays(): DisplayArea[] {
+  return screen.getAllDisplays().map((d) => ({ id: d.id, workArea: d.workArea as Rect }));
+}
+function setWindowBounds(bounds: Rect): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  // 위젯 모드에서는 크기 조절이 꺼져 있어 setBounds가 크기를 무시할 수 있다
+  const wasResizable = mainWindow.isResizable();
+  if (!wasResizable) mainWindow.setResizable(true);
+  mainWindow.setBounds(bounds);
+  if (!wasResizable) mainWindow.setResizable(false);
+}
+/** 화면 구성이 바뀐 뒤: 저장 자리가 다시 보이면 그리로, 창이 안 보이면 화면 안으로 */
+function repositionForDisplays(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const displays = currentDisplays();
+  const primary = screen.getPrimaryDisplay().workArea as Rect;
+  const target = resolveBounds(loadWindowState(), displays, primary);
+  const now = mainWindow.getBounds();
+  if (!isReachable(now, displays) || isReachable(target, displays)) {
+    if (target.x !== now.x || target.y !== now.y || target.width !== now.width || target.height !== now.height) {
+      setWindowBounds(target);
+    }
+  }
+}
+/** 창을 잃어버렸을 때 트레이에서 부르는 복구 */
+function resetWindowPosition(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  suspendSaveUntil = 0;
+  setWindowBounds(defaultBounds(screen.getPrimaryDisplay().workArea as Rect));
+  mainWindow.show();
+  mainWindow.focus();
+  saveWindowState();
 }
 
 function createWindow(): void {
-  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
-
   // 아이콘 경로 — 개발/패키지(asar) 모두 동일 (__dirname 상대)
   const iconPath = path.join(__dirname, '../../assets', process.platform === 'win32' ? 'icon.ico' : 'icon.icns');
 
-  // 저장된 창 상태 복원 (없으면 기본값)
-  const savedState = loadWindowState();
-  const initX = savedState?.x !== undefined ? savedState.x : screenWidth - 440;
-  const initY = savedState?.y !== undefined ? savedState.y : 20;
-  const initWidth = savedState?.width || 420;
-  const initHeight = savedState?.height || 520;
-  // 화면 밖으로 나간 좌표 안전 처리
-  const safeX = Math.max(0, Math.min(initX, screenWidth - 100));
-  const safeY = Math.max(0, Math.min(initY, screenHeight - 100));
+  // 저장된 창 상태 복원. 보조 모니터 위치는 유지하고, 사라진 모니터면 화면 안으로 옮긴다
+  const initial = resolveBounds(loadWindowState(), currentDisplays(), screen.getPrimaryDisplay().workArea as Rect);
 
   mainWindow = new BrowserWindow({
-    width: initWidth,
-    height: initHeight,
-    x: safeX,
-    y: safeY,
+    width: initial.width,
+    height: initial.height,
+    x: initial.x,
+    y: initial.y,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -191,6 +215,21 @@ function createWindow(): void {
   };
   mainWindow.on('resize', debouncedSave);
   mainWindow.on('move', debouncedSave);
+
+  // Win+D 등으로 위젯이 최소화되면 다시 띄운다. 직접 누른 최소화와 편집 모드는 건드리지 않는다.
+  if (process.platform === 'win32') {
+    let lastRestore = 0;
+    mainWindow.on('minimize', () => {
+      if (userMinimizing) { userMinimizing = false; return; }
+      if (!isWidgetMode || Date.now() - lastRestore < 1000) return;
+      lastRestore = Date.now();
+      setTimeout(() => {
+        if (!mainWindow || mainWindow.isDestroyed() || !isWidgetMode) return;
+        mainWindow.restore();
+        mainWindow.showInactive();
+      }, 150);
+    });
+  }
 
   // 페이지 로드 완료 시 한번에 표시 (깜빡임 없음)
   mainWindow.once('ready-to-show', () => {
@@ -247,10 +286,15 @@ function updateTrayMenu(): void {
       click: () => toggleWindow(),
     },
     {
+      label: '창을 화면 안으로 가져오기',
+      click: () => resetWindowPosition(),
+    },
+    {
       label: '항상 위',
       type: 'checkbox',
       checked: !!mainWindow?.isAlwaysOnTop(),
       click: (menuItem) => {
+        alwaysOnTopPref = menuItem.checked;
         mainWindow?.setAlwaysOnTop(menuItem.checked);
       },
     },
@@ -309,8 +353,8 @@ function applyWidgetMode(enabled: boolean): void {
     }
     mainWindow.blur();
   } else {
-    // Edit mode: interactive, on top, resizable
-    mainWindow.setAlwaysOnTop(true);
+    // Edit mode: interactive, resizable. 항상 위는 사용자 설정을 따른다
+    mainWindow.setAlwaysOnTop(alwaysOnTopPref);
     mainWindow.setSkipTaskbar(false);
     mainWindow.setResizable(true);
     mainWindow.focus();
@@ -320,7 +364,9 @@ function applyWidgetMode(enabled: boolean): void {
 // IPC Handlers
 function setupIPC(): void {
   ipcMain.handle('window:toggle-always-on-top', (_event, value: boolean) => {
-    mainWindow?.setAlwaysOnTop(value);
+    alwaysOnTopPref = !!value;
+    // 위젯 모드에서는 다른 창 뒤에 있어야 하므로 설정값만 기억하고 해제할 때 적용한다
+    if (!isWidgetMode) mainWindow?.setAlwaysOnTop(alwaysOnTopPref);
   });
 
   ipcMain.handle('window:set-opacity', (_event, opacity: number) => {
@@ -338,6 +384,7 @@ function setupIPC(): void {
   });
 
   ipcMain.handle('window:minimize', () => {
+    userMinimizing = true;
     mainWindow?.minimize();
   });
 
@@ -369,13 +416,10 @@ function setupIPC(): void {
     const { x, y, width, height } = bounds;
     if (![x, y, width, height].every((v) => typeof v === 'number' && Number.isFinite(v))) return;
     if (width <= 0 || height <= 0 || width > 10000 || height > 10000) return;
-    const { workAreaSize } = screen.getPrimaryDisplay();
-    const clampedX = Math.max(-width + 100, Math.min(Math.round(x), workAreaSize.width - 100));
-    const clampedY = Math.max(0, Math.min(Math.round(y), workAreaSize.height - 100));
-    const wasResizable = mainWindow.isResizable();
-    if (!wasResizable) mainWindow.setResizable(true);
-    mainWindow.setBounds({ x: clampedX, y: clampedY, width: Math.round(width), height: Math.round(height) });
-    if (!wasResizable) mainWindow.setResizable(false);
+    // 모니터마다 좌표계가 다르므로 주 모니터로 끌어오지 않고, 어느 화면에서도 잡을 수 없을 때만 옮긴다
+    const next = { x: Math.round(x), y: Math.round(y), width: Math.round(width), height: Math.round(height) };
+    const displays = currentDisplays();
+    setWindowBounds(isReachable(next, displays) ? next : resolveBounds({ ...next }, displays, screen.getPrimaryDisplay().workArea as Rect));
   });
 
   // 가장자리 드래그 리사이즈 — frameless+transparent 윈도우에서 OS 핸들이 안 보이는 문제 해결.
@@ -540,7 +584,6 @@ function setupIPC(): void {
     app.setLoginItemSettings({
       openAtLogin: enabled,
       // Windows에서는 트레이로 시작 옵션을 보낼 수 있음 (옵션)
-      openAsHidden: false,
     });
     return app.getLoginItemSettings().openAtLogin;
   });
@@ -1155,6 +1198,28 @@ app.whenReady().then(() => {
     // Comcigan 초기 fetch는 5초 더 지연 (네트워크 무거움)
     setTimeout(() => comciganService.init().catch(() => {}), 5000);
   }, 50);
+
+  // 화면 구성 변경: 모니터 연결, 해제, 해상도 변경
+  let displayDebounce: NodeJS.Timeout | null = null;
+  const onDisplayChanged = () => {
+    suspendSaveUntil = Date.now() + 3000;
+    if (displayDebounce) clearTimeout(displayDebounce);
+    displayDebounce = setTimeout(repositionForDisplays, 1000);
+  };
+  screen.on('display-added', onDisplayChanged);
+  screen.on('display-removed', onDisplayChanged);
+  screen.on('display-metrics-changed', onDisplayChanged);
+
+  // 절전 복귀, 화면 잠금 해제: 창 위치와 날짜, 시간표를 다시 맞춘다
+  const onWake = () => {
+    setTimeout(() => {
+      repositionForDisplays();
+      mainWindow?.webContents.send('system:woke');
+      comciganService.fetchTimetable().catch(() => {});
+    }, 1500);
+  };
+  powerMonitor.on('resume', onWake);
+  powerMonitor.on('unlock-screen', onWake);
 
   // Start in widget mode after window loads
   mainWindow?.webContents.on('did-finish-load', () => {
