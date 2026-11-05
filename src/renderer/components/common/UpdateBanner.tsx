@@ -83,6 +83,24 @@ export function UpdateBanner() {
         }
       }
     });
+    // 앱이 켜지고 곧바로 보낸 신호는 이 화면이 뜨기 전이라 받지 못한다. 지금 상태를 한 번 물어본다.
+    window.electronAPI?.updaterGetState?.().then((state) => {
+      if (!state || statusRef.current !== 'idle') return;
+      if (state.phase === 'available') {
+        setStatus('available');
+        setInfo({ version: state.version, manualOnly: !!state.manualOnly });
+      } else if (state.phase === 'downloading') {
+        setStatus('downloading');
+        setInfo({ percent: state.percent, transferred: state.transferred, total: state.total });
+      } else if (state.phase === 'downloaded') {
+        setStatus('downloaded');
+        setInfo({ idleMinutes: state.idleMinutes });
+      } else if (state.phase === 'error' && state.error) {
+        setStatus('error');
+        setInfo({ error: state.error });
+        setTimeout(() => setStatus('idle'), 12000);
+      }
+    }).catch(() => {});
     return cleanup;
   }, []);
 

@@ -309,6 +309,24 @@ export interface WeatherData {
   fetchedAt: string; // ISO
 }
 
+/** 업데이트 진행 상태. 화면이 늦게 떠도 알 수 있게 메인 프로세스가 들고 있다 */
+export interface UpdateState {
+  phase: 'idle' | 'available' | 'downloading' | 'downloaded' | 'error';
+  version?: string;
+  percent?: number;
+  transferred?: number;
+  total?: number;
+  manualOnly?: boolean;
+  idleMinutes?: number;
+  error?: string;
+  /** 마지막으로 확인한 시각 (ISO) */
+  checkedAt?: string;
+  /** GitHub에 올라온 최신 버전 */
+  latest?: string;
+  /** 마지막 확인이나 다운로드의 오류. 자동 확인 오류는 배너에 띄우지 않으므로 설정에서 보여 준다 */
+  checkError?: string;
+}
+
 // Electron API bridge
 export interface ElectronAPI {
   toggleAlwaysOnTop: (value: boolean) => Promise<void>;
@@ -337,6 +355,9 @@ export interface ElectronAPI {
   /** version은 받을 새 버전이 있을 때만 있다. latest는 GitHub에 올라온 최신 버전이다. */
   updaterCheck: () => Promise<{ ok: true; version?: string; latest?: string } | { ok: false; error: string }>;
   updaterOpenDownloadPage: () => Promise<{ ok: boolean; reason?: string }>;
+  updaterGetState: () => Promise<UpdateState>;
+  /** update.log 끝부분을 클립보드에 넣는다 */
+  updaterCopyLog: () => Promise<{ ok: boolean; lines: number }>;
   getAppVersion: () => Promise<string>;
   getAutoLaunch: () => Promise<boolean>;
   setAutoLaunch: (enabled: boolean) => Promise<boolean>;

@@ -6,6 +6,7 @@ import { AppearanceSettings } from './AppearanceSettings';
 import { CalendarSyncSettings } from './CalendarSyncSettings';
 import { ComciganSettings } from './ComciganSettings';
 import { Ic, type IconName } from '../common/Ic';
+import type { UpdateState } from '@shared/types';
 
 interface SettingsPanelProps {
   onClose: () => void;
@@ -19,6 +20,23 @@ const COLOR_PRESETS = [
 ];
 
 // (이전 모드에서 사용하던 리사이즈 폭/높이 상수 — 현재 모달 오버레이라 사용 안 함)
+
+function clockOf(iso: string | undefined): string {
+  if (!iso) return '';
+  const at = new Date(iso);
+  return Number.isNaN(at.getTime()) ? '' : `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+}
+
+/** 지금 업데이트가 어디까지 왔는지 한 줄로 */
+function describeUpdateState(state: UpdateState): string {
+  if (state.phase === 'downloading') return `v${state.version ?? state.latest ?? ''} 다운로드 중 ${state.percent ?? 0}%`;
+  if (state.phase === 'downloaded') return `v${state.version ?? state.latest ?? ''} 설치 준비 완료`;
+  if (state.phase === 'available') return `v${state.version ?? state.latest ?? ''} 다운로드 시작 중`;
+  if (state.error) return state.error;
+  if (state.checkError) return `마지막 확인 실패 (${clockOf(state.checkedAt)}): ${state.checkError}`;
+  if (state.checkedAt) return `마지막 확인 ${clockOf(state.checkedAt)}${state.latest ? ` · 최신 v${state.latest}` : ''}`;
+  return '';
+}
 
 export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const { user, logout, saveSettings } = useAuthStore();
@@ -35,9 +53,20 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [saveMsg, setSaveMsg] = useState('');
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [updateNote, setUpdateNote] = useState('');
+  const [updateState, setUpdateState] = useState<UpdateState | null>(null);
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
   const hasTimetable = useComciganStore((s) => !!s.config && !!s.timetableData);
+
+  // 창이 열려 있는 동안 업데이트 상태를 보여 준다. 자동 확인이 실패해도 배너를 띄우지 않으므로 여기서 알 수 있어야 한다.
+  useEffect(() => {
+    const refresh = () => {
+      window.electronAPI?.updaterGetState?.().then(setUpdateState).catch(() => {});
+    };
+    refresh();
+    const timer = setInterval(refresh, 2000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     window.electronAPI?.getAppVersion().then((v) => setAppVersion(v)).catch(() => {});
@@ -298,6 +327,33 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             </button>
           </div>
           {updateNote && <p role="status" style={styles.privacyNote}>{updateNote}</p>}
+          {updateState && describeUpdateState(updateState) && (
+            <p style={styles.privacyNote}>{describeUpdateState(updateState)}</p>
+          )}
+          <div style={styles.settingRow}>
+            <span style={styles.label}>업데이트가 안 될 때 기록 복사</span>
+            <button
+              onClick={async () => {
+                const { showToast } = await import('../common/Toast');
+                const result = await window.electronAPI?.updaterCopyLog?.();
+                showToast(
+                  result?.ok ? '업데이트 기록을 복사했습니다. 운영자에게 붙여 넣어 보내 주세요' : '아직 업데이트 기록이 없습니다',
+                  result?.ok ? 'success' : 'info',
+                );
+              }}
+              style={{
+                padding: '3px 10px',
+                fontSize: 'var(--fs-label)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 6,
+                background: 'transparent',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              복사
+            </button>
+          </div>
           <div style={styles.settingRow}>
             <span style={styles.label}>수동 다운로드 (자동 안 될 때)</span>
             <button

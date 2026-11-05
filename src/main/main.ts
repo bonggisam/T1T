@@ -1,10 +1,11 @@
-import { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, powerMonitor, screen, shell, type NativeImage } from 'electron';
+import { app, BrowserWindow, clipboard, Tray, Menu, globalShortcut, ipcMain, nativeImage, powerMonitor, screen, shell, type NativeImage } from 'electron';
 import * as http from 'http';
 import * as crypto from 'crypto';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as dotenv from 'dotenv';
-import { autoUpdater } from 'electron-updater';
+import { autoUpdater, CancellationToken } from 'electron-updater';
+import type { UpdateState } from '../shared/types';
 import { comciganService } from './comcigan';
 import { defaultBounds, isReachable, parseSavedState, resolveBounds } from './windowPlacement';
 import type { DisplayArea, Rect, SavedWindowState } from './windowPlacement';
@@ -568,9 +569,10 @@ function setupIPC(): void {
     let timer: NodeJS.Timeout | undefined;
     try {
       manualCheckInProgress = true;
+      stallNotified = false; // 직접 눌렀으면 다시 멈춰도 알린다
       // 학교망에서 응답이 오지 않으면 끝없이 기다리게 되므로 시간을 정해 둔다
       const result = await Promise.race([
-        autoUpdater.checkForUpdates(),
+        runUpdateCheck(),
         new Promise<never>((_resolve, reject) => {
           timer = setTimeout(() => reject(new Error('GitHub 응답이 없습니다. 네트워크를 확인해 주세요')), UPDATE_CHECK_TIMEOUT_MS);
         }),
@@ -585,10 +587,24 @@ function setupIPC(): void {
       };
     } catch (err: any) {
       console.warn('[Updater] Manual check failed:', err);
-      return { ok: false, error: err?.message || '업데이트 확인 실패 (네트워크 확인)' };
+      return { ok: false, error: firstLine(err?.message) || '업데이트 확인 실패 (네트워크 확인)' };
     } finally {
       if (timer) clearTimeout(timer);
       manualCheckInProgress = false;
+    }
+  });
+
+  ipcMain.handle('updater:get-state', () => updateState);
+
+  // 업데이트가 안 되는 PC에서 원인을 받아 보려고 기록 끝부분을 클립보드에 넣는다
+  ipcMain.handle('updater:copy-log', () => {
+    try {
+      const logPath = path.join(app.getPath('userData'), 'update.log');
+      const lines = fs.readFileSync(logPath, 'utf8').trim().split('\n').slice(-UPDATE_LOG_COPY_LINES);
+      clipboard.writeText([`T1T v${app.getVersion()} ${process.platform}`, ...lines].join('\n'));
+      return { ok: true, lines: lines.length };
+    } catch {
+      return { ok: false, lines: 0 };
     }
   });
 
@@ -620,6 +636,7 @@ let downloadRetries = 0;
 const MAX_DOWNLOAD_RETRIES = 3;
 /** 수동 확인에서 응답을 기다리는 시간 */
 const UPDATE_CHECK_TIMEOUT_MS = 30 * 1000;
+const UPDATE_LOG_COPY_LINES = 60;
 // macOS: 앱이 코드 서명되어 있지 않음(package.json build.mac.identity = "-").
 // Squirrel.Mac 자동 업데이트는 서명이 필수라 미서명 앱은 다운로드 단계에서 항상 실패한다.
 // → Mac은 자동 다운로드/설치를 끄고 "새 버전 있음 + 수동 다운로드" 안내만 한다.
@@ -639,6 +656,81 @@ let lastAvailableVersion: string | null = null; // 재시도 카운터는 "새" 
 let downloadedVersion: string | null = null;    // 다운로드 완료된 버전 — 30분 재확인이 배너를 'available'로 되돌리지 않도록
 let autoErrorNotified = false;                  // 자동 확인 중 비-네트워크 오류는 세션당 1회만 배너로 알림
 
+// 업데이트 진행 상태. 앱이 켜지고 약 1초면 새 버전을 찾는데 그때 화면은 아직 로그인을 확인하고 있어 신호를 놓친다.
+// 화면이 언제든 물어볼 수 있게 마지막 상태를 남겨 둔다.
+let updateState: UpdateState = { phase: 'idle' };
+
+/** 업데이트 오류문은 요청 정보까지 여러 줄이라 화면에는 첫 줄만 보여 준다 */
+function firstLine(message: string | undefined): string {
+  return (message ?? '').split('\n')[0].slice(0, 160);
+}
+
+/** 화면으로 신호를 보내면서 마지막 상태를 남긴다 */
+function sendUpdate(channel: string, data?: any): void {
+  switch (channel) {
+    case 'updater:available':
+      updateState = {
+        ...updateState,
+        phase: updateState.phase === 'downloading' ? 'downloading' : 'available',
+        version: data?.version,
+        manualOnly: !!data?.manualOnly,
+        error: undefined,
+      };
+      break;
+    case 'updater:progress':
+      updateState = { ...updateState, phase: 'downloading', percent: data?.percent, transferred: data?.transferred, total: data?.total, error: undefined };
+      break;
+    case 'updater:downloaded':
+      updateState = { ...updateState, phase: 'downloaded', idleMinutes: data?.idleMinutes, error: undefined };
+      break;
+    case 'updater:error':
+      updateState = { ...updateState, phase: updateState.phase === 'downloaded' ? 'downloaded' : 'error', error: typeof data === 'string' ? data : undefined };
+      break;
+    default:
+      break;
+  }
+  sendToRenderer(channel, data);
+}
+
+// 다운로드 멈춤 감시. 학교망에서 파일 서버가 막히면 오류 없이 영원히 기다리므로 시간을 재서 끊고 알린다.
+/** 받은 양이 이만큼 늘지 않으면 멈춘 것으로 본다 */
+const DOWNLOAD_STALL_MS = 90 * 1000;
+let stallTimer: NodeJS.Timeout | null = null;
+let stallNotified = false;
+let downloadCancel: CancellationToken | null = null;
+let lastLoggedPercent = -1;
+
+function disarmStallWatch(): void {
+  if (stallTimer) clearTimeout(stallTimer);
+  stallTimer = null;
+}
+
+function armStallWatch(): void {
+  if (UPDATER_MANUAL_ONLY) return; // Mac은 자체 설치기가 재시도한다
+  disarmStallWatch();
+  stallTimer = setTimeout(() => {
+    stallTimer = null;
+    logUpdate('warn', `다운로드가 ${DOWNLOAD_STALL_MS / 1000}초 동안 진행되지 않아 중단합니다`);
+    downloadCancel?.cancel();
+    downloadCancel = null;
+    lastLoggedPercent = -1;
+    updateState = { ...updateState, phase: 'error', percent: undefined };
+    if (!stallNotified) {
+      stallNotified = true;
+      sendUpdate('updater:error', '다운로드가 멈췄습니다. 학교망에서 GitHub 파일 서버가 막혔을 수 있습니다. 수동 다운로드를 이용해 주세요');
+    }
+  }, DOWNLOAD_STALL_MS);
+}
+
+/** 업데이트 확인. 자동 다운로드를 끊을 수 있도록 취소 토큰을 받아 둔다 */
+async function runUpdateCheck() {
+  const result = await autoUpdater.checkForUpdates();
+  if (result?.isUpdateAvailable && result.cancellationToken && !downloadCancel) {
+    downloadCancel = result.cancellationToken;
+  }
+  return result;
+}
+
 /**
  * 다운로드된 업데이트 설치.
  * reason='user'면 기존처럼 진행 창이 보이는 설치, 'idle'/'lock'(자리 비움)이면 조용히 설치 후 자동 재실행.
@@ -649,7 +741,7 @@ function installDownloadedUpdate(reason: 'user' | 'idle' | 'lock'): void {
   if (isMac ? !macDownloadedDmg : !downloadedVersion) return;
   installStarted = true;
   logUpdate('info', `install requested (${reason}) v${downloadedVersion}`);
-  sendToRenderer('updater:installing');
+  sendUpdate('updater:installing');
 
   setTimeout(() => {
     try {
@@ -666,7 +758,7 @@ function installDownloadedUpdate(reason: 'user' | 'idle' | 'lock'): void {
       installStarted = false;
       console.error('[Updater] install failed:', err);
       logUpdate('error', err);
-      sendToRenderer('updater:error', `설치 시작 실패: ${err?.message || '알 수 없음'} — 앱 종료 후 다시 실행하면 자동 적용됩니다.`);
+      sendUpdate('updater:error', `설치 시작 실패: ${err?.message || '알 수 없음'} — 앱 종료 후 다시 실행하면 자동 적용됩니다.`);
     }
   }, 500);
 }
@@ -688,16 +780,16 @@ async function startMacDownload(version: string, files: macUpdater.UpdateFileInf
   const file = macUpdater.pickDmg(files);
   if (!file) {
     logUpdate('warn', `no dmg for arch ${process.arch} in v${version}`);
-    sendToRenderer('updater:available', { version, manualOnly: true });
+    sendUpdate('updater:available', { version, manualOnly: true });
     return;
   }
   macDownloading = true;
   try {
-    const dmg = await macUpdater.downloadDmg(version, file, (p) => sendToRenderer('updater:progress', p));
+    const dmg = await macUpdater.downloadDmg(version, file, (p) => sendUpdate('updater:progress', p));
     macDownloadedDmg = dmg;
     downloadedVersion = version;
     logUpdate('info', `mac update-downloaded: v${version} → ${dmg}`);
-    sendToRenderer('updater:downloaded', { idleMinutes: AUTO_INSTALL_IDLE_SEC / 60 });
+    sendUpdate('updater:downloaded', { idleMinutes: AUTO_INSTALL_IDLE_SEC / 60 });
     scheduleAutoInstall();
   } catch (err: any) {
     logUpdate('error', err);
@@ -705,7 +797,7 @@ async function startMacDownload(version: string, files: macUpdater.UpdateFileInf
       downloadRetries++;
       setTimeout(() => { startMacDownload(version, files).catch(() => {}); }, downloadRetries * 20 * 1000);
     } else {
-      sendToRenderer('updater:error', `자동 업데이트 실패 — 설정에서 수동 다운로드를 이용해주세요. (${(err?.message || '').slice(0, 80)})`);
+      sendUpdate('updater:error', `자동 업데이트 실패 — 설정에서 수동 다운로드를 이용해주세요. (${(err?.message || '').slice(0, 80)})`);
     }
   } finally {
     macDownloading = false;
@@ -749,10 +841,11 @@ function setupAutoUpdater(): void {
   autoUpdater.disableWebInstaller = true;
 
   autoUpdater.on('checking-for-update', () => {
-    if (manualCheckInProgress) sendToRenderer('updater:checking');
+    if (manualCheckInProgress) sendUpdate('updater:checking');
   });
 
   autoUpdater.on('update-available', (info) => {
+    updateState = { ...updateState, checkedAt: new Date().toISOString(), latest: info.version, checkError: undefined };
     // 30분마다 재확인이 돌면 같은 버전으로 이 이벤트가 반복 발화한다.
     // 재시도 카운터를 매번 0으로 돌리면 3회 제한이 무의미해지므로 "새 버전"일 때만 리셋.
     if (info.version !== lastAvailableVersion) {
@@ -762,44 +855,65 @@ function setupAutoUpdater(): void {
     logUpdate('info', `update-available: v${info.version} (current v${app.getVersion()})`);
     // 이미 다운로드까지 끝난 버전이면 배너를 'available'로 되돌리지 않음 (설치 버튼 유지)
     if (downloadedVersion === info.version) return;
+    armStallWatch();
     // 미서명 Mac: Squirrel 대신 자체 설치기로 DMG 다운로드
     if (macSelfUpdate) {
-      sendToRenderer('updater:available', { version: info.version, releaseNotes: info.releaseNotes, manualOnly: false });
+      sendUpdate('updater:available', { version: info.version, releaseNotes: info.releaseNotes, manualOnly: false });
       startMacDownload(info.version, info.files as macUpdater.UpdateFileInfo[]).catch(() => {});
       return;
     }
     // Windows: 자동 다운로드 시작됨을 알리지만 진행률은 background
     // Mac: manualOnly → 배너가 "다운로드 페이지 열기" 버튼을 보여줌
-    sendToRenderer('updater:available', {
+    sendUpdate('updater:available', {
       version: info.version,
       releaseNotes: info.releaseNotes,
       manualOnly: UPDATER_MANUAL_ONLY,
     });
   });
 
-  autoUpdater.on('update-not-available', () => {
+  autoUpdater.on('update-not-available', (info) => {
+    updateState = { ...updateState, phase: 'idle', checkedAt: new Date().toISOString(), latest: info?.version, checkError: undefined, error: undefined };
     // 수동 확인일 때만 '최신 버전입니다' 표시 (자동 확인은 조용히)
-    if (manualCheckInProgress) sendToRenderer('updater:not-available');
+    if (manualCheckInProgress) sendUpdate('updater:not-available');
   });
 
   autoUpdater.on('download-progress', (progress) => {
-    sendToRenderer('updater:progress', {
+    armStallWatch();
+    // 어디까지 받았는지 기록에 남긴다 (25% 단위)
+    const step = Math.floor(progress.percent / 25) * 25;
+    if (step > lastLoggedPercent) {
+      lastLoggedPercent = step;
+      logUpdate('info', `download ${step}% (${Math.round(progress.transferred / 1048576)}MB)`);
+    }
+    sendUpdate('updater:progress', {
       percent: Math.round(progress.percent),
       transferred: progress.transferred,
       total: progress.total,
     });
   });
 
+  autoUpdater.on('update-cancelled', () => {
+    disarmStallWatch();
+    downloadCancel = null;
+    lastLoggedPercent = -1;
+  });
+
   autoUpdater.on('update-downloaded', (info) => {
+    disarmStallWatch();
+    downloadCancel = null;
     downloadedVersion = info?.version ?? lastAvailableVersion;
     logUpdate('info', `update-downloaded: v${downloadedVersion}`);
     // 다운로드 완료 → 자리 비움 시 자동 설치 예약 + 배너로 안내 (바로 설치 버튼도 제공)
-    sendToRenderer('updater:downloaded', { idleMinutes: AUTO_INSTALL_IDLE_SEC / 60 });
+    sendUpdate('updater:downloaded', { idleMinutes: AUTO_INSTALL_IDLE_SEC / 60 });
     scheduleAutoInstall();
   });
 
   autoUpdater.on('error', (err) => {
     const msg = err?.message || '';
+    disarmStallWatch();
+    downloadCancel = null;
+    updateState = { ...updateState, checkedAt: new Date().toISOString(), checkError: firstLine(msg) };
+    logUpdate('error', `updater error: ${msg.slice(0, 300)}`);
     // 진단용 — 업데이트 실패 원인 추적 (crash.log에 기록)
     logCrash('updater-error', err);
     // 다운로드/체크섬 관련 에러면 자동 재시도 (지수 백오프).
@@ -809,21 +923,25 @@ function setupAutoUpdater(): void {
       downloadRetries++;
       const delaySec = downloadRetries * 20; // 20s, 40s, 60s
       console.warn(`[Updater] Download error — retry ${downloadRetries}/${MAX_DOWNLOAD_RETRIES} in ${delaySec}s`);
-      setTimeout(() => autoUpdater.downloadUpdate().catch(() => {}), delaySec * 1000);
+      setTimeout(() => {
+        downloadCancel = new CancellationToken();
+        armStallWatch();
+        autoUpdater.downloadUpdate(downloadCancel).catch(() => {});
+      }, delaySec * 1000);
       return;
     }
     // 잘 알려진 무해한 에러는 자동 확인 중엔 조용히 무시 (배너 깜빡임 방지)
     const benign = /ENOTFOUND|ETIMEDOUT|ECONNRESET|ENETUNREACH|net::ERR/i.test(msg);
     if (manualCheckInProgress) {
-      sendToRenderer('updater:error', benign ? '네트워크에 연결되지 않았습니다' : msg);
+      sendUpdate('updater:error', benign ? '네트워크에 연결되지 않았습니다' : msg);
     } else if (downloadRetries >= MAX_DOWNLOAD_RETRIES) {
       // 재시도 모두 소진 — 사용자에게 수동 다운로드 유도
-      sendToRenderer('updater:error', `자동 업데이트 실패 — 설정에서 수동 다운로드를 이용해주세요. (${msg.slice(0, 80)})`);
+      sendUpdate('updater:error', `자동 업데이트 실패 — 설정에서 수동 다운로드를 이용해주세요. (${msg.slice(0, 80)})`);
     } else if (!benign && !autoErrorNotified) {
       // latest.yml 404, provider 오류 등 "다운로드가 아닌" 실패는 지금까지 완전 무음이었음
       // (프로덕션 콘솔은 아무도 안 봄) → 왜 안 되는지 알 길이 없었다. 세션당 1회는 배너로 알린다.
       autoErrorNotified = true;
-      sendToRenderer('updater:error', `업데이트 확인 실패: ${msg.slice(0, 100)} — 설정 > 수동 다운로드 (update.log 참조)`);
+      sendUpdate('updater:error', `업데이트 확인 실패: ${msg.slice(0, 100)} — 설정 > 수동 다운로드 (update.log 참조)`);
     } else {
       console.warn('[Updater] Silent auto-check error:', msg);
     }
@@ -833,10 +951,10 @@ function setupAutoUpdater(): void {
   powerMonitor.on('lock-screen', () => installDownloadedUpdate('lock'));
 
   // 시작 시 한 번 + 30분 주기 자동 확인 (조용히)
-  autoUpdater.checkForUpdates().catch(() => {});
+  runUpdateCheck().catch(() => {});
   if (updaterInterval) clearInterval(updaterInterval);
   updaterInterval = setInterval(() => {
-    autoUpdater.checkForUpdates().catch(() => {});
+    runUpdateCheck().catch(() => {});
   }, 30 * 60 * 1000);
 }
 
