@@ -8,13 +8,21 @@ import type { CalendarEvent, PersonalEvent } from '@shared/types';
  * 다국가 환경에서는 Intl.DateTimeFormat 적용 고려 필요 (현재 범위 아님).
  */
 
+/** 일정이 차지하는 마지막 날. 자정에 끝나는 일정은 그 다음 날을 차지하지 않는다 */
+export function lastDayOfEvent(event: { startDate: Date | string; endDate: Date | string }): Date {
+  const start = event.startDate instanceof Date ? event.startDate : new Date(event.startDate);
+  const end = event.endDate instanceof Date ? event.endDate : new Date(event.endDate);
+  const atMidnight = end.getHours() === 0 && end.getMinutes() === 0 && end.getSeconds() === 0 && end.getMilliseconds() === 0;
+  return atMidnight && end.getTime() > start.getTime() ? new Date(end.getTime() - 1) : end;
+}
+
 /**
  * 이벤트(시작~종료 범위)가 주어진 날짜에 걸쳐있는지 확인.
  * 모든 뷰에서 공통으로 사용.
  */
 export function isEventOnDate(event: { startDate: Date | string; endDate: Date | string }, date: Date): boolean {
   const start = event.startDate instanceof Date ? event.startDate : new Date(event.startDate);
-  const end = event.endDate instanceof Date ? event.endDate : new Date(event.endDate);
+  const end = lastDayOfEvent(event);
   const target = new Date(date);
   // 날짜 범위 비교 (시간 무시)
   const s = new Date(start); s.setHours(0, 0, 0, 0);
@@ -95,14 +103,17 @@ export function formatTitleWithSchool(title: string, school?: string | null): st
  * - admin / super_admin은 모든 일정 관리 가능
  */
 export function canManageEvent(
-  event: { createdBy: string; duty?: unknown },
+  event: { createdBy: string; duty?: unknown; schoolScheduleImport?: boolean },
   user?: { id: string; role?: string } | null,
 ): boolean {
   if (!user) return false;
   // 달력에 그린 내 시험감독 차례는 일정 문서가 아니다. 옮기거나 고치려면 표에서 한다.
   if (event.duty) return false;
+  const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+  // 학사일정은 자동으로 가져온 것이다. 동기화를 돌린 PC의 교사가 작성자로 남을 뿐이므로 관리자만 고친다
+  if (event.schoolScheduleImport) return isAdmin;
   if (user.id === event.createdBy) return true;
-  return user.role === 'admin' || user.role === 'super_admin';
+  return isAdmin;
 }
 
 export function formatEventTooltip(event: CalendarEvent, isOwner: boolean): string {

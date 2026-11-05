@@ -4,6 +4,7 @@ import { Check } from 'lucide-react';
 import type { PersonalEvent } from '@shared/types';
 import { useTodosStore } from '../../store/todosStore';
 import { usePersonalHidden } from '../../store/privacyStore';
+import { showToast } from '../common/Toast';
 import { DayAgenda } from './DayAgenda';
 import { TodayWidgets } from './TodayWidgets';
 
@@ -22,7 +23,7 @@ export function TodoMini() {
     <div>
       <h5 style={styles.heading}>할 일</h5>
       {active.map((todo) => (
-        <button key={todo.id} className="ag-row" style={styles.todo} onClick={() => toggleTodo(todo.id)} title="완료로 표시">
+        <button key={todo.id} className="ag-row" style={styles.todo} onClick={() => toggleTodo(todo.id).catch(() => showToast('저장하지 못했습니다', 'error'))} title="완료로 표시">
           <span style={styles.box}><Check size={10} strokeWidth={3} style={{ opacity: 0 }} /></span>
           <span style={styles.todoText}>{todo.title}</span>
           {todo.dueDate && <span style={styles.due}>{format(new Date(todo.dueDate), 'M/d')}</span>}

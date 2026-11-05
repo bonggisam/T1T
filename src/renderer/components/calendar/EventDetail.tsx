@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
+import { lastDayOfEvent } from '../../utils/calendarHelpers';
 import { ko } from 'date-fns/locale';
 import {
   collection,
@@ -417,7 +418,10 @@ export function EventDetail() {
 
             {/* Date/time */}
             <div style={styles.info}>
-              <span><Ic name="calendar" />{format(new Date(selectedEvent.startDate), 'yyyy.MM.dd (EEE)', { locale: ko })}</span>
+              <span>
+                <Ic name="calendar" />{format(new Date(selectedEvent.startDate), 'yyyy.MM.dd (EEE)', { locale: ko })}
+                {!isSameDay(new Date(selectedEvent.startDate), lastDayOfEvent(selectedEvent)) && ` ~ ${format(lastDayOfEvent(selectedEvent), 'yyyy.MM.dd (EEE)', { locale: ko })}`}
+              </span>
               {!selectedEvent.allDay && (
                 <span>
                   <Ic name="clock" />{format(new Date(selectedEvent.startDate), 'HH:mm')} ~ {format(new Date(selectedEvent.endDate), 'HH:mm')}

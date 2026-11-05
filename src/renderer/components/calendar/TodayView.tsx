@@ -1,3 +1,4 @@
+import { layoutLanes } from '../../utils/timeLanes';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { format, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -295,12 +296,30 @@ function DayTimeline({
   // 각 이벤트를 픽셀 위치/높이로 계산 (1시간 = 48px)
   const HOUR_HEIGHT = 48;
 
-  function getBlockStyle(start: Date, end: Date): React.CSSProperties {
+  function blockMinutes(start: Date, end: Date): { startMin: number; endMin: number } {
     const startMin = start.getHours() * 60 + start.getMinutes();
-    const endMin = Math.max(startMin + 15, end.getHours() * 60 + end.getMinutes());
+    return { startMin, endMin: Math.max(startMin + 15, end.getHours() * 60 + end.getMinutes()) };
+  }
+
+  // 같은 시각의 일정이 서로 가려 누를 수 없게 되지 않도록 나란히 놓는다
+  const lanes = layoutLanes([...timedEvents, ...timedPersonal].map((e) => ({
+    id: e.id,
+    ...blockMinutes(new Date(e.startDate), new Date(e.endDate)),
+  })));
+
+  function getBlockStyle(id: string, start: Date, end: Date): React.CSSProperties {
+    const { startMin, endMin } = blockMinutes(start, end);
     const top = (startMin / 60) * HOUR_HEIGHT;
     const height = ((endMin - startMin) / 60) * HOUR_HEIGHT;
-    return { top, height: Math.max(20, height) };
+    const place = lanes.get(id) ?? { lane: 0, lanes: 1 };
+    const share = 100 / place.lanes;
+    return {
+      top,
+      height: Math.max(20, height),
+      left: `calc(${place.lane * share}% + 2px)`,
+      right: 'auto',
+      width: `calc(${share}% - 4px)`,
+    };
   }
 
   return (
@@ -461,7 +480,7 @@ function DayTimeline({
             {timedEvents.map((e) => {
               const start = new Date(e.startDate);
               const end = new Date(e.endDate);
-              const block = getBlockStyle(start, end);
+              const block = getBlockStyle(e.id, start, end);
               return (
                 <button
                   key={e.id}
@@ -487,7 +506,7 @@ function DayTimeline({
             {timedPersonal.map((pe) => {
               const start = new Date(pe.startDate);
               const end = new Date(pe.endDate);
-              const block = getBlockStyle(start, end);
+              const block = getBlockStyle(pe.id, start, end);
               return (
                 <button
                   key={pe.id}

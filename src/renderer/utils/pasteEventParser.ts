@@ -41,9 +41,9 @@ const BARE_WEEKDAY_RE = /([일월화수목금토])요일/;
 const DAY_ONLY_RE = /(?<![\d.\-/월])(\d{1,2})\s*일\s*(?:\(\s*[일월화수목금토](?:요일)?\s*\)\s*)?(?=까지|마감|오전|오후|\d{1,2}시)/;
 
 const TIME_COLON_RANGE_RE = /(오전|오후)?\s*(\d{1,2}):(\d{2})\s*[~∼〜\-–—]\s*(오전|오후)?\s*(\d{1,2}):(\d{2})/;
-const TIME_KOR_RANGE_RE = /(오전|오후)?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분)?\s*[~∼〜\-–—]\s*(오전|오후)?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분)?/;
+const TIME_KOR_RANGE_RE = /(오전|오후)?\s*(\d{1,2})\s*시(?!간)(?:\s*(\d{1,2})\s*분)?\s*[~∼〜\-–—]\s*(오전|오후)?\s*(\d{1,2})\s*시(?!간)(?:\s*(\d{1,2})\s*분)?/;
 const TIME_COLON_RE = /(오전|오후)?\s*(\d{1,2}):(\d{2})/;
-const TIME_KOR_RE = /(오전|오후)?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분|\s*(반))?/;
+const TIME_KOR_RE = /(오전|오후)?\s*(\d{1,2})\s*시(?!간)(?:\s*(\d{1,2})\s*분|\s*(반))?/;
 const PERIOD_RE = /(\d)\s*교시/;
 
 /** 줄 머리표: 1. 2) (3) 가. ① - * • */
@@ -78,6 +78,12 @@ interface FoundDate {
 
 function startOfDay(base: Date, addDays = 0): Date {
   return new Date(base.getFullYear(), base.getMonth(), base.getDate() + addDays);
+}
+
+/** 그달의 다음 달 같은 날. 12월이면 다음 해 1월이다 */
+function dateInNextMonth(from: Date, day: number): Date | null {
+  const year = from.getFullYear() + (from.getMonth() === 11 ? 1 : 0);
+  return makeDate(year, ((from.getMonth() + 1) % 12) + 1, day);
 }
 
 function findNumericDates(line: string, base: Date): FoundDate[] {
@@ -118,7 +124,9 @@ function findNumericDates(line: string, base: Date): FoundDate[] {
     if (found.end) continue;
     const tail = line.slice(found.to).match(TAIL_DAY_RE);
     if (!tail) continue;
-    const end = makeDate(found.date.getFullYear(), found.date.getMonth() + 1, Number(tail[1]));
+    // "11월 30일~2일"처럼 끝 날이 더 작으면 다음 달이다
+    let end = makeDate(found.date.getFullYear(), found.date.getMonth() + 1, Number(tail[1]));
+    if (end && end < found.date) end = dateInNextMonth(found.date, Number(tail[1]));
     if (end && end >= found.date) {
       found.end = end;
       found.to += tail[0].length;
@@ -150,7 +158,7 @@ function findRelativeDate(line: string, base: Date): FoundDate | null {
   if (dayOnly) {
     const day = Number(dayOnly[1]);
     let date = makeDate(base.getFullYear(), base.getMonth() + 1, day);
-    if (date && date < startOfDay(base)) date = makeDate(base.getFullYear(), base.getMonth() + 2, day);
+    if (date && date < startOfDay(base)) date = dateInNextMonth(base, day);
     if (date) return at(dayOnly, date);
   }
   const bare = line.match(BARE_WEEKDAY_RE);

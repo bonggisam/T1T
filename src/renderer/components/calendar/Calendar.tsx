@@ -14,6 +14,7 @@ import { useAppearanceStore } from '../../store/appearanceStore';
 import { SearchPanel } from './SearchPanel';
 import { PrintView } from './PrintView';
 import { PersonalEventDetail } from './PersonalEventDetail';
+import { usePersonalEventStore } from '../../store/personalEventStore';
 import { PrivateContent } from '../common/PrivacyGuard';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import type { PersonalEvent } from '@shared/types';
@@ -33,6 +34,12 @@ export function Calendar({ onAddPersonalEvent }: CalendarProps = {}) {
   const showSearch = calendarTool === 'search';
   const showPrint = calendarTool === 'print';
   const [selectedPersonal, setSelectedPersonal] = useState<PersonalEvent | null>(null);
+  // 저장하면 구독으로 새 값이 온다. 창에는 고른 때의 값이 아니라 지금 값을 보여 준다
+  const livePersonal = usePersonalEventStore((state) => {
+    if (!selectedPersonal) return null;
+    const { id } = selectedPersonal;
+    return state.personalEvents.find((e) => e.id === id) ?? state.externalEvents.find((e) => e.id === id) ?? selectedPersonal;
+  });
 
   // 전역 단축키
   useKeyboardShortcuts({
@@ -65,7 +72,7 @@ export function Calendar({ onAddPersonalEvent }: CalendarProps = {}) {
       {showSearch && <SearchPanel onClose={() => setCalendarTool(null)} />}
       {selectedPersonal && (
         <PrivateContent>
-          <PersonalEventDetail event={selectedPersonal} onClose={() => setSelectedPersonal(null)} />
+          <PersonalEventDetail event={livePersonal ?? selectedPersonal} onClose={() => setSelectedPersonal(null)} />
         </PrivateContent>
       )}
     </div>

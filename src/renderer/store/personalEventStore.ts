@@ -1,3 +1,4 @@
+import { assertOnline } from '../utils/online';
 import { create } from 'zustand';
 import {
   collection,
@@ -24,7 +25,7 @@ import {
 import { cachePersonalEvents, getCachedPersonalEvents } from '../utils/offlineCache';
 import { loadSharedPushedGoogleIds, cleanupOrphanedT1TGoogleEvents, T1T_PUSHED_TITLE_RE, deriveGoogleEventId } from '../utils/sharedEventsGoogleSync';
 import { commitInBatches } from '../utils/firestoreBatch';
-import { newSeriesId, shiftRepeatDays, type Occurrence } from '../utils/repeat';
+import { changedFields, newSeriesId, shiftRepeatDays, type Occurrence } from '../utils/repeat';
 import { useAuthStore } from './authStore';
 import type { PersonalEvent, RepeatConfig, SeriesScope } from '@shared/types';
 import { startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
@@ -32,6 +33,8 @@ import { startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 // ─── 모듈 상태 (스토어 밖) ───
 /** 진행 중인 sync Promise — 동시 호출은 새로 돌리지 않고 이 Promise를 공유 (수동 "지금 동기화"가 조용히 드랍되지 않도록) */
 let syncInflight: Promise<void> | null = null;
+// 지금 구독 중인 사람. 로그아웃 뒤에 늦게 도착한 값이 다음 교사 화면에 들어오지 않게 한다
+let activeUserId: string | null = null;
 /** Firestore 구독 오류 시 백오프 재구독 */
 let resubscribeAttempts = 0;
 let resubscribeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -76,9 +79,13 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
     // Google 토큰은 사용자별로 분리 저장/복원 — 공용 PC에서 다른 교사의 토큰이 섞이지 않도록
     restoreCalendarConnections(userId);
 
+    // 다른 사람의 일정이 남아 있으면 먼저 비운다
+    if (activeUserId !== userId) set({ personalEvents: [], externalEvents: [] });
+    activeUserId = userId;
+
     // Load cached personal events first
-    getCachedPersonalEvents<PersonalEvent>().then((cached) => {
-      if (cached.length > 0 && get().personalEvents.length === 0) {
+    getCachedPersonalEvents<PersonalEvent>(userId).then((cached) => {
+      if (activeUserId === userId && cached.length > 0 && get().personalEvents.length === 0) {
         set({ personalEvents: cached });
       }
     }).catch((err) => console.warn('[PersonalEventStore] Cache load failed:', err));
@@ -107,7 +114,7 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
         };
       });
       set({ personalEvents: events });
-      cachePersonalEvents(events).catch((err) => console.warn('[PersonalEventStore] Cache failed:', err));
+      if (activeUserId === userId) cachePersonalEvents(userId, events).catch((err) => console.warn('[PersonalEventStore] Cache failed:', err));
     }, (error) => {
       // Firestore 권한 변경 / 네트워크 / auth 만료 시 구독 정리 — 캐시는 이미 로드됨
       console.error('[PersonalEventStore] subscription error:', error);
@@ -135,17 +142,22 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
     let resolveDone!: () => void;
     syncInflight = new Promise<void>((r) => { resolveDone = r; });
     set({ loading: true });
+    const syncOwner = activeUserId;
     try {
       const now = new Date();
       // 범위 확장 — 과거 2달 ~ 미래 9달 (2027년 3월말까지 커버)
       // 이유: 학사일정/공유 일정이 27년 2월까지 등록되어 있으므로 모두 가져와야 함
       const timeMin = startOfMonth(subMonths(now, 2));
       const timeMax = endOfMonth(addMonths(now, 9));
-      let allExternal: PersonalEvent[] = [];
+      // null이면 이번에 받지 못한 것이다. 전에 받은 목록을 그대로 둔다
+      let allExternal: PersonalEvent[] | null = [];
 
       if (isGoogleConnected()) {
         const googleEvents = await fetchGoogleCalendarEvents(timeMin, timeMax);
         const userId = useAuthStore.getState().user?.id;
+        if (googleEvents === null) {
+          allExternal = null;
+        } else {
         // 1) Google 캘린더에서 고아 T1T 이벤트 정리 (모바일/웹 중복 표시 원인 제거)
         //    - 우리 prefix가 있지만 현재 매핑에는 없는 이벤트
         //    - = v2.5.34~v2.5.36의 random-ID 잔재 or localStorage wipe 후 매핑 잃은 이벤트
@@ -165,9 +177,12 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
           if (T1T_PUSHED_TITLE_RE.test(e.title)) return false;
           return true;
         });
+        }
       }
 
-      set({ externalEvents: allExternal });
+      // 받는 사이 로그아웃했으면 다음 교사 화면에 넣지 않는다
+      if (activeUserId !== syncOwner) return;
+      if (allExternal) set({ externalEvents: allExternal });
 
       // 3) reconcile — Google push에 실패해 externalId가 비어 있는 로컬 개인 일정을 재푸시.
       //    'tpe' 결정론적 ID라 재시도해도 중복 생성 없음 (이미 있으면 409 → 재사용).
@@ -245,6 +260,7 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
   },
 
   addPersonalEvent: async (userId, event) => {
+    assertOnline();
     // Firestore 먼저 저장(source of truth) → Google은 미러.
     //
     // 옛 흐름(Google 먼저 → Firestore)의 중복 원인:
@@ -291,6 +307,7 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
   },
 
   updatePersonalEvent: async (userId, eventId, updates) => {
+    assertOnline();
     const updateData: any = { ...updates };
     if (updates.startDate) {
       const d = updates.startDate instanceof Date ? updates.startDate : new Date(updates.startDate as any);
@@ -329,6 +346,7 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
   },
 
   deletePersonalEvent: async (userId, eventId) => {
+    assertOnline();
     const pe = get().personalEvents.find((p) => p.id === eventId);
     // Google 연동 중이고 Google 복사본이 있으면 Google부터 지우고, **실패하면 Firestore도 지우지 않는다.**
     // 옛 흐름은 Google 삭제가 실패해도 Firestore를 지워서 Google에 고아가 남고, 다음 pull에서
@@ -355,6 +373,7 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
   },
 
   addPersonalSeries: async (userId, event, occurrences, repeat) => {
+    assertOnline();
     const seriesId = newSeriesId();
     const eventsCollection = collection(db, 'personal_events', userId, 'events');
     const saved = await commitInBatches(occurrences, (batch, occurrence) => {
@@ -373,6 +392,7 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
   },
 
   updatePersonalSeries: async (userId, event, scope, updates) => {
+    assertOnline();
     const members = get().personalEvents.filter((p) => (
       p.seriesId === event.seriesId && (scope === 'all' || p.startDate.getTime() >= event.startDate.getTime())
     ));
@@ -380,17 +400,23 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
     const newEnd = updates.endDate ?? event.endDate;
     const shift = newStart.getTime() - event.startDate.getTime();
     const duration = newEnd.getTime() - newStart.getTime();
+    // 길이를 고치지 않았으면 회차마다 따로 정한 길이를 그대로 둔다
+    const durationChanged = duration !== event.endDate.getTime() - event.startDate.getTime();
     const dayShift = Math.round(shift / (24 * 60 * 60 * 1000));
     const repeat = event.repeat ? shiftRepeatDays(event.repeat, dayShift) : null;
+    // 바꾼 칸만 보낸다. 그대로 보내면 한 회차의 체크 상태가 모든 회차로 복사된다
+    const { startDate: _start, endDate: _end, ...rest } = updates;
+    const fields = changedFields(event as Partial<PersonalEvent>, rest);
     let googleFailed = 0;
     // 건마다 구글 복사본도 고치므로 차례로 처리한다
     for (const member of members) {
       const start = new Date(member.startDate.getTime() + shift);
+      const length = durationChanged ? duration : member.endDate.getTime() - member.startDate.getTime();
       const result = await get().updatePersonalEvent(userId, member.id, {
-        ...updates,
+        ...fields,
         repeat,
         startDate: start,
-        endDate: new Date(start.getTime() + duration),
+        endDate: new Date(start.getTime() + length),
       });
       if (result.googleSync === 'failed') googleFailed += 1;
     }
@@ -398,6 +424,7 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
   },
 
   deletePersonalSeries: async (userId, event, scope) => {
+    assertOnline();
     const members = get().personalEvents.filter((p) => (
       p.seriesId === event.seriesId && (scope === 'all' || p.startDate.getTime() >= event.startDate.getTime())
     ));
@@ -418,7 +445,9 @@ export const usePersonalEventStore = create<PersonalEventState>((set, get) => ({
     if (syncTimer) clearInterval(syncTimer);
     if (resubscribeTimer) { clearTimeout(resubscribeTimer); resubscribeTimer = null; }
     resubscribeAttempts = 0;
-    set({ unsubscribe: null, syncTimer: null });
+    activeUserId = null;
+    // 공용 PC에서 다음 교사에게 보이지 않게 비운다
+    set({ unsubscribe: null, syncTimer: null, personalEvents: [], externalEvents: [] });
   },
 
   allPersonalEvents: () => {

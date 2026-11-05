@@ -41,6 +41,9 @@ export function useReminder() {
       const now = Date.now();
 
       for (const event of eventsRef.current) {
+        // 종일 일정은 시작이 00:00이라 전날 밤에 울린다. 다른 학교 일정도 알리지 않는다
+        if (event.allDay) continue;
+        if (event.school !== 'all' && event.school !== user.school) continue;
         const start = event.startDate instanceof Date ? event.startDate.getTime() : new Date(event.startDate).getTime();
         const diff = start - now;
         if (diff <= 0) continue; // 과거/현재 skip
@@ -85,6 +88,7 @@ export function useReminder() {
     return () => clearInterval(timer);
   }, [
     user?.id,
+    user?.school,
     user?.settings?.reminderDefault,
     user?.settings?.multiReminders,
     user?.settings?.notificationSound,

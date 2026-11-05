@@ -1,3 +1,4 @@
+import { assertOnline } from '../utils/online';
 import { create } from 'zustand';
 import {
   collection,
@@ -17,7 +18,7 @@ import { cacheEvents, getCachedEvents } from '../utils/offlineCache';
 import { getSchoolTag, getCreatorTag } from '../utils/calendarHelpers';
 import { commitInBatches } from '../utils/firestoreBatch';
 import { deleteAllResponses } from '../utils/eventResponses';
-import { describeRepeat, newSeriesId, shiftRepeatDays, type Occurrence } from '../utils/repeat';
+import { changedFields, describeRepeat, newSeriesId, shiftRepeatDays, type Occurrence } from '../utils/repeat';
 import type { CalendarEvent, CalendarView, ChecklistItem, EventCategory, ReadReceipt, RepeatConfig, ResponseType, School, SeriesScope } from '@shared/types';
 
 type NewEvent = Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt'>;
@@ -126,6 +127,7 @@ function firestoreToEvent(id: string, data: any): CalendarEvent {
     repeat: data.repeat || null,
     seriesId: data.seriesId || null,
     responseType: data.responseType || null,
+    schoolScheduleImport: data.schoolScheduleImport === true ? true : undefined,
     attachments: data.attachments || [],
     checklist: (data.checklist || []).map((item: any, idx: number) => ({
       id: item.id || String(idx),
@@ -205,6 +207,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
   },
 
   addEvent: async (event) => {
+    assertOnline();
     const schoolValue = event.school || 'all';
     const docRef = await addDoc(collection(db, 'events'), toEventDoc(event));
     // Notify all users
@@ -214,13 +217,13 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
       'new_event',
       `새 일정: ${creatorPrefix(event, schoolValue)}"${event.title}" (${dateStr})${ask}`,
       docRef.id,
-      event.createdBy,
       schoolValue, // 해당 학교 사용자에게만 알림
     );
     return docRef.id;
   },
 
   addEventSeries: async (event, occurrences, repeat) => {
+    assertOnline();
     const schoolValue = event.school || 'all';
     const seriesId = newSeriesId();
     const firstId = doc(collection(db, 'events')).id;
@@ -238,13 +241,13 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
       'new_event',
       `새 반복 일정: ${creatorPrefix(event, schoolValue)}"${event.title}" (${dateStr}부터, ${describeRepeat(repeat, first)}, ${saved}회)${ask}`,
       firstId,
-      event.createdBy,
       schoolValue,
     );
     return saved;
   },
 
   updateEvent: async (id, updates) => {
+    assertOnline();
     // undefined 값 제거 (Firestore가 거부)
     const updateData: any = { updatedAt: serverTimestamp() };
     for (const [k, v] of Object.entries(updates)) {
@@ -269,48 +272,51 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
         'event_updated',
         `일정 수정: "${updates.title || event.title}"`,
         id,
-        event.createdBy,
         event.school,
       );
     }
   },
 
   updateEventSeries: async (event, scope, updates) => {
+    assertOnline();
     const members = seriesMembers(get().events, event, scope);
     const newStart = updates.startDate ?? event.startDate;
     const newEnd = updates.endDate ?? event.endDate;
     const shift = newStart.getTime() - event.startDate.getTime();
     const duration = newEnd.getTime() - newStart.getTime();
+    // 길이를 고치지 않았으면 회차마다 따로 정한 길이를 그대로 둔다
+    const durationChanged = duration !== event.endDate.getTime() - event.startDate.getTime();
     // 날짜를 옮겼으면 요일 지정 설명도 함께 옮긴다
     const dayShift = Math.round(shift / DAY_MS);
     const repeat = event.repeat ? shiftRepeatDays(event.repeat, dayShift) : null;
     const { startDate: _start, endDate: _end, ...rest } = updates;
 
     const fields: Record<string, unknown> = { updatedAt: serverTimestamp() };
-    for (const [key, value] of Object.entries(rest)) {
+    for (const [key, value] of Object.entries(changedFields(event as Partial<CalendarEvent>, rest))) {
       if (value !== undefined) fields[key] = value;
     }
     if (repeat) fields.repeat = repeat;
 
     const saved = await commitInBatches(members, (batch, member) => {
       const start = new Date(member.startDate.getTime() + shift);
+      const length = durationChanged ? duration : member.endDate.getTime() - member.startDate.getTime();
       batch.update(doc(db, 'events', member.id), {
         ...fields,
         startDate: Timestamp.fromDate(start),
-        endDate: Timestamp.fromDate(new Date(start.getTime() + duration)),
+        endDate: Timestamp.fromDate(new Date(start.getTime() + length)),
       });
     });
     notifyAllUsers(
       'event_updated',
       `일정 수정: "${updates.title || event.title}" (반복 ${saved}회)`,
       event.id,
-      event.createdBy,
       updates.school ?? event.school,
     );
     return saved;
   },
 
   deleteEvent: async (id) => {
+    assertOnline();
     const event = get().events.find((e) => e.id === id);
     if (event?.responseType) await deleteAllResponses(id);
     await deleteDoc(doc(db, 'events', id));
@@ -320,13 +326,13 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
         'event_deleted',
         `일정 삭제: "${event.title}"`,
         undefined,
-        event.createdBy,
         event.school,
       );
     }
   },
 
   deleteEventSeries: async (event, scope) => {
+    assertOnline();
     const members = seriesMembers(get().events, event, scope);
     for (const member of members) {
       if (member.responseType) await deleteAllResponses(member.id);
@@ -336,7 +342,6 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
       'event_deleted',
       `일정 삭제: "${event.title}" (반복 ${saved}회)`,
       undefined,
-      event.createdBy,
       event.school,
     );
     return saved;

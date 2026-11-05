@@ -94,21 +94,25 @@ export function parseNaturalDate(input: string, base: Date = new Date()): Parsed
   }
 
   const hmColon = text.match(/(\d{1,2}):(\d{2})/);
-  const hmKor = text.match(/(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분)?/);
+  // "2시간"은 시각이 아니다
+  const hmKor = text.match(/(\d{1,2})\s*시(?!간)(?:\s*(\d{1,2})\s*분)?/);
+  // 오전, 오후 표시가 없는 1~6시는 학교 일과상 오후로 본다. 칸에 바로 쓰는 입력과 같은 기준이다
+  const to24 = (hour: number): number => {
+    if (amPm === 'pm' && hour < 12) return hour + 12;
+    if (amPm === 'am' && hour === 12) return 0;
+    if (!amPm && hour >= 1 && hour <= 6) return hour + 12;
+    return hour;
+  };
   if (hmColon) {
-    let h = Number(hmColon[1]);
+    const h = to24(Number(hmColon[1]));
     const m = Number(hmColon[2]);
-    if (amPm === 'pm' && h < 12) h += 12;
-    if (amPm === 'am' && h === 12) h = 0;
     date.setHours(h, m, 0, 0);
     timeMatched = true;
     matches.push(hmColon[0]);
     if (apMatch) matches.push(apMatch[0]);
   } else if (hmKor) {
-    let h = Number(hmKor[1]);
+    const h = to24(Number(hmKor[1]));
     const m = hmKor[2] ? Number(hmKor[2]) : 0;
-    if (amPm === 'pm' && h < 12) h += 12;
-    if (amPm === 'am' && h === 12) h = 0;
     date.setHours(h, m, 0, 0);
     timeMatched = true;
     matches.push(hmKor[0]);

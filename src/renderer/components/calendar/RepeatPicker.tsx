@@ -71,6 +71,12 @@ export function RepeatPicker({ start, end, value, onChange }: RepeatPickerProps)
 
   const problem = value && valid ? repeatProblem(start!, end!, value) : null;
 
+  // 그 날이 없는 달은 건너뛰므로 미리 알린다 (예: 매월 31일이면 11월이 빠진다)
+  const skipNote = !value || !valid ? null
+    : value.type === 'monthly' && start!.getDate() >= 29 ? `${start!.getDate()}일이 없는 달은 건너뜁니다.`
+    : value.type === 'monthlyNth' && nthOfMonth(start!) >= 5 ? `${NTH_LABELS[nthOfMonth(start!)]} ${format(start!, 'EEEE', { locale: ko })}이 없는 달은 건너뜁니다.`
+    : null;
+
   return (
     <div style={styles.container}>
       <div style={styles.row}>
@@ -140,6 +146,7 @@ export function RepeatPicker({ start, end, value, onChange }: RepeatPickerProps)
               총 {preview.occurrences.length}회 ·{' '}
               {preview.occurrences.slice(0, PREVIEW_DATES).map((o) => format(o.start, 'M/d')).join(', ')}
               {preview.occurrences.length > PREVIEW_DATES && ` … ${format(preview.occurrences[preview.occurrences.length - 1].start, 'M/d')}`}
+              {skipNote && <div>{skipNote}</div>}
             </div>
           )}
         </>

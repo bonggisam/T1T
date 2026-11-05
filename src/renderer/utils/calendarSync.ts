@@ -120,6 +120,8 @@ async function ensureValidToken(): Promise<boolean> {
       // 갱신 실패 사유 노출 (사용자에게 친절한 안내)
       const errMsg = (result && 'error' in result) ? result.error : '알 수 없음';
       console.warn('[CalendarSync] Refresh failed:', errMsg);
+      // 절전에서 깨어난 직후나 학교망이 잠시 끊긴 때도 여기로 온다. 토큰을 지우면 다시 연동해야 하므로 다음 동기화에 다시 시도한다
+      if (!(result && 'expired' in result && result.expired)) return false;
       googleTokens = null;
       removeTokensFromStorage('google');
       // 사용자에게 재인증 안내 토스트
@@ -169,17 +171,18 @@ export function disconnectGoogle(): void {
   removeTokensFromStorage('google');
 }
 
+/** 받지 못하면 null. 빈 목록으로 돌려주면 잠깐의 실패에 구글 일정이 달력에서 모두 사라진다 */
 export async function fetchGoogleCalendarEvents(
   timeMin: Date,
   timeMax: Date,
-): Promise<PersonalEvent[]> {
-  if (!(await ensureValidToken())) return [];
+): Promise<PersonalEvent[] | null> {
+  if (!(await ensureValidToken())) return null;
   // Rate limit backoff 중이면 skip
-  if (Date.now() < rateLimitedUntil) return [];
+  if (Date.now() < rateLimitedUntil) return null;
 
   // 토큰 race: fetch 직전 disconnect되면 access_token null
   const accessToken = googleTokens?.access_token;
-  if (!accessToken) return [];
+  if (!accessToken) return null;
 
   try {
     const baseUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
@@ -213,7 +216,7 @@ export async function fetchGoogleCalendarEvents(
         } else {
           console.warn(`[Google Sync] fetch failed ${res.status}`);
         }
-        return [];
+        return null;
       }
 
       let data: any;
@@ -221,7 +224,7 @@ export async function fetchGoogleCalendarEvents(
         data = await res.json();
       } catch (err) {
         console.warn('[Google Sync] response JSON parse failed:', err);
-        return [];
+        return null;
       }
       allItems.push(...(data.items || []));
       pageToken = data.nextPageToken;
@@ -258,7 +261,7 @@ export async function fetchGoogleCalendarEvents(
     });
   } catch (err) {
     console.error('Google Calendar fetch error:', err);
-    return [];
+    return null;
   }
 }
 

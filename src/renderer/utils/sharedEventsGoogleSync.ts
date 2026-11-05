@@ -112,8 +112,7 @@ export async function cleanupOrphanedT1TGoogleEvents(
   for (const orphan of orphans) {
     if (!orphan.externalId) continue;
     try {
-      await deleteGoogleEvent(orphan.externalId);
-      deleted++;
+      if (await deleteGoogleEvent(orphan.externalId)) deleted++;
     } catch (err) {
       console.warn(`[SharedGoogleSync] orphan delete failed for ${orphan.externalId}:`, err);
     }
@@ -289,7 +288,11 @@ export async function syncSharedEventsToGoogle(
     for (const [eventId, entry] of Object.entries(map)) {
       if (!relevantIds.has(eventId)) {
         try {
-          await deleteGoogleEvent(entry.googleId);
+          // 실패는 예외가 아니라 false로 온다. 기록을 지우면 구글에 지운 일정이 영영 남는다
+          if (!(await deleteGoogleEvent(entry.googleId))) {
+            result.errors++;
+            continue;
+          }
           delete map[eventId];
           result.deleted++;
         } catch (err) {

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { format } from 'date-fns';
+import React, { useState, useMemo } from 'react';
+import { endOfDay, format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useTodosStore } from '../../store/todosStore';
 import { useAuthStore } from '../../store/authStore';
@@ -17,18 +17,13 @@ type Filter = 'all' | 'active' | 'completed';
 
 export function TodosView({ onBack }: TodosViewProps) {
   const { user } = useAuthStore();
-  const { todos, subscribeToTodos, cleanup, addTodo, toggleTodo, deleteTodo, updateTodo } = useTodosStore();
+  // 구독은 앱이 로그인할 때 시작한다. 여기서 끊으면 달력 옆 할 일까지 비어 버린다
+  const { todos, addTodo, toggleTodo, deleteTodo, updateTodo } = useTodosStore();
   const [title, setTitle] = useState('');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [dueDate, setDueDate] = useState('');
   const [filter, setFilter] = useState<Filter>('active');
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!user) return;
-    subscribeToTodos(user.id);
-    return () => cleanup();
-  }, [user?.id]);
 
   const filtered = useMemo(() => {
     return todos.filter((t) => {
@@ -56,7 +51,7 @@ export function TodosView({ onBack }: TodosViewProps) {
         title: trimmed.slice(0, 200),
         completed: false,
         priority,
-        dueDate: dueDate ? new Date(dueDate) : undefined,
+        dueDate: dueDate ? new Date(`${dueDate}T00:00:00`) : undefined,
         school: schoolValue,
       });
       setTitle('');
@@ -144,7 +139,10 @@ export function TodosView({ onBack }: TodosViewProps) {
             <TodoItem
               key={t.id}
               todo={t}
-              onToggle={() => toggleTodo(t.id)}
+              onToggle={() => toggleTodo(t.id).catch((err) => {
+                console.error('[Todos] toggle failed:', err);
+                showToast('저장하지 못했습니다', 'error');
+              })}
               onDelete={() => handleDelete(t.id)}
               onUpdate={(updates) => updateTodo(t.id, updates).catch((err) => {
                 console.error('[Todos] update failed:', err);
@@ -173,7 +171,8 @@ function TodoItem({ todo, onToggle, onDelete, onUpdate }: {
   onUpdate: (updates: Partial<Todo>) => void;
 }) {
   const priorityColor = PRIORITY_COLORS[todo.priority];
-  const isOverdue = todo.dueDate && !todo.completed && new Date(todo.dueDate) < new Date();
+  // 마감일 당일은 그날 끝까지 지난 것이 아니다
+  const isOverdue = todo.dueDate && !todo.completed && endOfDay(new Date(todo.dueDate)) < new Date();
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(todo.title);
   const [editPriority, setEditPriority] = useState(todo.priority);
@@ -197,7 +196,7 @@ function TodoItem({ todo, onToggle, onDelete, onUpdate }: {
     onUpdate({
       title: trimmed.slice(0, 200),
       priority: editPriority,
-      dueDate: editDate ? new Date(editDate) : undefined,
+      dueDate: editDate ? new Date(`${editDate}T00:00:00`) : undefined,
     });
     setEditing(false);
     showToast('수정되었습니다');

@@ -1,3 +1,4 @@
+import { assertOnline } from '../utils/online';
 import { create } from 'zustand';
 import {
   collection, query, where, onSnapshot,
@@ -79,6 +80,7 @@ export const useTodosStore = create<TodosState>((set, get) => ({
   },
 
   addTodo: async (todo) => {
+    assertOnline();
     // undefined 값 제거 (Firestore 거부) + 기본값 보장
     const data: any = {
       userId: todo.userId,
@@ -100,6 +102,7 @@ export const useTodosStore = create<TodosState>((set, get) => ({
   },
 
   updateTodo: async (id, updates) => {
+    assertOnline();
     // undefined 값 제거 (Firestore 거부) + dueDate 변환
     const updateData: any = { updatedAt: serverTimestamp() };
     for (const [k, v] of Object.entries(updates)) {
@@ -114,6 +117,7 @@ export const useTodosStore = create<TodosState>((set, get) => ({
   },
 
   toggleTodo: async (id) => {
+    assertOnline();
     const todo = get().todos.find((t) => t.id === id);
     if (!todo) return;
     await updateDoc(doc(db, 'todos', id), {
@@ -123,6 +127,7 @@ export const useTodosStore = create<TodosState>((set, get) => ({
   },
 
   deleteTodo: async (id) => {
+    assertOnline();
     await deleteDoc(doc(db, 'todos', id));
   },
 }));

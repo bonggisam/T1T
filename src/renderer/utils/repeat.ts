@@ -141,3 +141,18 @@ export function shiftRepeatDays(rule: RepeatConfig, dayShift: number): RepeatCon
   if (rule.type !== 'weekly' || dayShift % 7 === 0) return rule;
   return { ...rule, daysOfWeek: (rule.daysOfWeek ?? []).map((d) => (((d + dayShift) % 7) + 7) % 7) };
 }
+
+/**
+ * 반복 일정의 여러 회차를 고칠 때는 실제로 바꾼 칸만 보낸다.
+ * 입력 창은 모든 칸을 넘기므로 그대로 쓰면 회차마다 따로 고친 제목과 설명이 덮인다.
+ */
+export function changedFields<T extends object>(before: T, updates: Partial<T>): Partial<T> {
+  const out: Partial<T> = {};
+  for (const key of Object.keys(updates) as Array<keyof T>) {
+    const value = updates[key];
+    if (value === undefined) continue;
+    const same = JSON.stringify(before[key] ?? null) === JSON.stringify(value ?? null);
+    if (!same) out[key] = value;
+  }
+  return out;
+}

@@ -27,6 +27,8 @@ type Item = { kind: 'shared'; event: CalendarEvent } | { kind: 'personal'; event
 
 interface DragInfo {
   item: Item;
+  /** 잡은 칸. 여러 날 일정은 이 칸의 날짜를 기준으로 옮긴다 */
+  originSlot: string | null;
   startX: number;
   startY: number;
   active: boolean;
@@ -128,15 +130,20 @@ export function PeriodWeek({ onAddPersonalEvent, onPersonalClick }: PeriodWeekPr
       if (!drag?.active) return;
       justDragged.current = Date.now();
       const target = slotFromPoint(e.clientX, e.clientY);
-      if (!target) return;
+      // 살짝 움직였다가 같은 칸에 놓으면 그대로 둔다
+      if (!target || target === drag.originSlot) return;
+      const parseDay = (text: string) => {
+        const [y, m, d] = text.split('-').map(Number);
+        return new Date(y, m - 1, d);
+      };
       const [dayText, rowText] = target.split('|');
-      const [y, m, d] = dayText.split('-').map(Number);
-      const targetDay = new Date(y, m - 1, d);
+      const targetDay = parseDay(dayText);
       const rowIndex = Number(rowText);
       const start = new Date(drag.item.event.startDate);
       const end = new Date(drag.item.event.endDate);
       const duration = end.getTime() - start.getTime();
-      const newStart = addDays(start, differenceInCalendarDays(targetDay, start));
+      const originDay = drag.originSlot ? parseDay(drag.originSlot.split('|')[0]) : start;
+      const newStart = addDays(start, differenceInCalendarDays(targetDay, originDay));
       // 시각이 있는 일정을 교시 줄에 놓으면 그 교시 시작으로 옮긴다. 종일 일정은 날짜만 옮긴다.
       if (!drag.item.event.allDay && rowIndex >= 0 && rows[rowIndex]) {
         newStart.setHours(Math.floor(rows[rowIndex].startMin / 60), rows[rowIndex].startMin % 60, 0, 0);
@@ -167,7 +174,7 @@ export function PeriodWeek({ onAddPersonalEvent, onPersonalClick }: PeriodWeekPr
     const canMove = item.kind === 'shared' ? canManageEvent(item.event, user) : item.event.source === 'local';
     if (!canMove) return;
     e.preventDefault();
-    dragRef.current = { item, startX: e.clientX, startY: e.clientY, active: false };
+    dragRef.current = { item, originSlot: slotFromPoint(e.clientX, e.clientY), startX: e.clientX, startY: e.clientY, active: false };
   }
 
   function renderItem(item: Item, showTime: boolean) {

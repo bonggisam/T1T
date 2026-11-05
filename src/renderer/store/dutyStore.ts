@@ -1,3 +1,4 @@
+import { assertOnline } from '../utils/online';
 import { create } from 'zustand';
 import { useEffect, useMemo } from 'react';
 import { format, subDays } from 'date-fns';
@@ -98,6 +99,7 @@ export const useDutyStore = create<DutyState>((set, get) => ({
   setFocusTable: (id) => set({ focusTableId: id }),
 
   saveTable: async (input, author, existing = null) => {
+    assertOnline();
     const entries = input.entries.map(cleanEntry);
     const dates = entries.map((e) => e.date).sort();
     const ref = existing ? doc(db, 'duty_tables', existing.id) : doc(collection(db, 'duty_tables'));
@@ -115,6 +117,7 @@ export const useDutyStore = create<DutyState>((set, get) => ({
   },
 
   deleteTable: async (id) => {
+    assertOnline();
     await deleteDoc(doc(db, 'duty_tables', id));
   },
 }));

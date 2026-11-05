@@ -2,6 +2,7 @@
  * 월 화면 한 주의 일정 배치. 여러 날 일정이 칸마다 끊기지 않고 이어진 막대가 되도록 레인을 나눈다.
  */
 
+import { lastDayOfEvent } from './calendarHelpers';
 export interface WeekItem<T> {
   item: T;
   /** 이 주 안에서 시작 칸과 차지하는 칸 수 */
@@ -33,7 +34,8 @@ export function toWeekItem<T>(
   sortKey: number,
 ): WeekItem<T> | null {
   const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
-  const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
+  const lastDay = lastDayOfEvent({ startDate: start, endDate: end });
+  const endDay = new Date(lastDay.getFullYear(), lastDay.getMonth(), lastDay.getDate()).getTime();
   const dayTimes = weekDays.map((d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime());
   const first = dayTimes[0];
   const last = dayTimes[dayTimes.length - 1];
