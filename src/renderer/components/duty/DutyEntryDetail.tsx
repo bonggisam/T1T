@@ -8,7 +8,7 @@ import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { dutyPeriodLabel } from '../../utils/dutyEntries';
 import { Ic } from '../common/Ic';
 
-/** 달력에서 내 감독·당직 차례를 눌렀을 때. 표에서 온 값이라 여기서 고치지 않고 표로 안내한다. */
+/** 달력에서 내 시험감독 차례를 눌렀을 때. 표에서 온 값이라 여기서 고치지 않고 표로 안내한다. */
 export function DutyEntryDetail({ onOpenTable }: { onOpenTable: () => void }) {
   const event = useCalendarStore((s) => s.selectedEvent);
   const setShowEventDetail = useCalendarStore((s) => s.setShowEventDetail);
@@ -31,10 +31,10 @@ export function DutyEntryDetail({ onOpenTable }: { onOpenTable: () => void }) {
   const time = event.allDay ? '' : `${format(start, 'HH:mm')}~${format(end, 'HH:mm')}`;
 
   return (
-    <div style={styles.overlay} onClick={close} role="dialog" aria-modal="true" aria-label="내 감독·당직 차례">
+    <div style={styles.overlay} onClick={close} role="dialog" aria-modal="true" aria-label="내 시험감독 차례">
       <div className="glass-solid animate-slide-up" style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.header}>
-          <h3 style={styles.title}>{duty.kind || '감독·당직'}</h3>
+          <h3 style={styles.title}>{duty.kind || '시험감독'}</h3>
           <button onClick={close} style={styles.closeBtn} aria-label="닫기"><Ic name="x" gap={false} /></button>
         </div>
         <p style={styles.line}><Ic name="calendar" />{format(start, 'M월 d일 (EEEE)', { locale: ko })}</p>

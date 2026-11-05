@@ -1,16 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Bell, Calendar, CheckSquare, DoorOpen, Eye, EyeOff, LayoutGrid, Minus, Pencil, Phone, Pin, Search, Settings,
-  UtensilsCrossed, X,
+  Bell, Calendar, Eye, EyeOff, LayoutGrid, Minus, Pencil, Pin, Search, Settings, X,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/notificationStore';
 import { usePersonalHidden, usePrivacyStore } from '../../store/privacyStore';
 import { useUIStore } from '../../store/uiStore';
 import { usePopover } from '../../hooks/usePopover';
-import { useWindowSize, WIDE_MIN } from '../../hooks/useWindowSize';
+import { NARROW_MAX, useWindowSize, WIDE_MIN } from '../../hooks/useWindowSize';
 import { CalendarNav } from '../calendar/CalendarNav';
-import { ToolMenu, type ToolTab } from './ToolMenu';
+import { TOOL_TABS, ToolMenu, type ToolTab } from './ToolMenu';
 
 /*
  * 제목 줄에 글자와 단추를 얼마나 넣을지 정하는 폭. 보기마다 실제 화면을 재서 정했다.
@@ -20,14 +19,13 @@ import { ToolMenu, type ToolTab } from './ToolMenu';
 const EDIT_BUTTONS_EXTRA = 31;
 const NAV_WIDTH = 160;
 /** 일 보기는 날짜가 길어 이보다 좁으면 연도를 뺀다 */
-const DAY_YEAR_MIN = 448;
-/** 이보다 좁으면 T1T 글자를 뺀다 */
-const WORDMARK_MIN = 416;
-/** 이보다 좁으면 날짜를 줄이고 오늘과 편집 글자를 뺀다 */
-const COMPACT_MAX = 388;
-/** 이보다 좁으면 달력 이동과 겹치므로 외출은 도구 모음에서만 연다 */
-const OUTING_MIN_WIDGET = 295;
-const OUTING_MIN_EDIT = 350;
+const DAY_YEAR_MIN = 419;
+/** 이보다 좁으면 날짜를 줄이고 연도를 뺀다 */
+const FULL_DATE_MIN = 387;
+/** 이보다 좁으면 T1T와 오늘, 편집 글자, 구분선을 뺀다 */
+const COMPACT_MAX = 359;
+/** 도구 아이콘이 제목 줄에 함께 들어가는 폭. 이보다 좁으면 아래에 아이콘 줄을 따로 둔다 */
+const ONE_ROW_MIN = 840;
 const TOOL_MENU_WIDTH = 300;
 
 interface TitleBarProps {
@@ -47,8 +45,8 @@ interface TitleBarProps {
 }
 
 /**
- * 제목 줄. 날짜 이동, 외출, 개인 일정 가리기, 알림, 도구 모음을 한 줄에 둔다.
- * 외출과 알림은 창이 좁아도 보이고, 나머지 도구는 이름이 붙은 도구 모음 안에 있다.
+ * 제목 줄. 날짜 이동, 개인 일정 가리기, 알림, 도구 모음을 한 줄에 둔다.
+ * 도구 아이콘은 창 크기와 상관없이 항상 보인다. 창이 넓으면 제목 줄에, 아니면 그 아래 아이콘 줄에 둔다.
  */
 export function TitleBar({
   onToggleSettings, onToggleAdmin, showSettingsBtn, showAdminBtn,
@@ -66,7 +64,7 @@ export function TitleBar({
   const room = width - (widgetMode ? 0 : EDIT_BUTTONS_EXTRA) + (calendarVisible ? 0 : NAV_WIDTH);
   const compact = room < COMPACT_MAX;
   const wide = width >= WIDE_MIN;
-  const showOuting = width >= (widgetMode ? OUTING_MIN_WIDGET : OUTING_MIN_EDIT);
+  const oneRow = width >= ONE_ROW_MIN;
 
   useEffect(() => {
     window.electronAPI?.getWidgetMode().then((v) => setWidgetMode(v)).catch(() => {});
@@ -87,34 +85,26 @@ export function TitleBar({
       <div className="titlebar" style={styles.bar}>
         <button onClick={onGoHome} style={styles.home} title="메인 달력으로" aria-label="메인 달력">
           <Calendar size={16} strokeWidth={2.2} color="var(--accent)" />
-          {room >= WORDMARK_MIN && <span style={styles.title}>T1T</span>}
+          {!compact && <span style={styles.title}>T1T</span>}
         </button>
 
-        {calendarVisible && <CalendarNav compact={compact} dayYear={room >= DAY_YEAR_MIN} />}
+        {calendarVisible && <CalendarNav short={room < FULL_DATE_MIN} today={!compact} dayYear={room >= DAY_YEAR_MIN} />}
 
         <span style={styles.spacer} />
 
-        {signedIn && wide && onOpenTab && (
+        {signedIn && oneRow && onOpenTab && (
           <>
-            <IconBtn Icon={CheckSquare} active={activeTab === 'todos'} onClick={() => onOpenTab('todos')} title="할 일" />
-            <IconBtn Icon={UtensilsCrossed} active={activeTab === 'meal'} onClick={() => onOpenTab('meal')} title="급식" />
-            <IconBtn Icon={Phone} active={activeTab === 'keyphone'} onClick={() => onOpenTab('keyphone')} title="키폰" />
-          </>
-        )}
-
-        {signedIn && showOuting && onOpenTab && (
-          <IconBtn Icon={DoorOpen} active={activeTab === 'outing'} onClick={() => onOpenTab('outing')} title="외출" />
-        )}
-
-        {signedIn && wide && onOpenTab && (
-          <>
+            <ToolIcons activeTab={activeTab} onOpenTab={onOpenTab} />
             <span style={styles.separator} />
-            <IconBtn
-              Icon={Search}
-              onClick={() => { onOpenCalendar?.(); setCalendarTool('search'); }}
-              title="일정 검색"
-            />
           </>
+        )}
+
+        {signedIn && wide && onOpenTab && (
+          <IconBtn
+            Icon={Search}
+            onClick={() => { onOpenCalendar?.(); setCalendarTool('search'); }}
+            title="일정 검색"
+          />
         )}
 
         {signedIn && <PrivacyToggle />}
@@ -147,7 +137,7 @@ export function TitleBar({
 
         {signedIn && wide && <IconBtn Icon={Settings} onClick={onToggleSettings} title="설정" />}
 
-        <span style={styles.separator} />
+        {!compact && <span style={styles.separator} />}
 
         {widgetMode ? (
           <button onClick={handleToggleWidget} style={styles.editBtn} title="편집 모드 (Ctrl+Shift+C)" aria-label="편집 모드">
@@ -170,6 +160,17 @@ export function TitleBar({
         )}
       </div>
 
+      {signedIn && !oneRow && onOpenTab && (
+        <div
+          className="titlebar"
+          style={{ ...styles.toolRow, justifyContent: width < NARROW_MAX ? 'space-between' : 'flex-end' }}
+          role="toolbar"
+          aria-label="도구"
+        >
+          <ToolIcons activeTab={activeTab} onOpenTab={onOpenTab} />
+        </div>
+      )}
+
       {menu.open && onOpenTab && (
         <ToolMenu
           popRef={menu.popRef}
@@ -190,6 +191,16 @@ export function TitleBar({
           onClose={() => menu.setOpen(false)}
         />
       )}
+    </>
+  );
+}
+
+function ToolIcons({ activeTab, onOpenTab }: { activeTab: string | null; onOpenTab: (tab: ToolTab) => void }) {
+  return (
+    <>
+      {TOOL_TABS.map(({ tab, label, Icon }) => (
+        <IconBtn key={tab} Icon={Icon} active={activeTab === tab} onClick={() => onOpenTab(tab)} title={label} />
+      ))}
     </>
   );
 }
@@ -240,6 +251,13 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 2,
     height: 40,
     padding: '0 6px 0 8px',
+    flexShrink: 0,
+  },
+  toolRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 2,
+    padding: '0 8px 3px',
     flexShrink: 0,
   },
   home: {

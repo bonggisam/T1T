@@ -65,7 +65,7 @@ function toDrafts(table: DutyTable): DutyDraft[] {
 }
 
 /**
- * 감독·당직 표 붙여넣기. 담당자가 표를 붙여 넣어 읽은 값을 고치고 저장하면 각 선생님 달력에 차례가 나타난다.
+ * 시험감독 표 붙여넣기. 담당자가 표를 붙여 넣어 읽은 값을 고치고 저장하면 각 선생님 달력에 차례가 나타난다.
  * 원문은 저장하지 않고 이름, 날짜, 시각, 종류, 장소만 남긴다.
  */
 export function DutyImportModal({ table = null, onClose }: DutyImportModalProps) {
@@ -217,10 +217,10 @@ export function DutyImportModal({ table = null, onClose }: DutyImportModalProps)
   }
 
   return (
-    <div style={styles.overlay} onClick={onClose} role="dialog" aria-modal="true" aria-label={table ? '감독·당직 표 고치기' : '감독·당직 표 붙여넣기'}>
+    <div style={styles.overlay} onClick={onClose} role="dialog" aria-modal="true" aria-label={table ? '시험감독 표 고치기' : '시험감독 표 붙여넣기'}>
       <div className="glass-solid animate-slide-up" style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.header}>
-          <h3 style={styles.title}>{table ? '감독·당직 표 고치기' : '감독·당직 표 붙여넣기'}</h3>
+          <h3 style={styles.title}>{table ? '시험감독 표 고치기' : '시험감독 표 붙여넣기'}</h3>
           <button onClick={onClose} style={styles.closeBtn} aria-label="닫기"><Ic name="x" gap={false} /></button>
         </div>
 

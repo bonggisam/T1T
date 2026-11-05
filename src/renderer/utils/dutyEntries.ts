@@ -1,5 +1,5 @@
 /**
- * 감독·당직 표에서 내 차례를 찾아 달력에 그릴 모양으로 바꾼다.
+ * 시험감독 표에서 내 차례를 찾아 달력에 그릴 모양으로 바꾼다.
  * 개인 일정과 상관없는 학교 업무 자료이며, 달력에 그리는 값은 저장하지 않는다.
  */
 import type { CalendarEvent, DutyEntry, DutyTable, School } from '@shared/types';
@@ -73,7 +73,7 @@ export function dutyPeriodLabel(entry: Pick<DutyEntry, 'periods'>): string {
 
 /** 칩에 쓰는 이름: 시험 감독 1-2 */
 export function dutyTitle(entry: Pick<DutyEntry, 'kind' | 'place'>): string {
-  return [entry.kind, entry.place].filter(Boolean).join(' ') || '감독·당직';
+  return [entry.kind, entry.place].filter(Boolean).join(' ') || '시험감독';
 }
 
 /** 2교시 09:55~10:45, 없으면 하루 종일 */

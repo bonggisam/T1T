@@ -2,7 +2,7 @@ import React from 'react';
 import {
   AlertTriangle, BarChart3, Bell, BookOpen, Briefcase, Building2, Calendar, CalendarDays, Check, CheckCircle2,
   CheckSquare, Clock, Cloud, CloudDrizzle, CloudFog, CloudLightning, CloudRain, CloudSnow, CloudSun, Crown, DoorOpen,
-  Download, Eye, Flame, Folder, Globe2, GraduationCap, Inbox, Info, Lightbulb, Link, Lock, Megaphone, MessageSquare,
+  Download, Eye, Flame, Folder, Globe2, GraduationCap, Inbox, Info, Lightbulb, Link, ListChecks, Lock, Megaphone, MessageSquare,
   Palette, PartyPopper, Pencil, Phone, Pin, Printer, RefreshCw, School, Search, Settings, Square, Sun, Moon, Thermometer,
   Trash2, Umbrella, User, Users, UtensilsCrossed, Wand2, Wrench, X, Zap,
 } from 'lucide-react';
@@ -39,6 +39,7 @@ const ICONS = {
   info: Info,
   bulb: Lightbulb,
   link: Link,
+  list: ListChecks,
   lock: Lock,
   megaphone: Megaphone,
   message: MessageSquare,

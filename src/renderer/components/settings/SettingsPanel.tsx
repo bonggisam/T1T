@@ -242,7 +242,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             </select>
           </div>
           <ToggleRow label="시간표 변경 알림" value={widget.timetableChangeAlert} onChange={(v) => widget.setPref('timetableChangeAlert', v)} />
-          <ToggleRow label="감독·당직 미리 알림" value={widget.dutyReminder} onChange={(v) => widget.setPref('dutyReminder', v)} />
+          <ToggleRow label="시험감독 미리 알림" value={widget.dutyReminder} onChange={(v) => widget.setPref('dutyReminder', v)} />
         </Section>
 
         {/* Calendar Sync */}

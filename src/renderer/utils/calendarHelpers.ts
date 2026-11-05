@@ -74,7 +74,7 @@ export const PERSONAL_SUFFIX = 'P';
  * '공통' 일정은 작성자 학교와 무관하게 '공'으로 표시.
  */
 export function getCreatorTag(event: { creatorSchool?: string; school?: string; duty?: unknown }): string {
-  // 내 감독·당직 차례는 학교 공유 일정이 아니므로 학교 글자를 붙이지 않는다
+  // 내 시험감독 차례는 학교 공유 일정이 아니므로 학교 글자를 붙이지 않는다
   if (event.duty) return '';
   return getSchoolTag(event.school);
 }
@@ -99,7 +99,7 @@ export function canManageEvent(
   user?: { id: string; role?: string } | null,
 ): boolean {
   if (!user) return false;
-  // 달력에 그린 내 감독·당직 차례는 일정 문서가 아니다. 옮기거나 고치려면 표에서 한다.
+  // 달력에 그린 내 시험감독 차례는 일정 문서가 아니다. 옮기거나 고치려면 표에서 한다.
   if (event.duty) return false;
   if (user.id === event.createdBy) return true;
   return user.role === 'admin' || user.role === 'super_admin';

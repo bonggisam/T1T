@@ -32,7 +32,7 @@ function customVars(color: string): ChipVars {
 
 /** 공유 일정 칩 색. 설정의 일정 색 기준(학교, 분류, 작성자)을 따른다. */
 export function sharedChipVars(event: Pick<CalendarEvent, 'school' | 'category' | 'adminColor' | 'duty'>): ChipVars {
-  // 내 감독·당직 차례는 색 기준과 상관없이 같은 색이다
+  // 내 시험감독 차례는 색 기준과 상관없이 같은 색이다
   if (event.duty) return familyVars('duty');
   const { colorBy, colorAssist } = useAppearanceStore.getState();
   if (colorBy === 'author' && event.adminColor) return customVars(event.adminColor);

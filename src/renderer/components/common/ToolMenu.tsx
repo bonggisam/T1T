@@ -31,17 +31,18 @@ interface ToolMenuProps {
   onClose: () => void;
 }
 
-const TABS: Array<{ tab: ToolTab; label: string; Icon: React.ComponentType<any> }> = [
+/** 도구 모음과 제목 줄 아이콘이 함께 쓰는 목록 */
+export const TOOL_TABS: Array<{ tab: ToolTab; label: string; Icon: React.ComponentType<any> }> = [
   { tab: 'todos', label: '할 일', Icon: CheckSquare },
   { tab: 'reserv', label: '회의실', Icon: Building2 },
   { tab: 'meeting', label: '회의 찾기', Icon: CalendarSearch },
-  { tab: 'duty', label: '감독·당직', Icon: ClipboardCheck },
+  { tab: 'duty', label: '시험감독', Icon: ClipboardCheck },
   { tab: 'meal', label: '급식', Icon: UtensilsCrossed },
   { tab: 'schedule', label: '학사일정', Icon: CalendarDays },
   { tab: 'keyphone', label: '키폰', Icon: Phone },
   { tab: 'library', label: '도서관', Icon: BookMarked },
-  { tab: 'tpass', label: '출결', Icon: ListChecks },
-  { tab: 'outing', label: '외출', Icon: DoorOpen },
+  { tab: 'tpass', label: '외출시스템', Icon: DoorOpen },
+  { tab: 'outing', label: '외출상황', Icon: ListChecks },
 ];
 
 /** 아이콘만 늘어놓던 제목 줄 대신, 이름이 붙은 도구 모음 */
@@ -86,7 +87,7 @@ export function ToolMenu({
     <div ref={popRef} className="menu-pop" style={style} role="menu" aria-label="도구 모음">
       {who && <p style={styles.who}>{who}</p>}
       <div className="tool-grid">
-        {TABS.map(({ tab, label, Icon }) => (
+        {TOOL_TABS.map(({ tab, label, Icon }) => (
           <button
             key={tab}
             role="menuitem"

@@ -88,7 +88,7 @@ export function App() {
   useClassReminder();
   // 내 수업 시간에 개인 일정 자동 가리기, 단축키 처리
   useClassPrivacy();
-  // 시험 감독·당직 표와 내 차례 미리 알림
+  // 시험감독 표와 내 차례 미리 알림
   useDutySubscription(user?.status === 'active' ? user.id : null);
   useDutyReminder();
   // 컴시간이 막혔는지 지켜보고, 운영자는 선생님이 보낸 알림을 받는다

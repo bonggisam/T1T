@@ -40,7 +40,7 @@ export function SharedChip({ event, ...props }: ChipCommon & { event: CalendarEv
       onClick={props.onClick}
     >
       {event.duty
-        ? <ClipboardCheck size="0.95em" strokeWidth={2.4} aria-label="내 감독·당직 차례" style={{ flexShrink: 0 }} />
+        ? <ClipboardCheck size="0.95em" strokeWidth={2.4} aria-label="내 시험감독 차례" style={{ flexShrink: 0 }} />
         : <span className="ltr">{getSchoolTag(event.school)}</span>}
       {time && <span className="tm">{time}</span>}
       <span className="tt">{event.title}</span>

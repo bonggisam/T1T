@@ -138,7 +138,7 @@ export function DayAgenda({ date, onPersonalClick, showClasses = true, hideEmpty
             <span style={styles.body}>
               <span style={styles.title}>
                 {row.event.duty
-                  ? <ClipboardCheck size="0.95em" strokeWidth={2.4} aria-label="내 감독·당직 차례" style={{ ...styles.lock, color: vars['--c-ink'] }} />
+                  ? <ClipboardCheck size="0.95em" strokeWidth={2.4} aria-label="내 시험감독 차례" style={{ ...styles.lock, color: vars['--c-ink'] }} />
                   : <span style={{ ...styles.letter, color: vars['--c-ink'] }}>{getSchoolTag(row.event.school)}</span>}
                 {row.event.title}
               </span>

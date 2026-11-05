@@ -36,7 +36,7 @@ function writeNotified(keys: Set<string>, today: string): void {
 }
 
 /**
- * 내 감독·당직 차례를 미리 알린다.
+ * 내 시험감독 차례를 미리 알린다.
  *  - 전날 오후 4시: 다음 근무일 차례를 모아서 한 번 (금요일에는 월요일 차례)
  *  - 당일 아침: 시각이 없는 차례 (당직 등)
  *  - 시작 10분 전: 시각이 있는 차례
@@ -77,7 +77,7 @@ export function useDutyReminder(): void {
           changed = true;
           const when = now.getDay() === 5 ? format(nextDay, 'EEEE', { locale: ko }) : '내일';
           const lines = items.map((d) => `${dutyWhenText(d.entry)} ${dutyTitle(d.entry)}`);
-          notify(`${when} 감독·당직 ${items.length}건`, `${when} 감독·당직 ${items.length}건`, lines.slice(0, 5).join('\n'));
+          notify(`${when} 시험감독 ${items.length}건`, `${when} 시험감독 ${items.length}건`, lines.slice(0, 5).join('\n'));
         }
       }
 

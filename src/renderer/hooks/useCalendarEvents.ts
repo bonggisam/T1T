@@ -6,7 +6,7 @@ import { dutyToEvent } from '../utils/dutyEntries';
 import { useVisibleEvents } from './useVisibleEvents';
 
 /**
- * 달력에 그릴 일정: 공유 일정에 내 감독·당직 차례를 더한다.
+ * 달력에 그릴 일정: 공유 일정에 내 시험감독 차례를 더한다.
  * 차례는 화면에서만 만드는 값이라 저장, 구글 동기화, 통계, 내보내기에 들어가지 않는다.
  * 분류를 골라 보는 동안에는 그 분류만 보이도록 빼고, 학교 필터와는 상관없이 내 차례는 보여 준다.
  */

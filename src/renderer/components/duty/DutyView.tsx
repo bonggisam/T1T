@@ -26,7 +26,7 @@ function rangeLabel(table: DutyTable): string {
   return table.firstDate === table.lastDate ? short(table.firstDate) : `${short(table.firstDate)}~${short(table.lastDate)}`;
 }
 
-/** 시험 감독·당직 표: 내 차례, 표 목록, 표 내용 */
+/** 시험감독 표: 내 차례, 표 목록, 표 내용 */
 export function DutyView({ onBack }: { onBack: () => void }) {
   const user = useAuthStore((s) => s.user);
   const tables = useDutyStore((s) => s.tables);
@@ -82,7 +82,7 @@ export function DutyView({ onBack }: { onBack: () => void }) {
         >
           <ArrowLeft size={14} />
         </button>
-        <h3 style={styles.heading}>{open ? open.title : '시험 감독·당직'}</h3>
+        <h3 style={styles.heading}>{open ? open.title : '시험감독'}</h3>
         {open
           ? canManageDutyTable(open, user) && (
             <>
@@ -97,7 +97,7 @@ export function DutyView({ onBack }: { onBack: () => void }) {
 
       <div style={styles.body}>
         {denied && (
-          <p style={styles.warn}>감독·당직 표를 불러오지 못했습니다. 서버 규칙 적용 여부를 관리자에게 확인해 주세요.</p>
+          <p style={styles.warn}>시험감독 표를 불러오지 못했습니다. 서버 규칙 적용 여부를 관리자에게 확인해 주세요.</p>
         )}
         {!loaded && !denied && <p style={styles.note}>불러오는 중입니다...</p>}
 

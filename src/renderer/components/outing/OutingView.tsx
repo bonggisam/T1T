@@ -104,8 +104,8 @@ export function OutingView({ onBack }: OutingViewProps) {
         <button onClick={onBack} style={styles.backBtn} title="캘린더로 돌아가기">
           <Ic name="calendar" />캘린더
         </button>
-        <span style={styles.label}><Ic name="door" />외출 신청 ({todayStr})</span>
-        <button onClick={openSettings} style={styles.iconBtn} title="외출 신청 URL 설정" aria-label="설정">
+        <span style={styles.label}><Ic name="list" />외출상황 ({todayStr})</span>
+        <button onClick={openSettings} style={styles.iconBtn} title="외출상황 URL 설정" aria-label="설정">
           <Ic name="settings" gap={false} />
         </button>
         <button onClick={handleRefresh} style={styles.iconBtn} title="새로고침" aria-label="새로고침">
@@ -121,7 +121,7 @@ export function OutingView({ onBack }: OutingViewProps) {
         <div ref={webviewContainerRef} style={styles.webviewContainer} />
       ) : (
         <div style={styles.emptyState}>
-          <span>외출 신청 URL이 설정되어 있지 않습니다.</span>
+          <span>외출상황 URL이 설정되어 있지 않습니다.</span>
           <button onClick={openSettings} style={styles.saveBtn}>URL 설정</button>
         </div>
       )}
@@ -130,9 +130,9 @@ export function OutingView({ onBack }: OutingViewProps) {
       {showSettings && (
         <div style={styles.modalOverlay} onClick={() => setShowSettings(false)}>
           <div className="glass-solid" style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h3 style={styles.modalTitle}>외출 신청 URL 설정</h3>
+            <h3 style={styles.modalTitle}>외출상황 URL 설정</h3>
             <p style={styles.modalDesc}>
-              학교에서 사용하는 외출 신청 시스템 URL을 입력하세요.{DEFAULT_OUTING_URL && ' 비워두면 기본값 사용.'}
+              학교에서 사용하는 외출 신청 조회 페이지 URL을 입력하세요.{DEFAULT_OUTING_URL && ' 비워두면 기본값 사용.'}
             </p>
             <input
               type="url"
