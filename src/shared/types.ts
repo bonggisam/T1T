@@ -345,6 +345,12 @@ export interface ElectronAPI {
   openExternal: (url: string) => Promise<{ ok: boolean; reason?: string }>;
   /** 외출시스템 비밀번호 단계를 넘긴다. 값은 메인 프로세스에만 있다 */
   tpassAutoLogin: (webContentsId: number) => Promise<{ ok: boolean; reason?: string; attempt?: number }>;
+  /** 시험감독 표 사진의 글자와 위치를 읽는다. 이 PC 안에서 처리한다 */
+  dutyOcr: (bytes: Uint8Array) => Promise<{
+    ok: boolean;
+    reason?: string;
+    words?: Array<{ text: string; x0: number; y0: number; x1: number; y1: number; confidence: number }>;
+  }>;
   onWidgetModeChanged: (callback: (enabled: boolean) => void) => () => void;
   onClickThroughChanged: (callback: (enabled: boolean) => void) => () => void;
   /** 절전 복귀나 화면 잠금 해제 때 호출 */

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Upload } from 'lucide-react';
 import type { DutyEntry, DutyTable, School } from '@shared/types';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useDisableClickThrough } from '../../hooks/useDisableClickThrough';
@@ -12,6 +13,8 @@ import {
   collectPeriods, formatDutyDate, minutesText, parseDutyTable, parseMinutes,
   type DutyDraft,
 } from '../../utils/dutyTableParser';
+import { DUTY_FILE_ACCEPT, DutyFileError, isSlowFile, readDutyFile, tableHtmlToText } from '../../utils/dutyFileReader';
+import { snapKnownNames } from '../../utils/tableFromBoxes';
 import { periodStartsOf } from '../../utils/pasteEventParser';
 import { classDurationMin } from '../../utils/classPeriods';
 import { Ic } from '../common/Ic';
@@ -65,8 +68,8 @@ function toDrafts(table: DutyTable): DutyDraft[] {
 }
 
 /**
- * 시험감독 표 붙여넣기. 담당자가 표를 붙여 넣어 읽은 값을 고치고 저장하면 각 선생님 달력에 차례가 나타난다.
- * 원문은 저장하지 않고 이름, 날짜, 시각, 종류, 장소만 남긴다.
+ * 시험감독 표 올리기. 담당자가 파일을 올리거나 표를 붙여 넣어 읽은 값을 고치고 저장하면 각 선생님 달력에 차례가 나타난다.
+ * 파일은 이 PC 안에서 읽고, 원문과 파일은 저장하지 않으며 이름, 날짜, 시각, 종류, 장소만 남긴다.
  */
 export function DutyImportModal({ table = null, onClose }: DutyImportModalProps) {
   const user = useAuthStore((s) => s.user);
@@ -86,6 +89,11 @@ export function DutyImportModal({ table = null, onClose }: DutyImportModalProps)
   const [parsedOnce, setParsedOnce] = useState(false);
   const [openDate, setOpenDate] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [reading, setReading] = useState<string | null>(null);
+  const [fileProblems, setFileProblems] = useState<string[]>([]);
+  const [readFromPhoto, setReadFromPhoto] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   useEscapeKey(onClose);
   useDisableClickThrough();
@@ -138,6 +146,62 @@ export function DutyImportModal({ table = null, onClose }: DutyImportModalProps)
   function handleText(value: string) {
     setText(value);
     parse(value, kind);
+  }
+
+  /** 파일을 읽어 표 칸에 넣는다. 여러 장이면 이어 붙인다 */
+  async function importFiles(files: File[]) {
+    if (files.length === 0 || reading) return;
+    const problems: string[] = [];
+    const parts: string[] = [];
+    let photo = false;
+    setFileProblems([]);
+    for (const file of files) {
+      setReading(isSlowFile(file)
+        ? `${file.name}을(를) 읽는 중입니다. 사진은 처음에 조금 오래 걸립니다.`
+        : `${file.name}을(를) 읽는 중입니다.`);
+      try {
+        const result = await readDutyFile(file);
+        if (!result.text.trim()) {
+          problems.push(`${file.name}: 표를 찾지 못했습니다.`);
+          continue;
+        }
+        parts.push(result.fromOcr ? snapKnownNames(result.text, [...knownNames, ...Object.values(labelNames)]) : result.text);
+        photo = photo || result.fromOcr;
+      } catch (err) {
+        console.error('[Duty] file read failed:', err);
+        problems.push(`${file.name}: ${err instanceof DutyFileError ? err.message : '파일을 읽지 못했습니다.'}`);
+      }
+    }
+    setReading(null);
+    setFileProblems(problems);
+    if (parts.length === 0) return;
+    setReadFromPhoto(photo);
+    handleText(parts.join('\n\n'));
+    if (!title.trim()) setTitle(files[0].name.replace(/\.[^.]+$/, '').slice(0, 60));
+  }
+
+  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const images = [...e.clipboardData.files].filter((file) => file.type.startsWith('image/'));
+    // 표를 복사하면 그림과 글이 함께 올 수 있다. 글이 있으면 글을 쓴다 (글이 더 정확하다)
+    const html = e.clipboardData.getData('text/html');
+    const table = html ? tableHtmlToText(html) : null;
+    if (table) {
+      e.preventDefault();
+      setReadFromPhoto(false);
+      handleText(table);
+      return;
+    }
+    if (images.length > 0 && !e.clipboardData.getData('text/plain').trim()) {
+      e.preventDefault();
+      void importFiles(images.map((file, i) => (file.name ? file : new File([file], `붙여넣은 그림 ${i + 1}.png`, { type: file.type }))));
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(false);
+    void importFiles([...e.dataTransfer.files]);
   }
 
   function handleKind(value: string) {
@@ -217,10 +281,23 @@ export function DutyImportModal({ table = null, onClose }: DutyImportModalProps)
   }
 
   return (
-    <div style={styles.overlay} onClick={onClose} role="dialog" aria-modal="true" aria-label={table ? '시험감독 표 고치기' : '시험감독 표 붙여넣기'}>
-      <div className="glass-solid animate-slide-up" style={styles.modal} onClick={(e) => e.stopPropagation()}>
+    <div
+      style={styles.overlay}
+      onClick={onClose}
+      onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+      onDragLeave={(e) => { if (e.relatedTarget === null) setDragging(false); }}
+      onDrop={handleDrop}
+      role="dialog"
+      aria-modal="true"
+      aria-label={table ? '시험감독 표 고치기' : '시험감독 표 올리기'}
+    >
+      <div
+        className="glass-solid animate-slide-up"
+        style={dragging ? { ...styles.modal, outline: '2px dashed var(--accent)', outlineOffset: -4 } : styles.modal}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div style={styles.header}>
-          <h3 style={styles.title}>{table ? '시험감독 표 고치기' : '시험감독 표 붙여넣기'}</h3>
+          <h3 style={styles.title}>{table ? '시험감독 표 고치기' : '시험감독 표 올리기'}</h3>
           <button onClick={onClose} style={styles.closeBtn} aria-label="닫기"><Ic name="x" gap={false} /></button>
         </div>
 
@@ -256,16 +333,47 @@ export function DutyImportModal({ table = null, onClose }: DutyImportModalProps)
             </datalist>
           </div>
 
+          <div style={styles.uploadRow}>
+            <button type="button" onClick={() => fileInput.current?.click()} disabled={!!reading} style={styles.uploadBtn}>
+              <Upload size={14} />파일 올리기
+            </button>
+            <span style={styles.note}>엑셀, 한글, 워드, PDF, 사진. 끌어다 놓거나 캡처를 붙여 넣어도 됩니다.</span>
+            <input
+              ref={fileInput}
+              type="file"
+              multiple
+              hidden
+              accept={DUTY_FILE_ACCEPT}
+              aria-label="표 파일 고르기"
+              onChange={(e) => {
+                const files = [...(e.target.files ?? [])];
+                e.target.value = '';
+                void importFiles(files);
+              }}
+            />
+          </div>
+
+          {reading && (
+            <p style={styles.readingBox} role="status"><span className="spinner" style={styles.spinner} />{reading}</p>
+          )}
+          {fileProblems.map((problem) => <p key={problem} style={styles.warnBox}>{problem}</p>)}
+          {readFromPhoto && rows.length > 0 && (
+            <p style={styles.warnBox}>
+              사진에서 읽은 내용은 글자가 틀릴 수 있습니다. 저장하기 전에 아래 이름과 날짜를 꼭 확인해 주세요. 위 칸의 글을 고치면 바로 다시 읽습니다.
+            </p>
+          )}
+
           <textarea
             value={text}
             onChange={(e) => handleText(e.target.value)}
-            placeholder={table ? '새 표를 붙여 넣으면 아래 내용이 바뀝니다' : '엑셀이나 한글에서 표를 복사해 여기에 붙여 넣으세요'}
-            aria-label="붙여 넣은 표"
+            onPaste={handlePaste}
+            placeholder={table ? '새 표를 올리거나 붙여 넣으면 아래 내용이 바뀝니다' : '또는 엑셀이나 한글에서 표를 복사해 여기에 붙여 넣으세요'}
+            aria-label="읽은 표"
             rows={table ? 2 : 4}
             style={styles.textarea}
           />
           <p style={styles.note}>
-            표는 모든 선생님이 볼 수 있습니다. 시험 문제나 평가 자료, 개인 사유는 넣지 마세요. 글은 이 PC에서 읽고, 읽어 낸 값만 저장합니다.
+            표는 모든 선생님이 볼 수 있습니다. 시험 문제나 평가 자료, 개인 사유는 넣지 마세요. 파일은 이 PC 안에서 읽고, 읽어 낸 값만 저장합니다.
           </p>
 
           {parsedOnce && rows.length === 0 && (
@@ -476,6 +584,44 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 6,
     background: 'var(--bg-secondary)',
     color: 'var(--text-primary)',
+  },
+  uploadRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  uploadBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 5,
+    padding: '5px 10px',
+    border: 'none',
+    borderRadius: 7,
+    background: 'var(--accent)',
+    color: 'var(--on-accent)',
+    fontFamily: 'inherit',
+    fontSize: 'var(--fs-body)',
+    fontWeight: 700,
+    cursor: 'pointer',
+    flexShrink: 0,
+  },
+  readingBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '6px 8px',
+    borderRadius: 6,
+    background: 'var(--accent-soft)',
+    fontSize: 'var(--fs-body)',
+    color: 'var(--text-primary)',
+    flexShrink: 0,
+  },
+  spinner: {
+    width: 14,
+    height: 14,
+    flexShrink: 0,
   },
   textarea: {
     width: '100%',

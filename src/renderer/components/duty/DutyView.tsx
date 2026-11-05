@@ -91,7 +91,7 @@ export function DutyView({ onBack }: { onBack: () => void }) {
             </>
           )
           : (
-            <button onClick={() => setEditing({ table: null })} style={styles.addBtn}><Plus size={13} />표 붙여넣기</button>
+            <button onClick={() => setEditing({ table: null })} style={styles.addBtn}><Plus size={13} />표 올리기</button>
           )}
       </div>
 

@@ -18,6 +18,7 @@
     "clean:release": "node scripts/clean-old-releases.cjs"
   },
   "dependencies": {
+    "@tesseract.js-data/kor": "1.0.0",
     "comcigan-parser": "^1.0.0",
     "date-fns": "^3.3.1",
     "dotenv": "^17.4.2",
@@ -28,6 +29,7 @@
     "lucide-react": "^0.330.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "tesseract.js": "7.0.0",
     "zustand": "^4.5.0"
   },
   "devDependencies": {
@@ -37,11 +39,14 @@
     "concurrently": "^8.2.2",
     "electron": "^45.2.3",
     "electron-builder": "^26.8.1",
+    "fflate": "0.8.3",
     "patch-package": "^8.0.1",
+    "pdfjs-dist": "6.5.438",
     "png-to-ico": "^3.0.1",
     "typescript": "^5.3.3",
     "vite": "^5.0.12",
-    "wait-on": "^7.2.0"
+    "wait-on": "^7.2.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "build": {
     "appId": "com.school.transparent-calendar",
@@ -53,7 +58,10 @@
       "dist/**/*",
       "public/**/*",
       "assets/**/*",
-      "node_modules/comcigan-parser/**/*"
+      "node_modules/comcigan-parser/**/*",
+      "!node_modules/@tesseract.js-data/kor/4.0.0/**",
+      "!node_modules/tesseract.js-core/*-lstm.*",
+      "!node_modules/tesseract.js-core/*.wasm.js"
     ],
     "mac": {
       "target": [

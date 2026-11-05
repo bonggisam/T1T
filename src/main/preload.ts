@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stopEdgeResize: () => ipcRenderer.invoke('window:stop-edge-resize'),
   openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
   tpassAutoLogin: (webContentsId: number) => ipcRenderer.invoke('tpass:auto-login', webContentsId),
+  dutyOcr: (bytes: Uint8Array) => ipcRenderer.invoke('duty:ocr', bytes),
   onWidgetModeChanged: (callback: (enabled: boolean) => void) => {
     const listener = (_event: any, enabled: boolean) => callback(enabled);
     ipcRenderer.on('widget-mode-changed', listener);
