@@ -1,10 +1,12 @@
 import { create } from 'zustand';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../utils/firebase';
+import { USER_DIRECTORY } from '../utils/userDirectory';
 import type { User } from '@shared/types';
 
 interface UsersState {
-  users: Pick<User, 'id' | 'name' | 'email' | 'school' | 'profileColor'>[];
+  /** 승인된 교사 명단. 이메일은 없다 */
+  users: Pick<User, 'id' | 'name' | 'school' | 'profileColor'>[];
   unsubscribe: (() => void) | null;
   subscribeToUsers: () => void;
   cleanup: () => void;
@@ -17,14 +19,12 @@ export const useUsersStore = create<UsersState>((set, get) => ({
   subscribeToUsers: () => {
     const prev = get().unsubscribe;
     prev?.();
-    const q = query(collection(db, 'users'), where('status', '==', 'active'));
-    const unsub = onSnapshot(q, (snap) => {
+    const unsub = onSnapshot(collection(db, USER_DIRECTORY), (snap) => {
       const users = snap.docs.map((d) => {
         const data = d.data();
         return {
           id: d.id,
           name: data.name || '',
-          email: data.email || '',
           school: data.school || 'taeseong_middle',
           profileColor: data.profileColor,
         };
@@ -37,6 +37,6 @@ export const useUsersStore = create<UsersState>((set, get) => ({
   cleanup: () => {
     const { unsubscribe } = get();
     unsubscribe?.();
-    set({ unsubscribe: null });
+    set({ unsubscribe: null, users: [] });
   },
 }));

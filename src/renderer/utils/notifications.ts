@@ -1,7 +1,5 @@
 import {
   collection,
-  query,
-  where,
   getDocs,
   addDoc,
   serverTimestamp,
@@ -9,40 +7,31 @@ import {
 import { getAuth } from 'firebase/auth';
 import { db } from './firebase';
 import { isPersonalHidden } from '../store/privacyStore';
+import { USER_DIRECTORY } from './userDirectory';
 import type { NotificationType, School } from '@shared/types';
 
 /**
- * Send a notification to all active teachers (and other admins).
- * Called when an admin creates, updates, or deletes an event.
+ * 공유 일정이 생기거나 바뀌면 그 학교의 승인된 교사에게 알린다. 본인은 뺀다.
+ * 대상은 교사 명단에서 찾는다. users 목록은 관리자만 읽으므로 일반 교사가 올린 일정은 지금까지 알림이 가지 않았다.
  */
 export async function notifyAllUsers(
   type: NotificationType,
   message: string,
   eventId: string | undefined,
-  createdBy: string,
   eventSchool?: School | 'all',
 ): Promise<void> {
-  // 스푸핑 방지: 실제 현재 로그인 uid와 일치하는지 확인
-  const currentUid = getAuth().currentUser?.uid;
-  if (!currentUid || currentUid !== createdBy) {
-    console.warn('[Notifications] createdBy mismatch — aborting', { currentUid, createdBy });
-    return;
-  }
+  const me = getAuth().currentUser?.uid;
+  if (!me) return;
   try {
-    const q = query(
-      collection(db, 'users'),
-      where('status', '==', 'active'),
-    );
-    const snapshot = await getDocs(q);
+    const snapshot = await getDocs(collection(db, USER_DIRECTORY));
 
     const targets = snapshot.docs.filter((d) => {
-      if (d.id === createdBy) return false;
+      if (d.id === me) return false;
       // 일정의 school 값에 따라 대상 필터링
       // 'all' → 모든 활성 사용자
       // 특정 school → 해당 학교 사용자만
       if (!eventSchool || eventSchool === 'all') return true;
-      const userSchool = d.data().school;
-      return userSchool === eventSchool;
+      return d.data().school === eventSchool;
     });
 
     const results = await Promise.allSettled(
@@ -53,15 +42,24 @@ export async function notifyAllUsers(
           message,
           read: false,
           createdAt: serverTimestamp(),
-          createdBy,
+          createdBy: me,
         }),
       ),
     );
     const failed = results.filter((r) => r.status === 'rejected').length;
     if (failed > 0) console.warn(`[Notifications] ${failed}/${results.length} notifications failed`);
+    if (targets.length > 0 && failed === targets.length) notifyFailureToSender();
   } catch (err) {
     console.error('Failed to send notifications:', err);
+    notifyFailureToSender();
   }
+}
+
+/** 일정은 저장됐지만 다른 선생님에게 알리지 못했다. 말없이 넘어가면 모두 안다고 믿게 된다 */
+function notifyFailureToSender(): void {
+  import('../components/common/Toast')
+    .then(({ showToast }) => showToast('일정은 저장했지만 다른 선생님께 알림을 보내지 못했습니다', 'error'))
+    .catch(() => {});
 }
 
 /**

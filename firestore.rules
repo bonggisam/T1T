@@ -41,6 +41,21 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    // 교사 명단 — 알림 대상과 @멘션에 쓰는 이름, 학교, 색만 담는다. 이메일은 넣지 않는다.
+    // 승인된 교사만 읽고, 본인 줄만 쓴다. 관리자는 승인된 사람과 맞추느라 모든 줄을 고친다.
+    function validDirectoryRow(data) {
+      return data.keys().hasOnly(['name', 'school', 'profileColor'])
+        && data.name is string && data.name.size() <= 50
+        && data.school in ['taeseong_middle', 'taeseong_high']
+        && (!('profileColor' in data) || (data.profileColor is string && data.profileColor.size() <= 20));
+    }
+    match /user_directory/{userId} {
+      allow read: if isActive();
+      allow create, update: if ((isActive() && request.auth.uid == userId) || isAdmin())
+        && validDirectoryRow(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
     // Shared events — all active users can create; edit/delete own only; admin can manage all
     // school 값 whitelist 검증 (스푸핑 방지)
     match /events/{eventId} {

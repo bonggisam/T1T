@@ -11,6 +11,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '../utils/firebase';
+import { useAuthStore } from './authStore';
 import { playNotificationSound, showDesktopNotification } from '../utils/notifications';
 import type { AppNotification } from '@shared/types';
 
@@ -67,7 +68,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       if (!isFirstLoad && unreadCount > prevUnread) {
         const newest = notifications.find((n) => !n.read);
         if (newest) {
-          playNotificationSound();
+          if (useAuthStore.getState().user?.settings?.notificationSound !== false) playNotificationSound();
           showDesktopNotification('T1T', newest.message);
         }
       }

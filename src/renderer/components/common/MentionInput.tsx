@@ -31,7 +31,7 @@ export function MentionInput({ value, onChange, onSubmit, placeholder, disabled,
 
   const filteredUsers = mentionQuery !== null
     ? users
-        .filter((u) => u.name.includes(mentionQuery) || u.email.startsWith(mentionQuery))
+        .filter((u) => u.name.includes(mentionQuery))
         .sort((a, b) => {
           // 시작 매칭 우선, 그다음 이름 가나다순
           const aStart = a.name.startsWith(mentionQuery);
