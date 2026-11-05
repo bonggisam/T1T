@@ -3,7 +3,7 @@ import React, { useRef, useState } from 'react';
 /*
  * 아이콘에 마우스를 가까이 대면 애플 독처럼 커지고 이름이 나온다.
  * 크기는 화면 변환으로만 바꾼다. 줄의 배치가 흔들리지 않고 옆 칸과 겹치지 않는다.
- * 아이콘 줄은 위쪽에 있으므로 아래로 커지고, 이름도 아래에 나온다.
+ * 이름은 마우스 화살표에 가리지 않는 쪽에 띄운다. 화살표는 오른쪽 아래로 뻗으므로 위나 왼쪽이 좋다.
  */
 
 interface DockProps {
@@ -11,6 +11,8 @@ interface DockProps {
   maxScale?: number;
   /** 이 거리 안의 아이콘이 함께 커진다 (px) */
   radius?: number;
+  /** 이름을 띄울 쪽. 창 맨 위에 붙은 아이콘은 위쪽에 자리가 없어 왼쪽에 띄운다 */
+  tipSide?: 'above' | 'left';
   className?: string;
   style?: React.CSSProperties;
   role?: string;
@@ -39,7 +41,7 @@ function prefersLessMotion(): boolean {
 }
 
 /** 아이콘에는 className="dock-item"과 data-dock-label을 준다 */
-export function Dock({ maxScale = 1.7, radius = 72, className, style, role, ariaLabel, children }: DockProps) {
+export function Dock({ maxScale = 1.7, radius = 72, tipSide = 'above', className, style, role, ariaLabel, children }: DockProps) {
   const root = useRef<HTMLDivElement>(null);
   const [tip, setTip] = useState<Tip | null>(null);
 
@@ -96,14 +98,24 @@ export function Dock({ maxScale = 1.7, radius = 72, className, style, role, aria
       return;
     }
     // 창 가장자리에서 이름이 잘리지 않게 한다. 한글 폭으로 어림한다.
-    const halfWidth = (text.length * 12 + 16) / 2;
+    const tipWidth = text.length * 12 + 16;
     const tipCenter = centers[nearest] + moved[nearest];
-    const min = TIP_MARGIN + halfWidth - boxLeft;
-    const max = window.innerWidth - TIP_MARGIN - halfWidth - boxLeft;
+    const height = target.offsetHeight;
+    const width = target.offsetWidth * scales[nearest];
+    if (tipSide === 'left') {
+      setTip({
+        text,
+        left: Math.max(TIP_MARGIN + tipWidth - boxLeft, tipCenter - width / 2 - TIP_GAP),
+        top: target.offsetTop + height / 2,
+      });
+      return;
+    }
+    const half = tipWidth / 2;
     setTip({
       text,
-      left: Math.max(min, Math.min(max, tipCenter)),
-      top: target.offsetTop + target.offsetHeight * scales[nearest] + TIP_GAP,
+      left: Math.max(TIP_MARGIN + half - boxLeft, Math.min(window.innerWidth - TIP_MARGIN - half - boxLeft, tipCenter)),
+      // 아이콘은 가운데를 기준으로 커진다
+      top: target.offsetTop + height / 2 - (height * scales[nearest]) / 2 - TIP_GAP,
     });
   }
 
@@ -124,7 +136,11 @@ export function Dock({ maxScale = 1.7, radius = 72, className, style, role, aria
     >
       {children}
       {tip && (
-        <span className="dock-tip" role="tooltip" style={{ left: tip.left, top: tip.top }}>
+        <span
+          className="dock-tip"
+          role="tooltip"
+          style={{ left: tip.left, top: tip.top, transform: tipSide === 'left' ? 'translate(-100%, -50%)' : 'translate(-50%, -100%)' }}
+        >
           {tip.text}
         </span>
       )}

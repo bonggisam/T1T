@@ -327,7 +327,6 @@ html, body, #root {
 
 /* 아이콘에 마우스를 대면 커지고 색이 바뀐다 (Dock.tsx) */
 .dock-item {
-  transform-origin: top center;
   transition: transform 110ms ease-out, color 110ms, background-color 110ms;
 }
 .dock-item[data-near='true'] {
@@ -337,7 +336,6 @@ html, body, #root {
 }
 .dock-tip {
   position: absolute;
-  transform: translateX(-50%);
   padding: 2px 8px;
   border-radius: 6px;
   background: var(--accent);

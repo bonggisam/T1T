@@ -25,8 +25,6 @@ const DAY_YEAR_MIN = 419;
 const FULL_DATE_MIN = 387;
 /** 이보다 좁으면 T1T와 오늘, 편집 글자, 구분선을 뺀다 */
 const COMPACT_MAX = 359;
-/** 도구 아이콘이 제목 줄에 함께 들어가는 폭. 이보다 좁으면 아래에 아이콘 줄을 따로 둔다 */
-const ONE_ROW_MIN = 900;
 const TOOL_MENU_WIDTH = 300;
 
 interface TitleBarProps {
@@ -47,7 +45,7 @@ interface TitleBarProps {
 
 /**
  * 제목 줄. 날짜 이동, 개인 일정 가리기, 알림, 도구 모음을 한 줄에 둔다.
- * 도구 아이콘은 창 크기와 상관없이 항상 가운데에 보인다. 창이 넓으면 제목 줄에, 아니면 그 아래 아이콘 줄에 둔다.
+ * 도구 아이콘은 창 크기와 상관없이 제목 줄 아래 가운데에 보인다. 이름을 아이콘 위에 띄울 자리가 있어야 한다.
  */
 export function TitleBar({
   onToggleSettings, onToggleAdmin, showSettingsBtn, showAdminBtn,
@@ -65,7 +63,6 @@ export function TitleBar({
   const room = width - (widgetMode ? 0 : EDIT_BUTTONS_EXTRA) + (calendarVisible ? 0 : NAV_WIDTH);
   const compact = room < COMPACT_MAX;
   const wide = width >= WIDE_MIN;
-  const oneRow = width >= ONE_ROW_MIN;
 
   useEffect(() => {
     window.electronAPI?.getWidgetMode().then((v) => setWidgetMode(v)).catch(() => {});
@@ -93,14 +90,8 @@ export function TitleBar({
 
         <span style={styles.spacer} />
 
-        {signedIn && oneRow && onOpenTab && (
-          <Dock style={styles.dockCentered} role="toolbar" ariaLabel="도구">
-            <ToolIcons activeTab={activeTab} onOpenTab={onOpenTab} />
-          </Dock>
-        )}
-
         {signedIn && (
-          <Dock maxScale={1.4} radius={46} style={styles.systemDock}>
+          <Dock maxScale={1.4} radius={46} tipSide="left" style={styles.systemDock}>
             {wide && onOpenTab && (
               <IconBtn
                 dock
@@ -161,7 +152,7 @@ export function TitleBar({
         )}
       </div>
 
-      {signedIn && !oneRow && onOpenTab && (
+      {signedIn && onOpenTab && (
         <Dock className="titlebar" style={styles.toolRow} role="toolbar" ariaLabel="도구">
           <ToolIcons activeTab={activeTab} onOpenTab={onOpenTab} />
         </Dock>
@@ -230,7 +221,7 @@ function IconBtn({ Icon, title, onClick, active, accent, dock }: IconBtnProps) {
   return (
     <button
       className={dock ? 'dock-item' : undefined}
-      data-dock-label={dock ? title : undefined}
+      data-dock-label={dock ? title.replace(/\s*\(.*\)$/, '') : undefined}
       onClick={onClick}
       style={{
         ...styles.iconBtn,
@@ -262,14 +253,6 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '0 clamp(2px, calc((100vw - 300px) / 14), 10px)',
     padding: '0 8px 3px',
     flexShrink: 0,
-  },
-  dockCentered: {
-    position: 'absolute',
-    left: '50%',
-    top: 6,
-    transform: 'translateX(-50%)',
-    display: 'flex',
-    gap: 6,
   },
   systemDock: {
     display: 'flex',
