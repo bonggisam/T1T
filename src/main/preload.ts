@@ -15,7 +15,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setBounds: (bounds: { x: number; y: number; width: number; height: number }) => ipcRenderer.invoke('window:set-bounds', bounds),
   startEdgeResize: (edge: string) => ipcRenderer.invoke('window:start-edge-resize', edge),
   stopEdgeResize: () => ipcRenderer.invoke('window:stop-edge-resize'),
-  tpassAutoLogin: (webContentsId: number) => ipcRenderer.invoke('tpass:auto-login', webContentsId),
   openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
   onWidgetModeChanged: (callback: (enabled: boolean) => void) => {
     const listener = (_event: any, enabled: boolean) => callback(enabled);
