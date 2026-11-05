@@ -12,6 +12,8 @@ const STORES = {
   meta: 'meta',
 } as const;
 
+const PERSONAL_OWNER_KEY = 'personal_owner';
+
 let dbInstance: IDBDatabase | null = null;
 
 function openDB(): Promise<IDBDatabase> {
@@ -113,21 +115,49 @@ export async function getCachedEvents<T>(): Promise<T[]> {
   }
 }
 
-export async function cachePersonalEvents(events: any[]): Promise<void> {
+/**
+ * 공용 PC에서 다음 교사에게 앞 교사의 개인 일정이 보이면 안 된다.
+ * 내용과 주인 표시를 한 번에 바꿔, 중간에 꺼져도 다른 사람 이름으로 남지 않게 한다.
+ */
+export async function cachePersonalEvents(userId: string, events: any[]): Promise<void> {
   try {
-    await putAll(STORES.personalEvents, events);
-    await setMeta('personal_cached_at', Date.now());
+    const db = await openDB();
+    const tx = db.transaction([STORES.personalEvents, STORES.meta], 'readwrite');
+    const store = tx.objectStore(STORES.personalEvents);
+    store.clear();
+    for (const item of events) store.put(serializeDate(item));
+    const meta = tx.objectStore(STORES.meta);
+    meta.put({ key: PERSONAL_OWNER_KEY, value: userId });
+    meta.put({ key: 'personal_cached_at', value: Date.now() });
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
   } catch (e) {
     console.warn('Failed to cache personal events:', e);
   }
 }
 
-export async function getCachedPersonalEvents<T>(): Promise<T[]> {
+/** 이 사람이 저장한 것만 돌려준다. 주인 표시가 없는 예전 캐시는 쓰지 않는다 */
+export async function getCachedPersonalEvents<T>(userId: string): Promise<T[]> {
   try {
+    if ((await getMeta(PERSONAL_OWNER_KEY)) !== userId) return [];
     return await getAll<T>(STORES.personalEvents);
   } catch {
     return [];
   }
+}
+
+/** 로그아웃하면 이 PC에 개인 일정을 남기지 않는다 */
+export async function clearPersonalCache(): Promise<void> {
+  const db = await openDB();
+  const tx = db.transaction([STORES.personalEvents, STORES.meta], 'readwrite');
+  tx.objectStore(STORES.personalEvents).clear();
+  tx.objectStore(STORES.meta).delete(PERSONAL_OWNER_KEY);
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
 }
 
 async function setMeta(key: string, value: any): Promise<void> {

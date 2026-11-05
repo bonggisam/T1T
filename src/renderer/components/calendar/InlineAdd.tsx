@@ -25,7 +25,8 @@ interface InlineAddProps {
 
 /**
  * 칸을 더블클릭하면 그 자리에서 제목만 쓰고 저장한다. "3시 회의", "3교시 공개수업"처럼 시각도 읽는다.
- * 잘못 눌러 공유되지 않도록 기본은 개인 일정이다. 가린 동안에는 개인 일정을 만들지 않는다.
+ * 잘못 눌러 공유되지 않도록 기본은 개인 일정이다.
+ * 가린 동안에는 개인 일정을 만들지 않으며, 평소처럼 쓰고 Enter를 눌러 공유되지 않게 "공유"를 직접 눌러야 저장된다.
  */
 export function InlineAdd({ day, anchor, startMin, endMin, onClose, onMorePersonal }: InlineAddProps) {
   const user = useAuthStore((s) => s.user);
@@ -37,7 +38,7 @@ export function InlineAdd({ day, anchor, startMin, endMin, onClose, onMorePerson
   const viewingSchool = useUIStore((s) => s.viewingSchool);
   const hidden = usePersonalHidden();
   const [text, setText] = useState('');
-  const [scope, setScope] = useState<'personal' | 'shared'>(hidden ? 'shared' : 'personal');
+  const [scope, setScope] = useState<'personal' | 'shared' | null>(hidden ? null : 'personal');
   const [saving, setSaving] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
@@ -51,7 +52,7 @@ export function InlineAdd({ day, anchor, startMin, endMin, onClose, onMorePerson
 
   async function save() {
     const trimmed = text.trim();
-    if (!trimmed || !user || saving) return;
+    if (!trimmed || !user || saving || !scope) return;
     const parsed = parseInlineTitle(trimmed.slice(0, 100), classTimes ?? []);
     const from = parsed.startMin ?? startMin ?? null;
     const to = parsed.startMin !== null ? parsed.endMin : endMin ?? (from !== null ? from + 60 : null);
@@ -154,8 +155,9 @@ export function InlineAdd({ day, anchor, startMin, endMin, onClose, onMorePerson
           <button type="button" onClick={() => setScope('shared')} aria-pressed={scope === 'shared'} title="선생님들과 공유합니다">공유</button>
         </div>
         <button type="button" onClick={openFull} style={styles.more}>자세히</button>
-        <button type="button" onClick={save} disabled={!text.trim() || saving} style={{ ...styles.save, opacity: text.trim() ? 1 : 0.5 }}>저장</button>
+        <button type="button" onClick={save} disabled={!text.trim() || saving || !scope} style={{ ...styles.save, opacity: text.trim() && scope ? 1 : 0.5 }}>저장</button>
       </div>
+      {!scope && <p role="status" style={styles.hint}>개인 일정을 가린 동안에는 개인 일정을 만들 수 없습니다. 모두에게 보이게 하려면 공유를 누르세요.</p>}
     </div>
   );
 }
@@ -186,6 +188,12 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-secondary)',
     fontSize: 'var(--fs-body)',
     cursor: 'pointer',
+  },
+  hint: {
+    margin: '6px 2px 0',
+    fontSize: 'var(--fs-caption)',
+    color: 'var(--text-secondary)',
+    lineHeight: 1.4,
   },
   save: {
     padding: '3px 10px',

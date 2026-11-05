@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isToday, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useCalendarStore } from '../../store/calendarStore';
@@ -28,6 +28,8 @@ export function PrintView({ onClose }: PrintViewProps) {
   const events = useVisibleEvents();
   const allPersonal = useVisiblePersonalEvents();
   const printRef = useRef<HTMLDivElement>(null);
+  // 일정표는 게시하거나 나눠 줄 수 있으므로 개인 일정은 고른 때만 넣는다
+  const [includePersonal, setIncludePersonal] = useState(false);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -52,6 +54,7 @@ export function PrintView({ onClose }: PrintViewProps) {
   }
 
   function getPersonalForDay(day: Date): PersonalEvent[] {
+    if (!includePersonal) return [];
     return allPersonal.filter((e) => {
       const start = e.startDate instanceof Date ? e.startDate : new Date(e.startDate);
       const end = e.endDate instanceof Date ? e.endDate : new Date(e.endDate);
@@ -81,6 +84,12 @@ export function PrintView({ onClose }: PrintViewProps) {
       <div style={styles.toolbar} className="no-print">
         <span style={styles.toolbarTitle}>인쇄 미리보기</span>
         <div style={styles.toolbarActions}>
+          {allPersonal.length > 0 && (
+            <label style={styles.includeLabel}>
+              <input type="checkbox" checked={includePersonal} onChange={(e) => setIncludePersonal(e.target.checked)} />
+              개인 일정 포함
+            </label>
+          )}
           <button onClick={handlePrint} style={styles.printBtn}><Ic name="printer" />인쇄</button>
           <button onClick={onClose} style={styles.closeBtn}>닫기</button>
         </div>
@@ -155,7 +164,7 @@ export function PrintView({ onClose }: PrintViewProps) {
                       ))}
                       {(dayEvents.length > 4 || dayPersonal.length > 2) && (
                         <div style={styles.moreText}>
-                          +{dayEvents.length - 4 + Math.max(0, dayPersonal.length - 2)}
+                          +{Math.max(0, dayEvents.length - 4) + Math.max(0, dayPersonal.length - 2)}
                         </div>
                       )}
                     </td>
@@ -231,7 +240,16 @@ const styles: Record<string, React.CSSProperties> = {
   },
   toolbarActions: {
     display: 'flex',
+    alignItems: 'center',
     gap: 8,
+  },
+  includeLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+    fontSize: 12,
+    color: '#333',
+    cursor: 'pointer',
   },
   printBtn: {
     padding: '6px 16px',
