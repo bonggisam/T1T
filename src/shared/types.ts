@@ -25,6 +25,15 @@ export interface User {
   settings: UserSettings;
 }
 
+export interface AppearanceChoices {
+  theme: 'clear' | 'grid' | 'chalk' | 'night' | 'blossom' | 'contrast' | 'system';
+  accent: 'theme' | 'blue' | 'indigo' | 'teal' | 'orange' | 'pink';
+  eventFontPx: 13 | 15 | 18;
+  colorBy: 'school' | 'category' | 'author';
+  colorAssist: boolean;
+  hideWeekend: boolean;
+}
+
 export interface UserSettings {
   notificationSound: boolean;
   notificationBadge: boolean;
@@ -32,6 +41,8 @@ export interface UserSettings {
   clickThrough: boolean;
   defaultView: CalendarView;
   theme: 'light' | 'dark' | 'system';
+  /** 테마, 강조색, 일정 글자 등. 없으면 theme에서 옮겨 온다 */
+  appearance?: AppearanceChoices;
   syncInterval: number; // minutes
   connectedCalendars: ConnectedCalendar[];
   reminderDefault: ReminderTime;

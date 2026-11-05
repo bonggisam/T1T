@@ -28,6 +28,7 @@ import { useComciganStore } from './store/comciganStore';
 import { useTodosStore } from './store/todosStore';
 import { useUsersStore } from './store/usersStore';
 import { useUIStore } from './store/uiStore';
+import { useAppearanceStore } from './store/appearanceStore';
 import { useReminder } from './hooks/useReminder';
 import { useClassReminder } from './hooks/useClassReminder';
 import { useClassPrivacy } from './hooks/useClassPrivacy';
@@ -69,7 +70,7 @@ export function App() {
   const showKeyphone = activeTab === 'keyphone';
   const showLibrary = activeTab === 'library';
   const toggle = (tab: Exclude<Tab, null>) => setActiveTab((cur) => cur === tab ? null : tab);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const theme = useAppearanceStore((s) => s.mode);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   // 일정 알림 리마인더
@@ -220,10 +221,6 @@ export function App() {
     }
   }, [user?.id, user?.status]);
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
-
   // 공유 이벤트(학교 일정 + 학사일정) 변경 시 → 사용자 개인 Google Calendar로 자동 push.
   // 디바운스 2초 — 여러 변경이 빠르게 들어와도 한 번만 sync.
   // 개인 일정(personal_events)은 이 useEffect와 무관 (절대 다른 사람에게 공유되지 않음)
@@ -284,24 +281,13 @@ export function App() {
       .catch((err) => console.warn('[Window] toggleAlwaysOnTop failed:', err));
   }, [savedAlwaysOnTop]);
 
-  // Apply saved schedule font size on startup
+  // 로그인한 계정의 테마와 글자 크기를 적용한다
   useEffect(() => {
-    const savedFontSize = localStorage.getItem('tonet-schedule-font-size');
-    if (savedFontSize) {
-      document.documentElement.style.setProperty('--schedule-font-size', `${savedFontSize}px`);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (user?.settings?.theme) {
-      if (user.settings.theme === 'system') {
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        setTheme(prefersDark ? 'dark' : 'light');
-      } else {
-        setTheme(user.settings.theme);
-      }
-    }
-  }, [user?.settings?.theme]);
+    if (!user?.id) return;
+    useAppearanceStore.getState().loadFromSettings(useAuthStore.getState().user?.settings);
+    // 처음 로그인할 때 한 번만 읽는다. 이 PC에서 바꾸는 동안 다시 덮어쓰지 않는다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   if (loading) {
     return (
@@ -388,14 +374,9 @@ export function App() {
     open();
   }
 
-  // 제목 줄 테마 버튼 — 바로 바꾸고 settings.theme에 저장. 저장에 실패하면 스토어가 되돌아가며 화면도 따라간다.
+  // 도구 모음의 밝게·어둡게. 맑음과 야간자습을 오간다.
   function handleToggleTheme() {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    useAuthStore.getState().saveSettings({ theme: next }).catch((err) => {
-      console.warn('[Theme] save failed:', err);
-      showToast('테마를 저장하지 못했습니다', 'error');
-    });
+    useAppearanceStore.getState().update({ theme: theme === 'dark' ? 'clear' : 'night' });
   }
 
   return (
@@ -460,7 +441,7 @@ export function App() {
         </ErrorBoundary>
         {/* 설정은 모달 오버레이로 표시 — 메인 콘텐츠를 가리지 않음 */}
         {showSettings && (
-          <SettingsPanel onClose={() => setActiveTab(null)} theme={theme} setTheme={setTheme} />
+          <SettingsPanel onClose={() => setActiveTab(null)} />
         )}
 
         {showEventModal && <EventModal />}

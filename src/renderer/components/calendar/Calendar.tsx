@@ -9,6 +9,8 @@ import { YearView } from './YearView';
 import { AgendaView } from './AgendaView';
 import { StatsView } from './StatsView';
 import { CalendarHeader } from './CalendarHeader';
+import { EventLegend } from './EventLegend';
+import { useAppearanceStore } from '../../store/appearanceStore';
 import { SearchPanel } from './SearchPanel';
 import { PrintView } from './PrintView';
 import { PersonalEventDetail } from './PersonalEventDetail';
@@ -25,6 +27,8 @@ interface CalendarProps {
 
 export function Calendar({ onAddPersonalEvent }: CalendarProps = {}) {
   const { view } = useCalendarStore();
+  const colorBy = useAppearanceStore((s) => s.colorBy);
+  const colorAssist = useAppearanceStore((s) => s.colorAssist);
   const { categoryFilter, setCategoryFilter, calendarTool, setCalendarTool } = useUIStore();
   const showSearch = calendarTool === 'search';
   const showPrint = calendarTool === 'print';
@@ -47,7 +51,8 @@ export function Calendar({ onAddPersonalEvent }: CalendarProps = {}) {
         categoryFilter={categoryFilter}
         setCategoryFilter={setCategoryFilter}
       />
-      <div style={{ ...styles.viewContainer, padding: FULL_BLEED_VIEWS.has(view) ? 0 : '0 8px' }}>
+      {/* 일정 색은 그릴 때 정하므로 기준이 바뀌면 화면을 새로 그린다 */}
+      <div key={`${colorBy}-${colorAssist}`} style={{ ...styles.viewContainer, padding: FULL_BLEED_VIEWS.has(view) ? 0 : '0 8px' }}>
         {view === 'month' && <MonthView onAddPersonalEvent={onAddPersonalEvent} onPersonalClick={setSelectedPersonal} />}
         {view === 'week' && <WeekView onAddPersonalEvent={onAddPersonalEvent} onPersonalClick={setSelectedPersonal} />}
         {view === 'day' && <DayView onAddPersonalEvent={onAddPersonalEvent} onPersonalClick={setSelectedPersonal} />}
@@ -56,6 +61,7 @@ export function Calendar({ onAddPersonalEvent }: CalendarProps = {}) {
         {view === 'agenda' && <AgendaView onPersonalClick={setSelectedPersonal} />}
         {view === 'stats' && <StatsView />}
       </div>
+      {colorBy === 'author' && <EventLegend />}
       {showSearch && <SearchPanel onClose={() => setCalendarTool(null)} />}
       {selectedPersonal && (
         <PrivateContent>

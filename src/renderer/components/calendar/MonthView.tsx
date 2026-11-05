@@ -12,7 +12,9 @@ import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { useVisiblePersonalEvents } from '../../hooks/useVisiblePersonalEvents';
 import { NARROW_MAX, useWindowSize, WIDE_MIN } from '../../hooks/useWindowSize';
 import { canManageEvent } from '../../utils/calendarHelpers';
-import { personalChipVars, sharedChipVars } from '../../utils/eventColors';
+import { assistClass, personalChipVars, sharedChipVars } from '../../utils/eventColors';
+import { useAppearanceStore } from '../../store/appearanceStore';
+import { TodayNumber } from './TodayNumber';
 import { getHoliday } from '../../utils/holidays';
 import { layoutWeekToFit, toWeekItem, type WeekItem } from '../../utils/monthLayout';
 import { showToast } from '../common/Toast';
@@ -25,7 +27,8 @@ const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 // 실수 클릭으로 일정이 다른 날로 옮겨가는 사고 방지 — 의도적인 드래그만 활성화
 const DRAG_THRESHOLD = 12;
 /** 주말은 일정이 적으므로 좁게 두어 평일 칸에 글자를 더 넣는다 */
-const COLUMN_TEMPLATE = '.66fr 1fr 1fr 1fr 1fr 1fr .66fr';
+const FULL_TEMPLATE = '.66fr 1fr 1fr 1fr 1fr 1fr .66fr';
+const WEEKDAY_TEMPLATE = 'repeat(5, 1fr)';
 /** 칸 위쪽 날짜 줄 높이 */
 const DATE_ROW = 22;
 const LANE_GAP = 2;
@@ -73,6 +76,8 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
   const { width } = useWindowSize();
   const narrow = width < NARROW_MAX;
   const wide = width >= WIDE_MIN;
+  const hideWeekend = useAppearanceStore((s) => s.hideWeekend);
+  const columnTemplate = hideWeekend ? WEEKDAY_TEMPLATE : FULL_TEMPLATE;
 
   const gridRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragInfo | null>(null);
@@ -88,9 +93,12 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
       end: endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 0 }),
     });
     const out: Date[][] = [];
-    for (let i = 0; i < days.length; i += 7) out.push(days.slice(i, i + 7));
+    for (let i = 0; i < days.length; i += 7) {
+      const week = days.slice(i, i + 7);
+      out.push(hideWeekend ? week.filter((d) => d.getDay() !== 0 && d.getDay() !== 6) : week);
+    }
     return out;
-  }, [currentMonth]);
+  }, [currentMonth, hideWeekend]);
 
   const unreadEventIds = useMemo(() => new Set(
     notifications.filter((n) => !n.read && n.eventId).map((n) => n.eventId),
@@ -210,11 +218,11 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
     const weekItems = items
       .map((item) => toWeekItem(item, new Date(item.event.startDate), new Date(item.event.endDate), week, sortKeyOf(item.event)))
       .filter((entry): entry is WeekItem<MonthItem> => entry !== null);
-    const layout = layoutWeekToFit(weekItems, 7, narrow ? COMPACT_LANES : lanesThatFit);
+    const layout = layoutWeekToFit(weekItems, week.length, narrow ? COMPACT_LANES : lanesThatFit);
 
     return (
       <div key={week[0].toISOString()} style={narrow ? styles.weekCompact : styles.week}>
-        <div style={styles.weekBack}>
+        <div style={{ ...styles.weekBack, gridTemplateColumns: columnTemplate }}>
           {week.map((day) => {
             const dayStr = format(day, 'yyyy-MM-dd');
             const holiday = getHoliday(day);
@@ -243,7 +251,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
           })}
         </div>
 
-        <div style={narrow ? styles.weekFrontCompact : styles.weekFront}>
+        <div style={{ ...(narrow ? styles.weekFrontCompact : styles.weekFront), gridTemplateColumns: columnTemplate }}>
           {week.map((day, col) => {
             const holiday = getHoliday(day);
             const dow = day.getDay();
@@ -258,7 +266,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
                 key={`d-${col}`}
                 style={{ ...(narrow ? styles.dateCompact : styles.date), gridColumn: col + 1, gridRow: 1, opacity: inMonth ? 1 : 0.45 }}
               >
-                <span style={today ? styles.todayNum : { ...styles.dateNum, color }}>{format(day, 'd')}</span>
+                {today ? <TodayNumber>{format(day, 'd')}</TodayNumber> : <span style={{ ...styles.dateNum, color }}>{format(day, 'd')}</span>}
                 {!narrow && holiday && <span style={styles.holiday} title={holiday}>{holiday}</span>}
                 {!narrow && unread && <span style={styles.newBadge}>N</span>}
               </div>
@@ -273,7 +281,8 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
             const { item } = entry;
             if (narrow) {
               const vars = item.kind === 'shared' ? sharedChipVars(item.event) : personalChipVars(item.event, user?.profileColor);
-              const className = `bar${entry.continuesLeft ? ' cl' : ''}${entry.continuesRight ? ' cr' : ''}${item.kind === 'personal' ? ' lock' : ''}`;
+              const pattern = item.kind === 'shared' ? assistClass(item.event) : '';
+              const className = `bar${entry.continuesLeft ? ' cl' : ''}${entry.continuesRight ? ' cr' : ''}${item.kind === 'personal' ? ' lock' : ''}${pattern}`;
               return <span key={`${item.kind}-${item.event.id}`} className={className} style={{ ...vars, ...position }} />;
             }
             const common = {
@@ -308,8 +317,8 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
   return (
     <div style={styles.layout}>
       <div style={styles.main}>
-        <div style={styles.weekdays}>
-          {WEEKDAY_LABELS.map((label, i) => (
+        <div style={{ ...styles.weekdays, gridTemplateColumns: columnTemplate }}>
+          {WEEKDAY_LABELS.map((label, i) => (hideWeekend && (i === 0 || i === 6) ? null : (
             <span
               key={label}
               style={{
@@ -319,7 +328,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
             >
               {label}
             </span>
-          ))}
+          )))}
         </div>
 
         <div ref={gridRef} role="grid" aria-label={format(currentMonth, 'yyyy년 M월')} style={narrow ? styles.gridCompact : styles.grid}>
@@ -356,7 +365,6 @@ const weekBase: React.CSSProperties = {
 const frontBase: React.CSSProperties = {
   position: 'relative',
   display: 'grid',
-  gridTemplateColumns: COLUMN_TEMPLATE,
   height: '100%',
   pointerEvents: 'none',
   alignContent: 'start',
@@ -377,7 +385,6 @@ const styles: Record<string, React.CSSProperties> = {
   },
   weekdays: {
     display: 'grid',
-    gridTemplateColumns: COLUMN_TEMPLATE,
     flexShrink: 0,
     padding: '4px 6px 2px',
   },
@@ -413,7 +420,6 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'absolute',
     inset: 0,
     display: 'grid',
-    gridTemplateColumns: COLUMN_TEMPLATE,
   },
   weekFront: {
     ...frontBase,
@@ -447,17 +453,6 @@ const styles: Record<string, React.CSSProperties> = {
     placeItems: 'center',
     minWidth: 20,
     height: 20,
-  },
-  todayNum: {
-    flexShrink: 0,
-    display: 'grid',
-    placeItems: 'center',
-    minWidth: 20,
-    height: 20,
-    borderRadius: '50%',
-    background: 'var(--accent)',
-    color: 'var(--on-accent)',
-    fontWeight: 700,
   },
   holiday: {
     flex: 1,

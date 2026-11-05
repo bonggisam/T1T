@@ -2,15 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useWidgetStore } from '../../store/widgetStore';
 import { useComciganStore } from '../../store/comciganStore';
-import { getPlateAlpha, getZoom, PLATE_ALPHA_MAX, PLATE_ALPHA_MIN, setPlateAlpha, setZoom, ZOOM_CHOICES } from '../../utils/displayPrefs';
+import { AppearanceSettings } from './AppearanceSettings';
 import { CalendarSyncSettings } from './CalendarSyncSettings';
 import { ComciganSettings } from './ComciganSettings';
 import { Ic, type IconName } from '../common/Ic';
 
 interface SettingsPanelProps {
   onClose: () => void;
-  theme: 'light' | 'dark';
-  setTheme: (t: 'light' | 'dark') => void;
 }
 
 const COLOR_PRESETS = [
@@ -22,26 +20,15 @@ const COLOR_PRESETS = [
 
 // (이전 모드에서 사용하던 리사이즈 폭/높이 상수 — 현재 모달 오버레이라 사용 안 함)
 
-export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) {
+export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const { user, logout, saveSettings } = useAuthStore();
   const widget = useWidgetStore();
-  const [plateAlpha, setPlateAlphaState] = useState(getPlateAlpha);
-  const [zoom, setZoomState] = useState(getZoom);
   const [alwaysOnTop, setAlwaysOnTop] = useState(user?.settings.alwaysOnTop ?? true);
   const [clickThrough, setClickThrough] = useState(user?.settings.clickThrough ?? false);
   const [notifSound, setNotifSound] = useState(user?.settings.notificationSound ?? true);
   const [notifBadge, setNotifBadge] = useState(user?.settings.notificationBadge ?? true);
   const [profileColor, setProfileColor] = useState(user?.profileColor || '#4A90E2');
   const [syncInterval, setSyncInterval] = useState(user?.settings.syncInterval ?? 15);
-  const [scheduleFontSize, setScheduleFontSize] = useState(() => {
-    try {
-      const saved = localStorage.getItem('tonet-schedule-font-size');
-      return saved ? Number(saved) : 11;
-    } catch (e) {
-      console.warn('[Settings] localStorage read failed:', e);
-      return 11;
-    }
-  });
   const [appVersion, setAppVersion] = useState('1.0.0');
   const [autoLaunch, setAutoLaunch] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -55,22 +42,6 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
     window.electronAPI?.getAutoLaunch().then((v) => setAutoLaunch(v)).catch(() => {});
   }, []);
   // 이전: 설정창이 전체 화면을 차지하던 시절 윈도우 리사이즈 로직 — 이제 모달이라 불필요
-
-  // Apply font size CSS variable in real-time
-  useEffect(() => {
-    document.documentElement.style.setProperty('--schedule-font-size', `${scheduleFontSize}px`);
-  }, [scheduleFontSize]);
-
-  // 배경 농도와 화면 배율은 이 PC에만 저장하고 바로 적용한다
-  function handlePlateAlpha(value: number) {
-    setPlateAlphaState(value);
-    setPlateAlpha(value);
-  }
-
-  function handleZoom(value: number) {
-    setZoomState(value);
-    setZoom(value);
-  }
 
   function handleAlwaysOnTop(value: boolean) {
     setAlwaysOnTop(value);
@@ -117,15 +88,8 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
         clickThrough,
         notificationSound: notifSound,
         notificationBadge: notifBadge,
-        theme,
         syncInterval,
       }, profileColor);
-      // Save font size locally
-      try {
-        localStorage.setItem('tonet-schedule-font-size', String(scheduleFontSize));
-      } catch (e) {
-        console.warn('[Settings] localStorage write failed:', e);
-      }
       // Restore window size before closing
       await restoreOriginalBounds();
       onClose();
@@ -137,15 +101,6 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
   }
 
   async function handleClose() {
-    // Restore font size to saved value when cancelling
-    try {
-      const saved = localStorage.getItem('tonet-schedule-font-size');
-      if (saved) {
-        document.documentElement.style.setProperty('--schedule-font-size', `${saved}px`);
-      }
-    } catch (e) {
-      console.warn('[Settings] localStorage read failed:', e);
-    }
     await restoreOriginalBounds();
     onClose();
   }
@@ -200,57 +155,11 @@ export function SettingsPanel({ onClose, theme, setTheme }: SettingsPanelProps) 
         </Section>
 
         {/* Display section */}
-        <Section icon="palette" title="화면 설정">
-          <div style={styles.settingRow}>
-            <span style={styles.label}>배경 농도: {plateAlpha}%</span>
-            <input
-              type="range"
-              min={PLATE_ALPHA_MIN}
-              max={PLATE_ALPHA_MAX}
-              step={5}
-              value={plateAlpha}
-              onChange={(e) => handlePlateAlpha(Number(e.target.value))}
-              aria-label="배경 농도"
-              style={styles.slider}
-            />
-          </div>
-          <div style={styles.settingRow}>
-            <span style={styles.label}>화면 배율</span>
-            <select
-              value={zoom}
-              onChange={(e) => handleZoom(Number(e.target.value))}
-              aria-label="화면 배율"
-              style={styles.widgetSelect}
-            >
-              {ZOOM_CHOICES.map((z) => <option key={z} value={z}>{z}%</option>)}
-            </select>
-          </div>
-          <div style={styles.settingRow}>
-            <span style={styles.label}>일정 글자 크기: {scheduleFontSize}px</span>
-            <input
-              type="range"
-              min={7}
-              max={16}
-              value={scheduleFontSize}
-              onChange={(e) => setScheduleFontSize(Number(e.target.value))}
-              style={styles.slider}
-            />
-          </div>
+        <Section icon="palette" title="화면">
+          <AppearanceSettings />
+          <div style={{ height: 4 }} />
           <ToggleRow label="항상 위 표시" value={alwaysOnTop} onChange={handleAlwaysOnTop} />
           <ToggleRow label="클릭 통과 모드" value={clickThrough} onChange={handleClickThrough} />
-          <div style={styles.settingRow}>
-            <span style={styles.label}>테마</span>
-            <div style={styles.themeToggle}>
-              <button
-                onClick={() => setTheme('light')}
-                style={{ ...styles.themeBtn, ...(theme === 'light' ? styles.themeBtnActive : {}) }}
-              ><Ic name="sun" />라이트</button>
-              <button
-                onClick={() => setTheme('dark')}
-                style={{ ...styles.themeBtn, ...(theme === 'dark' ? styles.themeBtnActive : {}) }}
-              ><Ic name="moon" />다크</button>
-            </div>
-          </div>
         </Section>
 
         {/* Notification section */}
@@ -569,7 +478,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: 16,
     height: 16,
     borderRadius: '50%',
-    background: 'var(--on-accent)',
+    background: 'var(--paper)',
     position: 'absolute' as const,
     top: 2,
     left: 2,

@@ -108,10 +108,48 @@
   --chip-tint: 15%;
   --fam-mid: #0E9F6E;
   --fam-mid-ink: #065F46;
+  --fam-mid-solid: #047857;
+  --fam-mid-on: #fff;
   --fam-high: #7C3AED;
   --fam-high-ink: #4C1D95;
+  --fam-high-solid: #6D28D9;
+  --fam-high-on: #fff;
   --fam-all: #2563EB;
   --fam-all-ink: #1E3A8A;
+  --fam-all-solid: #1D4ED8;
+  --fam-all-on: #fff;
+  --fam-me: #64748B;
+  --fam-me-ink: #334155;
+  --fam-me-solid: #475569;
+  --fam-me-on: #fff;
+  --fam-event: #0284C7;
+  --fam-event-ink: #0C4A6E;
+  --fam-event-solid: #0369A1;
+  --fam-event-on: #fff;
+  --fam-meeting: #4F46E5;
+  --fam-meeting-ink: #312E81;
+  --fam-meeting-solid: #4338CA;
+  --fam-meeting-on: #fff;
+  --fam-deadline: #DC2626;
+  --fam-deadline-ink: #7F1D1D;
+  --fam-deadline-solid: #B91C1C;
+  --fam-deadline-on: #fff;
+  --fam-notice: #D97706;
+  --fam-notice-ink: #78350F;
+  --fam-notice-solid: #B45309;
+  --fam-notice-on: #fff;
+  --fam-other: #64748B;
+  --fam-other-ink: #334155;
+  --fam-other-solid: #475569;
+  --fam-other-on: #fff;
+  --fam-high-a: #A21CAF;
+  --fam-high-a-ink: #701A75;
+  --fam-high-a-solid: #86198F;
+  --fam-high-a-on: #fff;
+  --fam-all-a: #1E40AF;
+  --fam-all-a-ink: #1E3A8A;
+  --fam-all-a-solid: #1E3A8A;
+  --fam-all-a-on: #fff;
 
   /* 글자 크기 */
   --fs-micro: 8px;
@@ -160,19 +198,53 @@
   --chip-tint: 24%;
   --fam-mid: #34D399;
   --fam-mid-ink: #A7F3D0;
+  --fam-mid-solid: #6EE7B7;
+  --fam-mid-on: #06281D;
   --fam-high: #A78BFA;
   --fam-high-ink: #DDD6FE;
+  --fam-high-solid: #C4B5FD;
+  --fam-high-on: #1E1238;
   --fam-all: #60A5FA;
   --fam-all-ink: #BFDBFE;
+  --fam-all-solid: #93C5FD;
+  --fam-all-on: #0B1E3D;
+  --fam-me: #94A3B8;
+  --fam-me-ink: #CBD5E1;
+  --fam-me-solid: #CBD5E1;
+  --fam-me-on: #111827;
+  --fam-event: #38BDF8;
+  --fam-event-ink: #BAE6FD;
+  --fam-event-solid: #7DD3FC;
+  --fam-event-on: #062033;
+  --fam-meeting: #818CF8;
+  --fam-meeting-ink: #C7D2FE;
+  --fam-meeting-solid: #A5B4FC;
+  --fam-meeting-on: #14163A;
+  --fam-deadline: #F87171;
+  --fam-deadline-ink: #FECACA;
+  --fam-deadline-solid: #FCA5A5;
+  --fam-deadline-on: #3B0B0B;
+  --fam-notice: #FBBF24;
+  --fam-notice-ink: #FDE68A;
+  --fam-notice-solid: #FCD34D;
+  --fam-notice-on: #2E1E03;
+  --fam-other: #94A3B8;
+  --fam-other-ink: #CBD5E1;
+  --fam-other-solid: #CBD5E1;
+  --fam-other-on: #111827;
+  --fam-high-a: #E879F9;
+  --fam-high-a-ink: #F5D0FE;
+  --fam-high-a-solid: #F0ABFC;
+  --fam-high-a-on: #2E0A33;
+  --fam-all-a: #60A5FA;
+  --fam-all-a-ink: #BFDBFE;
+  --fam-all-a-solid: #93C5FD;
+  --fam-all-a-on: #0B1E3D;
   --school-middle-ink: #34D399;
   --school-high-ink: #C4B5FD;
   --school-middle-tint: rgba(52, 211, 153, 0.18);
   --school-high-tint: rgba(196, 181, 253, 0.18);
   --school-high-edge: rgba(196, 181, 253, 0.4);
-}
-
-[data-theme='dark'] .glass {
-  border-color: rgba(255, 255, 255, 0.1);
 }
 
 * {
@@ -216,8 +288,10 @@ html, body, #root {
 
 /* Glassmorphism base — light grey tint for readability + 은은한 깊이감 */
 .glass {
-  background: rgb(var(--plate-rgb) / var(--plate-alpha));
-  border: 1px solid rgba(15, 23, 42, 0.1);
+  background-color: rgb(var(--plate-rgb) / var(--plate-alpha));
+  background-image: var(--plate-texture, none);
+  background-size: var(--plate-texture-size, auto);
+  border: 1px solid var(--window-frame, rgba(15, 23, 42, 0.1));
   border-radius: 14px;
   box-shadow: var(--shadow-sm), var(--shadow-md);
 }
@@ -261,11 +335,12 @@ html, body, #root {
   line-height: 1.45;
   white-space: nowrap;
   text-align: left;
-  background: color-mix(in oklab, var(--c-base) var(--chip-tint), transparent);
+  /* 판 색 위에 섞어 바탕화면이 비치지 않게 한다. 글자 대비가 바탕화면과 상관없이 유지된다 */
+  background: color-mix(in oklab, var(--c-base) var(--chip-tint), rgb(var(--plate-rgb)));
   color: var(--c-ink);
   box-shadow: inset 3px 0 0 var(--c-base);
 }
-.ev:hover { background: color-mix(in oklab, var(--c-base) calc(var(--chip-tint) + 8%), transparent); }
+.ev:hover { background: color-mix(in oklab, var(--c-base) calc(var(--chip-tint) + 8%), rgb(var(--plate-rgb))); }
 .ev.dragging { opacity: 0.4; }
 .ev .ltr { flex: none; font-size: 0.85em; font-weight: 800; opacity: 0.9; }
 .ev .tm { flex: none; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -273,6 +348,27 @@ html, body, #root {
 /* 지난주나 다음 주로 이어지는 쪽은 모서리를 닫지 않아 막대가 이어져 보인다 */
 .ev.cl { margin-left: 0; padding-left: 5px; border-top-left-radius: 0; border-bottom-left-radius: 0; box-shadow: none; }
 .ev.cr { margin-right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+
+/* 고대비: 채운 칩 */
+html[data-chip='solid'] .ev { background: var(--c-solid); color: var(--c-on); box-shadow: none; }
+html[data-chip='solid'] .ev:hover { background: var(--c-solid); filter: brightness(1.1); }
+/* 색 구분 돕기: 색만으로 구분하지 않도록 왼쪽 띠에 무늬를 넣는다 */
+.ev.pat-high { box-shadow: none; background-image: repeating-linear-gradient(0deg, var(--c-base) 0 3px, transparent 3px 5px); background-size: 3px 100%; background-repeat: no-repeat; background-color: color-mix(in oklab, var(--c-base) var(--chip-tint), rgb(var(--plate-rgb))); }
+.ev.pat-all { box-shadow: none; background-image: radial-gradient(circle, var(--c-base) 1.3px, transparent 1.6px); background-size: 3px 5px; background-repeat: repeat-y; background-color: color-mix(in oklab, var(--c-base) var(--chip-tint), rgb(var(--plate-rgb))); }
+.bar.pat-high { background: repeating-linear-gradient(90deg, var(--c-base) 0 5px, transparent 5px 7px); }
+.bar.pat-all { background: repeating-linear-gradient(90deg, var(--c-base) 0 2px, transparent 2px 4px); }
+
+/* 오늘 표시: 테마마다 채움, 테두리, 펜 동그라미 */
+.today-num { position: relative; display: inline-grid; place-items: center; min-width: 20px; height: 20px; font-weight: 700; }
+.today-num svg { display: none; }
+html[data-today='fill'] .today-num { border-radius: 50%; background: var(--accent); color: var(--on-accent); }
+html[data-today='ring'] .today-num { border-radius: 50%; box-shadow: inset 0 0 0 2px var(--accent); color: var(--text-primary); font-weight: 800; }
+html[data-today='pen'] .today-num { color: var(--text-primary); font-weight: 800; }
+html[data-today='pen'] .today-num svg {
+  display: block; position: absolute; left: 50%; top: 50%; width: 170%; height: 170%;
+  transform: translate(-50%, -50%) rotate(-6deg);
+  fill: none; stroke: var(--pen); stroke-width: 1.9; stroke-linecap: round; pointer-events: none;
+}
 
 /* 좁은 창의 월 칸 색 막대 */
 .bar { pointer-events: none; align-self: center; height: 3.5px; margin: 0 5px; border-radius: 2px; background: var(--c-base); }

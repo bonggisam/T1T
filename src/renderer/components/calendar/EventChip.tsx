@@ -2,7 +2,7 @@ import React from 'react';
 import { Lock } from 'lucide-react';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
 import { canManageEvent, formatEventTooltip, formatPersonalTooltip, getSchoolTag } from '../../utils/calendarHelpers';
-import { personalChipVars, sharedChipVars } from '../../utils/eventColors';
+import { assistClass, personalChipVars, sharedChipVars } from '../../utils/eventColors';
 import { useAuthStore } from '../../store/authStore';
 
 interface ChipCommon {
@@ -33,7 +33,7 @@ export function SharedChip({ event, ...props }: ChipCommon & { event: CalendarEv
   return (
     <button
       type="button"
-      className={classes(props)}
+      className={`${classes(props)}${assistClass(event)}`}
       style={{ ...sharedChipVars(event), cursor: canMove ? 'grab' : 'pointer', ...props.style }}
       title={formatEventTooltip(event, canMove)}
       onMouseDown={props.onMouseDown}

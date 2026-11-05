@@ -3,8 +3,10 @@ import ReactDOM from 'react-dom/client';
 import { App } from './App';
 import './styles/global.css';
 import { applyDisplayPrefs } from './utils/displayPrefs';
+import { applyCachedAppearance } from './store/appearanceStore';
 
-// 첫 화면을 그리기 전에 이 PC의 배경 농도와 화면 배율을 적용한다
+// 첫 화면을 그리기 전에 마지막 테마와 이 PC의 화면 배율을 적용한다
+applyCachedAppearance();
 applyDisplayPrefs();
 
 // 글로벌 비동기 에러 — 콘솔 출력 + 토스트 (가능한 경우)

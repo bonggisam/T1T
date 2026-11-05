@@ -13,6 +13,8 @@ import { useVisiblePersonalEvents } from '../../hooks/useVisiblePersonalEvents';
 import { canManageEvent, isEventOnDate } from '../../utils/calendarHelpers';
 import { getHoliday } from '../../utils/holidays';
 import { buildPeriodRows, rowIndexForMinute } from '../../utils/periodRows';
+import { useAppearanceStore } from '../../store/appearanceStore';
+import { TodayNumber } from './TodayNumber';
 import { showToast } from '../common/Toast';
 import { InlineAdd } from './InlineAdd';
 import { PersonalChip, SharedChip } from './EventChip';
@@ -48,6 +50,7 @@ export function PeriodWeek({ onAddPersonalEvent, onPersonalClick }: PeriodWeekPr
   const user = useAuthStore((s) => s.user);
   const timetableData = useComciganStore((s) => s.timetableData);
   const showTimetable = useComciganStore((s) => s.showTimetable);
+  const hideWeekend = useAppearanceStore((s) => s.hideWeekend);
   const dragRef = useRef<DragInfo | null>(null);
   const justDragged = useRef(0);
   const [dropKey, setDropKey] = useState<string | null>(null);
@@ -67,8 +70,8 @@ export function PeriodWeek({ onAddPersonalEvent, onPersonalClick }: PeriodWeekPr
 
   // 수업 표가 중심이라 평일을 기본으로 두고, 주말은 일정이 있을 때만 보여 준다
   const days = useMemo(() => weekDays.filter((d, i) => (
-    i < 5 || allItems.some((item) => isEventOnDate(item.event, d))
-  )), [weekDays, allItems]);
+    i < 5 || (!hideWeekend && allItems.some((item) => isEventOnDate(item.event, d)))
+  )), [weekDays, allItems, hideWeekend]);
 
   // 컴시간은 이번 주 시간표만 알려 준다
   const isCurrentWeek = isSameWeek(selectedDate, new Date(), { weekStartsOn: 1 });
@@ -227,7 +230,7 @@ export function PeriodWeek({ onAddPersonalEvent, onPersonalClick }: PeriodWeekPr
             <span style={{ ...styles.dow, ...(holiday || day.getDay() === 0 ? { color: 'var(--weekend-text)' } : day.getDay() === 6 ? { color: 'var(--saturday-text)' } : {}) }}>
               {format(day, 'EEE', { locale: ko })}
             </span>
-            <span style={today ? styles.todayNum : { ...styles.dayNum, ...(holiday ? { color: 'var(--weekend-text)' } : {}) }}>{format(day, 'd')}</span>
+            {today ? <TodayNumber>{format(day, 'd')}</TodayNumber> : <span style={{ ...styles.dayNum, ...(holiday ? { color: 'var(--weekend-text)' } : {}) }}>{format(day, 'd')}</span>}
             {holiday && <span style={styles.holidayName} title={holiday}>{holiday}</span>}
           </div>
         );
@@ -323,17 +326,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 'var(--fs-lead)',
     fontWeight: 700,
     color: 'var(--text-primary)',
-  },
-  todayNum: {
-    display: 'grid',
-    placeItems: 'center',
-    width: 20,
-    height: 20,
-    borderRadius: '50%',
-    background: 'var(--accent)',
-    color: 'var(--on-accent)',
-    fontSize: 'var(--fs-body)',
-    fontWeight: 700,
   },
   holidayName: {
     maxWidth: '100%',
