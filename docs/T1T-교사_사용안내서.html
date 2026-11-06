@@ -129,7 +129,7 @@
   <ol>
     <li>기획 의도</li>
     <li>주요 기능 한눈에 보기</li>
-    <li>설치 방법 (Windows)</li>
+    <li>설치 방법</li>
     <li>설치 시 자주 발생하는 에러와 해결법</li>
     <li>기존 ToneT/T1T 완전 제거 (Geek Uninstaller)</li>
     <li>처음 시작 — 회원가입과 로그인</li>
@@ -182,21 +182,33 @@
 </div>
 
 <div class="pb"></div>
-<h2>3. 설치 방법 (Windows)</h2>
+<h2>3. 설치 방법</h2>
 
-<div class="warn">
-  <b>📎 설치 파일은 교사별로 개별 첨부됩니다.</b><br>
-  이메일 또는 메신저로 받은 <b>T1T-Setup-버전.exe</b> 파일을 다운로드 받아 설치합니다. 외부 공유 링크가 아닌, 학교 내부에서 안전하게 전달된 파일을 사용해 주세요.
+<div class="warn" style="word-break:keep-all">
+  <b>📎 설치 파일 받는 곳: <a href="https://shor.kr/25m">https://shor.kr/25m</a></b><br>
+  PC 브라우저 주소창에 입력하면 구글 드라이브 폴더가 열립니다. 로그인은 필요 없습니다. 파일이 커서 "바이러스 검사를 할 수 없습니다" 경고가 나오면 <b>무시하고 다운로드</b>를 누릅니다.
 </div>
 
-<h3>설치 단계</h3>
+<h3>Windows</h3>
 <div class="step">
   <ol>
-    <li>받은 <code>T1T-Setup-버전.exe</code>를 더블 클릭</li>
-    <li><b>Windows Defender SmartScreen</b> 경고가 뜨면 → <b>자세히</b> 클릭 → <b>실행</b> 클릭<br>
+    <li>폴더에서 <code>T1T-Setup-버전.exe</code>를 받아 더블 클릭</li>
+    <li><b>"Windows의 PC 보호"</b> 경고가 뜨면 → <b>추가 정보</b> 클릭 → <b>실행</b> 클릭<br>
       <span class="small">(자체 서명이라 처음에는 경고가 뜨지만 안전합니다)</span></li>
     <li>설치 마법사: <b>다음 → 설치 위치 선택 → 설치</b></li>
     <li>설치 완료 후 자동 실행 (앱 아이콘이 바탕화면에 생성됨)</li>
+    <li>처음 실행 시 <b>회원가입</b> → 관리자 승인 대기 → 승인 완료 후 로그인 가능</li>
+  </ol>
+</div>
+
+<h3>Mac</h3>
+<div class="step">
+  <ol>
+    <li>폴더 안의 <code>mac</code> 폴더를 엽니다.</li>
+    <li>내 Mac의 칩에 맞는 파일을 받습니다. 칩은 사과 메뉴 &gt; <b>이 Mac에 관하여</b>에서 봅니다.<br>
+      <span class="small">Apple 칩(M1 이후): <code>T1T-버전-arm64.dmg</code> · Intel: <code>T1T-버전.dmg</code></span></li>
+    <li>dmg를 열어 <b>T1T</b>를 <b>Applications</b> 폴더로 끌어다 놓습니다.</li>
+    <li style="word-break:keep-all">Applications 폴더에서 T1T를 엽니다. Apple 인증을 받지 않은 앱이라 처음에는 막힐 수 있습니다. 그러면 <b>시스템 설정 &gt; 개인정보 보호 및 보안</b>에서 <b>그래도 열기</b>를 누릅니다.</li>
     <li>처음 실행 시 <b>회원가입</b> → 관리자 승인 대기 → 승인 완료 후 로그인 가능</li>
   </ol>
 </div>
@@ -207,7 +219,7 @@
   <b>❶ "Windows의 PC 보호" 경고가 뜨며 설치가 중단됨</b>
   <p>SmartScreen이 알려지지 않은 게시자라고 경고합니다. 안전한 파일입니다.</p>
   <ul>
-    <li>경고 창에서 <b>자세히 (More info)</b> 클릭</li>
+    <li>경고 창에서 <b>추가 정보 (More info)</b> 클릭</li>
     <li>아래에 표시되는 <b>실행 (Run anyway)</b> 클릭</li>
   </ul>
 </div>
@@ -252,6 +264,16 @@
   <ul>
     <li>오래된 버전에서 발생 — 최신 버전으로 재설치</li>
     <li>방화벽이 <code>http://127.0.0.1:8123</code> 차단 시 → 방화벽 예외 등록</li>
+  </ul>
+</div>
+
+<div class="err-row">
+  <b>❼ Mac: "손상되었기 때문에 열 수 없습니다"</b>
+  <p>Apple 인증을 받지 않은 앱을 인터넷에서 받으면 나올 수 있습니다.</p>
+  <ul>
+    <li>T1T를 Applications 폴더에 둔 채 <b>터미널</b>을 엽니다.</li>
+    <li><code>xattr -dr com.apple.quarantine /Applications/T1T.app</code> 을 붙여 넣고 Return을 누릅니다.</li>
+    <li>T1T를 다시 엽니다.</li>
   </ul>
 </div>
 
@@ -519,7 +541,7 @@
   <b>수동 확인:</b> 설정 &gt; 정보의 <b>업데이트 확인</b> 단추로 바로 확인할 수 있습니다. 단추 아래에 마지막 확인 시각과 진행 상태가 나옵니다.
 </div>
 <div class="warn">
-  <b>업데이트가 안 될 때:</b> 설정 &gt; 정보의 <b>수동 다운로드</b>로 설치 파일을 받아 덮어 설치하면 됩니다. 일정과 설정은 그대로입니다. 브라우저로도 받기가 멈추면 학교망에서 GitHub 파일 서버가 막힌 것일 수 있습니다. <b>기록 복사</b>를 눌러 운영자에게 붙여 넣어 보내 주시면 원인을 찾을 수 있습니다.
+  <b>업데이트가 안 될 때:</b> 설치 주소(<a href="https://shor.kr/25m">https://shor.kr/25m</a>)나 설정 &gt; 정보의 <b>수동 다운로드</b>에서 설치 파일을 받아 덮어 설치하면 됩니다. 일정과 설정은 그대로입니다. 브라우저로도 받기가 멈추면 학교망에서 GitHub 파일 서버가 막힌 것일 수 있습니다. <b>기록 복사</b>를 눌러 운영자에게 붙여 넣어 보내 주시면 원인을 찾을 수 있습니다.
 </div>
 <h3>종료 / 시작</h3>
 <ul>

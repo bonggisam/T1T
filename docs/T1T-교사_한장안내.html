@@ -14,15 +14,26 @@ body {
 header { display: flex; align-items: baseline; justify-content: space-between; gap: 6mm; border-bottom: 2px solid #1e3a5f; padding-bottom: 1.5mm; }
 h1 { margin: 0; font-size: 20pt; line-height: 1.15; font-weight: 800; color: #1e3a5f; letter-spacing: -0.02em; }
 .ver { font-size: 8pt; color: #6b7280; white-space: nowrap; }
-.lead { margin: 1.8mm 0 2mm; font-size: 10pt; font-weight: 600; color: #111827; }
-.shot { display: block; width: 178mm; align-self: center; border: 1px solid #d5dae2; border-radius: 2mm; }
-.note { margin: 0.8mm 0 0.6mm; font-size: 7.2pt; color: #6b7280; text-align: center; }
-.legend { list-style: none; margin: 0.8mm 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(5, auto); grid-auto-flow: column; gap: 0.9mm 6mm; }
+.lead { margin: 2.2mm 0 2.8mm; font-size: 10pt; font-weight: 600; color: #111827; }
+.screen { display: grid; grid-template-columns: 128mm 1fr; column-gap: 4mm; margin-top: 3.6mm; align-items: start; }
+.shot { display: block; width: 100%; border: 1px solid #d5dae2; border-radius: 2mm; }
+.note { margin: 0.8mm 0 0; font-size: 7.2pt; color: #6b7280; text-align: center; }
+.legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.5mm; font-size: 8.8pt; line-height: 1.36; }
 .legend li { display: flex; align-items: flex-start; gap: 1.6mm; }
 .num { flex: none; width: 4.2mm; height: 4.2mm; margin-top: 0.15mm; border-radius: 50%; background: #E8590C; color: #fff; font-size: 7pt; font-weight: 700; line-height: 4.2mm; text-align: center; }
-.cols { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 0 6mm; margin-top: 2.6mm; border-top: 1px solid #d5dae2; padding-top: 2mm; }
+.cols { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 0 6mm; margin-top: 3.6mm; border-top: 1px solid #d5dae2; padding-top: 3mm; }
+.install { border: 1.5px solid #1e3a5f; border-radius: 2.5mm; background: #f1f5fb; padding: 2.4mm 3.4mm 2.6mm; }
+.install-top { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 3mm; }
+.install-top h2 { margin: 0; font-size: 12pt; }
+.url { font-size: 15pt; font-weight: 800; color: #E8590C; text-decoration: none; letter-spacing: -0.01em; }
+.install-sub { margin: 0.8mm 0 1.6mm; }
+.install-cols { display: grid; grid-template-columns: 1fr 1.25fr; gap: 0 6mm; }
+.install h3 { margin: 0 0 0.5mm; font-size: 9.6pt; font-weight: 800; color: #1e3a5f; }
+.install-after { margin-top: 1.6mm; padding-top: 1.4mm; border-top: 1px solid #cfd8e6; }
+.nb { white-space: nowrap; }
+code { font-family: Menlo, Consolas, monospace; font-size: 0.92em; background: #e3e9f3; border-radius: 0.8mm; padding: 0 0.7mm; }
 h2 { margin: 0 0 0.8mm; font-size: 10pt; font-weight: 800; color: #1e3a5f; }
-section + section { margin-top: 2.2mm; }
+section + section { margin-top: 3.4mm; }
 ol.steps, ul.points { margin: 0; padding: 0 0 0 4mm; }
 ol.steps li, ul.points li { margin-bottom: 0.45mm; }
 p { margin: 0; }
@@ -36,28 +47,44 @@ footer { margin-top: 1.5mm; font-size: 7.2pt; color: #6b7280; display: flex; jus
 </style></head><body>
 <header><h1>T1T 선생님 한 장 안내</h1><span class="ver">태성중·고 학교 일정 공유 · v2.6.7 기준</span></header>
 <p class="lead">T1T는 바탕화면에 띄워 두는 학교 달력입니다. 공유 일정, 내 수업, 시험감독, 급식을 한곳에서 봅니다.</p>
-<img class="shot" src="guide-img/main-numbered.png" alt="T1T 메인 화면. 번호가 아래 설명을 가리킵니다">
-<p class="note">화면의 일정과 이름은 예시입니다.</p>
-<ol class="legend">
-  <li><span class="num">1</span><span>달 이동. <b>오늘</b>을 누르면 돌아옵니다</span></li>
-  <li><span class="num">2</span><span>도구 10가지. 마우스를 대면 이름이 나옵니다</span></li>
-  <li><span class="num">3</span><span>눈: 개인 일정 가리기, 보이기</span></li>
-  <li><span class="num">4</span><span>종: 내게 온 알림</span></li>
-  <li><span class="num">5</span><span>격자: 검색, 붙여넣기, 인쇄, 설정</span></li>
-  <li><span class="num">6</span><span>핀: 바탕화면에 고정. 옮기려면 <b>편집</b> 단추</span></li>
-  <li><span class="num">7</span><span>보기: 오늘, 월, 주, 목록</span></li>
-  <li><span class="num">8</span><span><b>+ 개인</b>, <b>+ 일정</b>: 일정 넣기</span></li>
-  <li><span class="num">9</span><span>달력 칸: 공 = 공통, 중 = 태성중, 고 = 태성고, 자물쇠 = 개인</span></li>
-  <li><span class="num">10</span><span>창이 넓으면 나오는 오늘 칸: 일정, 수업, 할 일, 날씨</span></li>
-</ol>
+<section class="install">
+  <div class="install-top"><h2>설치 파일 받기</h2><a class="url" href="https://shor.kr/25m">https://shor.kr/25m</a></div>
+  <p class="install-sub">PC 브라우저 주소창에 입력하면 구글 드라이브 폴더가 열립니다. 로그인은 필요 없습니다. 파일이 커서 바이러스 검사 경고가 나오면 <b class="nb">무시하고 다운로드</b>를 누릅니다.</p>
+  <div class="install-cols">
+    <div><h3>Windows</h3>
+      <ol class="steps">
+        <li><code>T1T-Setup</code>으로 시작하는 파일을 받아 실행합니다.</li>
+        <li>"Windows의 PC 보호" 경고가 뜨면 <b>추가 정보 &gt; 실행</b>을 누릅니다.</li>
+      </ol></div>
+    <div><h3>Mac</h3>
+      <ol class="steps">
+        <li><code>mac</code> 폴더에서 받습니다. M1 이후 칩은 <code>arm64</code>가 붙은 파일, Intel은 붙지 않은 파일입니다. 칩은 사과 메뉴 &gt; 이 Mac에 관하여에서 봅니다.</li>
+        <li>dmg를 열어 T1T를 Applications 폴더로 끌어다 놓습니다.</li>
+        <li>처음 열 때 막히면 <b>시스템 설정 &gt; 개인정보 보호 및 보안</b>에서 <b>그래도 열기</b>를 누릅니다.</li>
+      </ol></div>
+  </div>
+  <p class="install-after"><b>처음 실행:</b> 앱에서 <b>회원가입</b>을 누르고 이메일, 비밀번호, 이름, 학교를 넣습니다. 관리자가 승인하면 달력이 열립니다. 새 버전은 자동으로 받습니다.</p>
+</section>
+<div class="screen">
+  <div>
+    <img class="shot" src="guide-img/main-numbered.png" alt="T1T 메인 화면. 번호가 옆 설명을 가리킵니다">
+    <p class="note">화면의 일정과 이름은 예시입니다.</p>
+  </div>
+  <ol class="legend">
+    <li><span class="num">1</span><span>달 이동. <b>오늘</b>을 누르면 돌아옵니다</span></li>
+    <li><span class="num">2</span><span>도구 10가지. 마우스를 대면 이름이 나옵니다</span></li>
+    <li><span class="num">3</span><span>눈: 개인 일정 가리기, 보이기</span></li>
+    <li><span class="num">4</span><span>종: 내게 온 알림</span></li>
+    <li><span class="num">5</span><span>격자: 검색, 붙여넣기, 인쇄, 설정</span></li>
+    <li><span class="num">6</span><span>핀: 바탕화면에 고정. 옮기려면 <b>편집</b> 단추</span></li>
+    <li><span class="num">7</span><span>보기: 오늘, 월, 주, 목록</span></li>
+    <li><span class="num">8</span><span><b>+ 개인</b>, <b>+ 일정</b>: 일정 넣기</span></li>
+    <li><span class="num">9</span><span>달력 칸: 공 = 공통, 중 = 태성중, 고 = 태성고, 자물쇠 = 개인</span></li>
+    <li><span class="num">10</span><span>창이 넓으면 나오는 오늘 칸: 일정, 수업, 할 일, 날씨</span></li>
+  </ol>
+</div>
 <div class="cols">
   <div>
-    <section><h2>시작하기</h2>
-      <ol class="steps">
-        <li>받은 설치 파일(T1T-Setup)을 실행합니다. Windows 보호 경고가 뜨면 <b>자세히 &gt; 실행</b>을 누릅니다.</li>
-        <li>앱에서 <b>회원가입</b>을 누르고 이메일, 비밀번호, 이름, 학교를 넣습니다.</li>
-        <li>관리자가 승인하면 달력이 열립니다. 새 버전은 자동으로 받습니다.</li>
-      </ol></section>
     <section><h2>일정 넣기</h2>
       <ul class="points">
         <li><b>공유 일정:</b> <b>+ 일정</b>을 누르고 제목, 시간, 공유 대상을 넣습니다. 대상 선생님 화면에 바로 나타납니다.</li>
@@ -65,8 +92,13 @@ footer { margin-top: 1.5mm; font-size: 7.2pt; color: #6b7280; display: flex; jus
         <li><b>바로 입력:</b> 칸을 더블클릭하고 "3시 회의"처럼 씁니다. 기본은 개인 일정입니다.</li>
         <li><b>쪽지·공문:</b> 글을 복사해 달력에서 Ctrl+V를 누르면 날짜를 읽어 개인 일정 초안을 만듭니다.</li>
       </ul></section>
-    <section><h2>수업 화면 보호</h2>
-      <p>설정에서 컴시간 시간표를 연결하면, 내 수업 시작 1분 전부터 끝날 때까지 개인 일정, 할 일, 직접 넣은 D-Day가 자동으로 가려집니다. 눈 아이콘이나 Ctrl+Shift+H로 직접 가리거나 보일 수 있습니다.</p></section>
+    <section><h2>알아 둘 것</h2>
+      <ul class="points">
+        <li><b>단축키:</b> Ctrl+Shift+H 가리기·보이기, Ctrl+Shift+C 편집·위젯 전환. Mac은 Ctrl 대신 Cmd입니다.</li>
+        <li><b>끄기:</b> 창의 X를 눌러도 트레이에서 계속 실행됩니다. 완전히 끄려면 트레이 아이콘을 우클릭해 <b>종료</b>를 누릅니다.</li>
+        <li><b>업데이트가 안 될 때:</b> 위 주소에서 새 파일을 받아 덮어 설치합니다. 일정과 설정은 그대로입니다.</li>
+        <li><b>문의:</b> 이봉기 선생님(학생성장플랫폼부), 교내 키폰 8270. 자세한 내용은 사용 안내서(PDF)를 봅니다.</li>
+      </ul></section>
   </div>
   <div>
     <section><h2>도구 10가지</h2>
@@ -82,13 +114,8 @@ footer { margin-top: 1.5mm; font-size: 7.2pt; color: #6b7280; display: flex; jus
         <div class="tool"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-door-open "><path d="M13 4h3a2 2 0 0 1 2 2v14"></path><path d="M2 20h3"></path><path d="M13 20h9"></path><path d="M10 12v.01"></path><path d="M13 4.562v16.157a1 1 0 0 1-1.242.97L5 20V5.562a2 2 0 0 1 1.515-1.94l4-1A2 2 0 0 1 13 4.561Z"></path></svg><b>외출시스템</b><span>외출·조퇴 시스템</span></div>
         <div class="tool"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-list-checks "><path d="m3 17 2 2 4-4"></path><path d="m3 7 2 2 4-4"></path><path d="M13 6h8"></path><path d="M13 12h8"></path><path d="M13 18h8"></path></svg><b>외출상황</b><span>외출 신청 조회</span></div>
       </div></section>
-    <section><h2>알아 둘 것</h2>
-      <ul class="points">
-        <li><b>단축키:</b> Ctrl+Shift+H 가리기·보이기, Ctrl+Shift+C 편집·위젯 전환. Mac은 Ctrl 대신 Cmd입니다.</li>
-        <li><b>끄기:</b> 창의 X를 눌러도 트레이에서 계속 실행됩니다. 완전히 끄려면 트레이 아이콘을 우클릭해 <b>종료</b>를 누릅니다.</li>
-        <li><b>업데이트가 안 될 때:</b> 설정 &gt; 정보의 수동 다운로드로 덮어 설치합니다. 일정과 설정은 그대로입니다.</li>
-        <li><b>문의:</b> 이봉기 선생님(학생성장플랫폼부), 교내 키폰 8270. 자세한 내용은 사용 안내서(PDF)를 봅니다.</li>
-      </ul></section>
+    <section><h2>수업 화면 보호</h2>
+      <p>설정에서 컴시간 시간표를 연결하면, 내 수업 시작 1분 전부터 끝날 때까지 개인 일정, 할 일, 직접 넣은 D-Day가 자동으로 가려집니다. 눈 아이콘이나 Ctrl+Shift+H로 직접 가리거나 보일 수 있습니다. <b>지금은 컴시간 사이트가 바뀌어 새 연결이 되지 않습니다. 복구되면 다시 안내합니다.</b></p></section>
   </div>
 </div>
 </body></html>
