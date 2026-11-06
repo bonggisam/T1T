@@ -1370,8 +1370,8 @@ function setupComciganIPC(): void {
     return comciganService.getConfig();
   });
 
-  ipcMain.handle('comcigan:fetch', async () => {
-    return comciganService.fetchTimetable();
+  ipcMain.handle('comcigan:fetch', async (_event, force?: unknown) => {
+    return comciganService.fetchTimetable(force === true);
   });
 
   ipcMain.handle('comcigan:get-cached', () => {

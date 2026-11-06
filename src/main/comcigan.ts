@@ -57,6 +57,8 @@ const GRID_TTL_MS = 10 * 60 * 1000;
 const SEARCH_TIMEOUT_MS = 15 * 1000;
 /** 파서는 서버가 답하지 않으면 끝나지 않는다. 회의 찾기와 새로고침이 멈추지 않게 끊는다 */
 const PARSER_TIMEOUT_MS = 30 * 1000;
+/** 사이트가 자료를 주지 않는 동안에는 5분마다 다시 묻지 않는다. 새로고침 단추는 바로 받는다 */
+const NO_DATA_RETRY_MS = 60 * 60 * 1000;
 
 function withTimeout<T>(work: Promise<T>, label: string): Promise<T> {
   let timer: NodeJS.Timeout;
@@ -115,6 +117,7 @@ class ComciganService {
   private userId: string | null = null;
   private config: ComciganConfig | null = null;
   private refreshTimer: NodeJS.Timeout | null = null;
+  private noDataUntil = 0;
   private cachedData: ComciganTimetableData | null = null;
   private mainWindow: BrowserWindow | null = null;
   private gridCache = new Map<number, ComciganSchoolGrid>();
@@ -128,6 +131,7 @@ class ComciganService {
   setUser(userId: string | null): void {
     if (userId === this.userId) return;
     this.userId = userId;
+    this.noDataUntil = 0;
     this.config = userId ? loadConfigFromDisk(userId) : null;
     this.timetable = null;
     this.cachedData = null;
@@ -167,20 +171,43 @@ class ComciganService {
   async configure(config: ComciganConfig): Promise<void> {
     if (!Timetable) throw new Error('comcigan-parser 모듈을 찾을 수 없습니다');
     if (!this.userId) throw new Error('로그인한 뒤에 설정할 수 있습니다');
+    const userId = this.userId;
+    const before = { config: this.config, timetable: this.timetable, cachedData: this.cachedData };
     this.config = config;
-    saveConfigToDisk(this.userId, config);
-
     // 초기화가 실패해도 새 설정으로 옛 학교 시간표를 읽지 않도록 먼저 비운다
     this.timetable = null;
-    await this.initTimetable(config);
+    this.cachedData = null;
 
-    await this.fetchTimetable();
-    this.startAutoRefresh();
+    let data: ComciganTimetableData | null = null;
+    try {
+      await this.initTimetable(config);
+      data = await this.fetchTimetable(true);
+    } catch (err) {
+      console.warn('[Comcigan] Configure failed:', err);
+    }
+
+    // 받는 사이 로그아웃했으면 그쪽을 따른다
+    if (this.userId !== userId) return;
+    if (data) {
+      // 받는 사이 학교 코드를 바로잡았을 수 있으므로 지금 설정을 저장한다
+      if (this.config) saveConfigToDisk(userId, this.config);
+      this.startAutoRefresh();
+      return;
+    }
+    if (this.config !== config) return; // 받는 사이 설정을 또 바꿈
+
+    // 시간표를 받지 못했으면 연결하지 않는다. "주 0교시"로 연결된 것처럼 보이면 안 된다
+    this.config = before.config;
+    this.timetable = before.timetable;
+    this.cachedData = before.cachedData;
+    throw new Error('컴시간에서 시간표를 받지 못해 연결하지 못했습니다. 잠시 뒤 다시 해 보시고, 계속 안 되면 운영자에게 알려 주세요.');
   }
 
-  async fetchTimetable(): Promise<ComciganTimetableData | null> {
+  /** @param force 새로고침 단추처럼 사람이 눌렀을 때. 자료가 없어 쉬는 중에도 바로 묻는다 */
+  async fetchTimetable(force = false): Promise<ComciganTimetableData | null> {
     const config = this.config;
     if (!config) return null;
+    if (!force && Date.now() < this.noDataUntil) return this.cachedData;
 
     try {
       // 앱 시작 때 네트워크가 없었거나 직전 조회가 실패했으면 여기서 다시 초기화한다
@@ -204,6 +231,8 @@ class ComciganService {
         schoolName: config.schoolName,
       };
 
+      this.noDataUntil = 0;
+
       // Push to renderer
       this.sendToRenderer('comcigan:updated', this.cachedData);
       return this.cachedData;
@@ -212,8 +241,9 @@ class ComciganService {
       console.warn('[Comcigan] Fetch failed, will re-init on next refresh:', err);
       if (this.config !== config) return this.cachedData;
       this.timetable = null;
-      if ((err as { code?: string })?.code === 'NO_TIMETABLE_DATA' && await this.repairSchoolCode()) {
-        return this.fetchTimetable();
+      if ((err as { code?: string })?.code === 'NO_TIMETABLE_DATA') {
+        if (await this.repairSchoolCode()) return this.fetchTimetable(force);
+        this.noDataUntil = Date.now() + NO_DATA_RETRY_MS;
       }
       return this.cachedData; // Return cached on error
     }
@@ -409,6 +439,7 @@ class ComciganService {
     this.config = null;
     this.cachedData = null;
     this.timetable = null;
+    this.noDataUntil = 0;
     if (this.userId) saveConfigToDisk(this.userId, null);
     this.stopAutoRefresh();
   }

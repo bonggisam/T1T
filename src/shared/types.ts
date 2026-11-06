@@ -393,7 +393,7 @@ export interface ElectronAPI {
   /** 시간표 설정은 사람마다 따로 둔다. 로그인하면 부르고 로그아웃하면 null로 부른다 */
   comciganSetUser: (userId: string | null) => Promise<void>;
   comciganGetConfig: () => Promise<ComciganConfig | null>;
-  comciganFetch: () => Promise<ComciganTimetableData | null>;
+  comciganFetch: (force?: boolean) => Promise<ComciganTimetableData | null>;
   comciganGetCached: () => Promise<ComciganTimetableData | null>;
   comciganClear: () => Promise<void>;
   /** 학교 전체의 교사별 수업 칸. 내 시간표 설정과 상관없이 학교 코드로 읽는다. */

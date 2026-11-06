@@ -8,6 +8,7 @@ import {
 } from '../../utils/comciganLinks';
 import { ComciganCallButton } from '../common/ComciganCall';
 import { showToast } from '../common/Toast';
+import { ipcErrorMessage } from '../../utils/ipcError';
 
 const MAX_GRADE = 3;
 
@@ -95,7 +96,7 @@ export function ComciganLinkTable({ users }: { users: User[] }) {
       })
       .catch((err) => {
         console.warn('[LinkTable] grid failed:', err);
-        if (active) setGridError(err?.message || '컴시간에서 시간표를 받지 못했습니다');
+        if (active) setGridError(ipcErrorMessage(err, '컴시간에서 시간표를 받지 못했습니다'));
       })
       .finally(() => {
         if (active) setLoadingGrid(false);
@@ -119,7 +120,7 @@ export function ComciganLinkTable({ users }: { users: User[] }) {
       setCandidates(results.map((r) => ({ code: r.code, name: r.name, region: r.region })));
       if (results.length === 0) showToast('컴시간에서 학교를 찾지 못했습니다', 'error');
     } catch (err: any) {
-      showToast(err?.message || '학교를 찾지 못했습니다', 'error');
+      showToast(ipcErrorMessage(err, '학교를 찾지 못했습니다'), 'error');
     }
     setSearching(false);
   }

@@ -7,7 +7,7 @@ import type { ComciganSchool, ComciganTeacherSlots } from '../shared/types';
 export function parseSchoolSearch(body: string): ComciganSchool[] {
   const parsed = JSON.parse(body.slice(0, body.lastIndexOf('}') + 1));
   const rows = parsed?.['학교검색'];
-  if (!Array.isArray(rows)) throw new Error('학교 검색 응답을 읽지 못했습니다');
+  if (!Array.isArray(rows)) throw new Error('컴시간에서 학교 검색 결과를 받지 못했습니다');
   const schools: ComciganSchool[] = [];
   for (const row of rows) {
     if (!Array.isArray(row)) continue;

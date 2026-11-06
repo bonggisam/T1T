@@ -192,6 +192,12 @@ export function ComciganSettings() {
       )}
 
       {error && <p style={styles.error}>{error}</p>}
+      {error && (
+        <div style={styles.row}>
+          <span style={styles.label}>계속 안 되면 알려 주세요</span>
+          <ComciganCallButton />
+        </div>
+      )}
     </div>
   );
 }

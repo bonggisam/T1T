@@ -6,6 +6,7 @@ import { useAuthStore } from './authStore';
 import { isPersonalHidden } from './privacyStore';
 import { showToast } from '../components/common/Toast';
 import { playNotificationSound, showDesktopNotification } from '../utils/notifications';
+import { ipcErrorMessage } from '../utils/ipcError';
 
 // 메인 프로세스는 시간표를 메모리에만 들고 있어, 네트워크 없이 켜면 시간표를 모른다.
 // 그러면 수업 화면 보호가 동작하지 않고 꺼져 있던 동안의 변경도 알 수 없으므로 이 PC에 마지막 값을 둔다.
@@ -141,7 +142,7 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
           cached = await window.electronAPI?.comciganFetch() ?? null;
         } catch (fetchErr: any) {
           console.warn('[ComciganStore] Fetch failed:', fetchErr);
-          set({ error: fetchErr?.message || '시간표를 가져올 수 없습니다' });
+          set({ error: ipcErrorMessage(fetchErr, '시간표를 가져올 수 없습니다') });
         }
       }
 
@@ -181,7 +182,7 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
       }
     } catch (err: any) {
       console.error('[ComciganStore] loadConfig error:', err);
-      set({ error: err?.message || '시간표 설정 로드 실패' });
+      set({ error: ipcErrorMessage(err, '시간표 설정 로드 실패') });
     }
   },
 
@@ -191,7 +192,7 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
       const results = await window.electronAPI?.comciganSearch(name) ?? [];
       set({ searchResults: results, searching: false });
     } catch (err: any) {
-      set({ searching: false, error: err?.message || '검색 실패' });
+      set({ searching: false, error: ipcErrorMessage(err, '검색 실패') });
     }
   },
 
@@ -204,7 +205,7 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
       saveChanges(null);
       set({ config, timetableData: data, changes: [], loading: false, searchResults: [] });
     } catch (err: any) {
-      set({ loading: false, error: err?.message || '설정 실패' });
+      set({ loading: false, error: ipcErrorMessage(err, '설정 실패') });
     } finally {
       configuring = false;
     }
@@ -214,7 +215,7 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
     set({ loading: true, error: null });
     const startedAt = Date.now();
     try {
-      const data = await window.electronAPI?.comciganFetch() ?? null;
+      const data = await window.electronAPI?.comciganFetch(true) ?? null;
       // 받지 못하면 메인이 전에 받은 값이나 빈 값을 돌려준다. 지금 시간표를 지우거나 성공처럼 보이면 안 된다
       if (!data || new Date(data.lastUpdated).getTime() < startedAt - 1000) {
         set({ loading: false, error: '컴시간에 연결하지 못했습니다. 전에 받은 시간표를 그대로 씁니다.' });
@@ -223,7 +224,7 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
       notifyTimetableChanges(get().timetableData, data);
       set({ timetableData: data, loading: false });
     } catch (err: any) {
-      set({ loading: false, error: err?.message || '시간표 가져오기 실패' });
+      set({ loading: false, error: ipcErrorMessage(err, '시간표 가져오기 실패') });
     }
   },
 

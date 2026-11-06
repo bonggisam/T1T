@@ -80,7 +80,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setEditShortcut: (enabled: boolean): Promise<void> => ipcRenderer.invoke('app:set-edit-shortcut', enabled),
   comciganSetUser: (userId: string | null): Promise<void> => ipcRenderer.invoke('comcigan:set-user', userId),
   comciganGetConfig: (): Promise<ComciganConfig | null> => ipcRenderer.invoke('comcigan:get-config'),
-  comciganFetch: (): Promise<ComciganTimetableData | null> => ipcRenderer.invoke('comcigan:fetch'),
+  comciganFetch: (force?: boolean): Promise<ComciganTimetableData | null> => ipcRenderer.invoke('comcigan:fetch', force === true),
   comciganGetCached: (): Promise<ComciganTimetableData | null> => ipcRenderer.invoke('comcigan:get-cached'),
   comciganClear: (): Promise<void> => ipcRenderer.invoke('comcigan:clear'),
   comciganSchoolGrid: (schoolCode: number, maxGrade: number, force?: boolean): Promise<ComciganSchoolGrid> =>
