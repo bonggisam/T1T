@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useComciganStore } from '../../store/comciganStore';
 import { useAuthStore } from '../../store/authStore';
 import { useComciganOutageStore } from '../../store/comciganOutageStore';
-import { formatItems } from '../../utils/teachingAssignments';
+import { formatItems, formatOwnText } from '../../utils/teachingAssignments';
 import { ComciganCallButton } from '../common/ComciganCall';
 import { showToast } from '../common/Toast';
 
@@ -109,7 +109,7 @@ export function ComciganSettings() {
           <button onClick={() => fetchTimetable()} disabled={loading} style={styles.btn}>
             {loading ? '갱신 중...' : '새로고침'}
           </button>
-          <button onClick={() => setEditing(true)} style={styles.btn}>담당 학급 고치기</button>
+          <button onClick={() => { setText(formatOwnText(items, slots)); setEditing(true); }} style={styles.btn}>담당 학급 고치기</button>
         </div>
       )}
 
@@ -125,7 +125,7 @@ export function ComciganSettings() {
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder={'국어 2-1 2-3\n문학 3-1 월4 수3'}
-            rows={3}
+            rows={Math.min(8, Math.max(3, text.split('\n').length))}
             aria-label="담당 과목과 학급"
             style={styles.textarea}
           />
@@ -133,7 +133,7 @@ export function ComciganSettings() {
             <button onClick={handleSave} disabled={saving || !text.trim()} style={styles.primary}>
               {saving ? '저장 중...' : '저장'}
             </button>
-            {editing && <button onClick={() => { setEditing(false); setNote(null); }} style={styles.btn}>취소</button>}
+            {editing && <button onClick={() => { setEditing(false); setText(''); setNote(null); }} style={styles.btn}>취소</button>}
           </div>
         </div>
       )}

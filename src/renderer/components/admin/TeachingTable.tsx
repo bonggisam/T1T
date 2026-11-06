@@ -37,6 +37,7 @@ export function TeachingTable({ users }: { users: User[] }) {
   const [preview, setPreview] = useState<PreviewRow[] | null>(null);
   const [badLines, setBadLines] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [replaceAuto, setReplaceAuto] = useState(false);
   const [timesText, setTimesText] = useState('');
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export function TeachingTable({ users }: { users: User[] }) {
     setNeisError(null);
     setPreview(null);
     setBadLines([]);
+    setReplaceAuto(false);
     loadNeisWeek(school)
       .then((week) => { if (active) setCells(week.cells); })
       .catch((err) => { if (active) setNeisError(err?.message || '나이스에서 시간표를 받지 못했습니다'); });
@@ -64,11 +66,16 @@ export function TeachingTable({ users }: { users: User[] }) {
     [teachers, rowNames],
   );
   const listed = useMemo(() => [...rows].sort((a, b) => a.name.localeCompare(b.name, 'ko')), [rows]);
+  // 자동 연결은 전에 받은 시간표의 요일과 교시다. 다시 구할 수 없으므로 고른 경우에만 바꾼다
+  const autoNames = useMemo(() => new Set(rows.filter((r) => r.source === 'timetable').map((r) => r.name)), [rows]);
+  const autoCount = preview?.filter((row) => autoNames.has(row.name)).length ?? 0;
+  const toSave = preview?.filter((row) => replaceAuto || !autoNames.has(row.name)) ?? [];
 
   function handlePreview() {
     const parsed = parseAssignmentText(text);
     const names = new Set(users.map((u) => (u.name || '').trim()));
     setBadLines(parsed.badLines);
+    setReplaceAuto(false);
     setPreview(parsed.rows.map((row) => {
       const resolved = cells ? resolveItems(row.items, cells) : { items: row.items, unknown: [] };
       return {
@@ -82,11 +89,11 @@ export function TeachingTable({ users }: { users: User[] }) {
   }
 
   async function handleSave() {
-    if (!me || !preview || preview.length === 0 || saving) return;
+    if (!me || toSave.length === 0 || saving) return;
     setSaving(true);
     try {
-      await saveAssignmentRows(school, preview.map(({ name, items, slots }) => ({ name, items, slots })), me.id);
-      showToast(`${preview.length}명을 저장했습니다`, 'success');
+      await saveAssignmentRows(school, toSave.map(({ name, items, slots }) => ({ name, items, slots })), me.id);
+      showToast(`${toSave.length}명을 저장했습니다`, 'success');
       setText('');
       setPreview(null);
       setBadLines([]);
@@ -159,12 +166,18 @@ export function TeachingTable({ users }: { users: User[] }) {
         />
         <div style={styles.actions}>
           <button type="button" onClick={handlePreview} disabled={!text.trim()} style={styles.btn}>표 확인</button>
-          {preview && preview.length > 0 && (
+          {toSave.length > 0 && (
             <button type="button" onClick={handleSave} disabled={saving} style={styles.primary}>
-              {saving ? '저장 중...' : `${preview.length}명 저장`}
+              {saving ? '저장 중...' : `${toSave.length}명 저장`}
             </button>
           )}
         </div>
+        {autoCount > 0 && (
+          <label style={styles.check}>
+            <input type="checkbox" checked={replaceAuto} onChange={(e) => setReplaceAuto(e.target.checked)} />
+            자동 연결된 {autoCount}명도 이 표로 바꾸기. 전에 받은 시간표의 요일과 교시는 서버에서 사라집니다.
+          </label>
+        )}
         {badLines.length > 0 && <p style={styles.warn}>읽지 못한 줄 {badLines.length}개: {badLines[0]}</p>}
         {preview && preview.length === 0 && <p style={styles.warn}>읽은 줄이 없습니다. 이름, 과목, 학급 순서인지 확인해 주세요.</p>}
         {preview && preview.length > 0 && (
@@ -174,6 +187,7 @@ export function TeachingTable({ users }: { users: User[] }) {
                 <b style={styles.name}>{row.name}</b>
                 <span style={styles.items}>{formatItems(row.items, row.slots)}</span>
                 {!row.hasAccount && <span style={styles.tag}>가입 전</span>}
+                {autoNames.has(row.name) && !replaceAuto && <span style={styles.tag}>자동 연결 유지</span>}
                 {row.unknown.length > 0 && <span style={styles.warnTag}>시간표에 없음: {row.unknown.join(', ')}</span>}
               </li>
             ))}
@@ -271,6 +285,7 @@ const styles: Record<string, React.CSSProperties> = {
     outline: 'none',
   },
   actions: { display: 'flex', gap: 6, alignItems: 'center' },
+  check: { display: 'flex', gap: 6, alignItems: 'flex-start', fontSize: 'var(--fs-caption)', color: 'var(--text-secondary)', wordBreak: 'keep-all' },
   btn: {
     padding: '4px 10px',
     fontSize: 'var(--fs-label)',
