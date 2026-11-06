@@ -122,7 +122,9 @@ service cloud.firestore {
       return school in ['taeseong_middle', 'taeseong_high']
         && data.keys().hasOnly(['name', 'items', 'slots', 'source', 'updatedBy', 'updatedAt'])
         && data.name == teacherName
-        && data.source in ['timetable', 'admin', 'self']
+        && data.source in ['timetable', 'admin', 'self', 'file']
+        // file은 관리자가 올린 컴시간 기초 시간표다. 이 PC의 옛 기록이 덮어쓰지 않으므로 관리자만 쓴다
+        && (data.source != 'file' || isAdmin())
         && data.updatedBy == request.auth.uid
         && data.items is list
         && data.items.size() <= 200

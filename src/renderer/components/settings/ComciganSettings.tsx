@@ -10,6 +10,7 @@ const SOURCE_LABEL: Record<string, string> = {
   admin: '관리자 표',
   self: '직접 입력',
   timetable: '전에 받은 시간표',
+  file: '학교 기초 시간표',
 };
 
 /**

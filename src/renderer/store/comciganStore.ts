@@ -158,7 +158,10 @@ function applyWeek(user: User, school: School, week: NeisWeek, quiet = false): v
   let slots: TeachingSlot[] = state.assignment?.slots ?? [];
 
   const record = readComciganRecord(user.id);
-  if (
+  if (record && !record.uploaded && state.assignmentChecked && state.assignment?.source === 'file') {
+    // 관리자가 올린 컴시간 파일은 학교 전체 기초 시간표로 만들어 이 PC의 옛 기록보다 정확하다. 옛 기록은 더 올리지 않는다
+    if (recordUpload === 'idle') markComciganUploaded(user.id, record);
+  } else if (
     record && !record.uploaded && isThisSemester(record.lastUpdated)
     && name && state.assignmentChecked && state.assignment?.source !== 'self' && week.cells.length > 0
   ) {

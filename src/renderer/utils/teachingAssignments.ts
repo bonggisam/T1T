@@ -29,13 +29,8 @@ export function teacherKey(name: string): string {
   return name.trim();
 }
 
-/**
- * 줄인 과목 이름인지 본다. 공통수학을 공수로, 미적분Ⅰ을 미적Ⅰ으로 쓰는 경우처럼
- * 글자 순서만 맞으면 같은 과목으로 친다.
- */
-export function subjectMatches(short: string, full: string): boolean {
-  const a = normalizeSubject(short);
-  const b = normalizeSubject(full);
+/** a의 글자가 b에 순서대로 모두 들어 있는가 */
+function inOrder(a: string, b: string): boolean {
   if (!a || !b) return false;
   let at = 0;
   for (const ch of b) {
@@ -43,6 +38,23 @@ export function subjectMatches(short: string, full: string): boolean {
     if (at === a.length) return true;
   }
   return false;
+}
+
+/** Ⅰ, Ⅱ와 I, II를 숫자로 맞춘다. 컴시간은 영II, 화2, 미1로 쓰고 나이스는 영어Ⅱ, 화학Ⅱ, 미적분Ⅰ로 쓴다 */
+function plainNumerals(subject: string): string {
+  return subject
+    .replace(/Ⅳ/g, '4').replace(/Ⅲ/g, '3').replace(/Ⅱ/g, '2').replace(/Ⅰ/g, '1')
+    .replace(/(?<![A-Za-z])I{1,3}(?![A-Za-z])/g, (m) => String(m.length));
+}
+
+/**
+ * 줄인 과목 이름인지 본다. 공통수학을 공수로, 미적분Ⅰ을 미적Ⅰ으로 쓰는 경우처럼
+ * 글자 순서만 맞으면 같은 과목으로 친다. 영II와 영어Ⅱ처럼 로마 숫자를 다르게 쓴 것도 같게 본다.
+ */
+export function subjectMatches(short: string, full: string): boolean {
+  const a = normalizeSubject(short);
+  const b = normalizeSubject(full);
+  return inOrder(a, b) || inOrder(plainNumerals(a), plainNumerals(b));
 }
 
 function dedupeItems(items: TeachingItem[]): TeachingItem[] {
@@ -145,6 +157,115 @@ export function deriveItemsFromSchedule(
     else slots.push(...periods.map((period) => toSlot(period, cell.subject)));
   }
   return { items: dedupeItems(items), slots: dedupeSlots(slots), matched, total: schedule.length };
+}
+
+/** 컴시간 기초 시간표의 수업 한 칸. timetableFile.ts의 FileLesson과 같은 모양이다 */
+export interface BaseLesson {
+  name: string;
+  weekday: number;
+  period: number;
+  grade: number;
+  classNum: number;
+  subject: string;
+}
+
+export interface BaseAssignments {
+  rows: AssignmentRow[];
+  /** 나이스에서 이름을 찾지 못한 과목. 요일과 교시를 그대로 둔다 */
+  unresolved: Array<TeachingItem & { name: string }>;
+  /** 여럿이 나눠 가르쳐 요일과 교시로 둔 학급-과목 수 */
+  shared: number;
+  /** 기초 시간표의 칸 중 이번 주 나이스에도 같은 칸에 같은 과목이 있는 칸 */
+  sameCells: number;
+  total: number;
+}
+
+/**
+ * 학교 전체의 기초 시간표(컴시간 파일)를 담당 학급 표로 바꾼다.
+ * 과목 줄임말은 그 수업 칸들에 나이스가 적은 과목 이름으로 바꾼다. 칸에서 찾지 못하면 그 학급에 맞는 이름이 하나뿐일 때만 쓴다.
+ * 학급의 한 과목을 혼자 가르치면 담당 학급으로 둔다. 나이스를 따라가므로 수업 교체가 저절로 반영된다.
+ * 여럿이 나눠 가르치거나 이름을 맞추지 못한 수업은 요일과 교시를 고정 수업 칸으로 둔다.
+ */
+export function assignmentsFromLessons(lessons: BaseLesson[], cells: NeisCell[]): BaseAssignments {
+  const at = (weekday: number, period: number, grade: number, classNum: number) => `${weekday}-${period}|${grade}-${classNum}`;
+  const atSlot = new Map<string, string[]>();
+  const inClass = new Map<string, Map<string, number>>();
+  for (const cell of cells) {
+    const slot = at(cell.weekday, cell.period, cell.grade, cell.classNum);
+    atSlot.set(slot, [...(atSlot.get(slot) ?? []), cell.subject]);
+    const cls = `${cell.grade}-${cell.classNum}`;
+    const counts = inClass.get(cls) ?? new Map<string, number>();
+    counts.set(cell.subject, (counts.get(cell.subject) ?? 0) + 1);
+    inClass.set(cls, counts);
+  }
+  const subjectsAt = (l: BaseLesson) => atSlot.get(at(l.weekday, l.period, l.grade, l.classNum)) ?? [];
+
+  const groups = new Map<string, { name: string; grade: number; classNum: number; subject: string; lessons: BaseLesson[] }>();
+  for (const lesson of lessons) {
+    const name = teacherKey(lesson.name);
+    if (!name) continue;
+    const key = `${name}|${lesson.grade}-${lesson.classNum}|${lesson.subject}`;
+    const group = groups.get(key) ?? { name, grade: lesson.grade, classNum: lesson.classNum, subject: lesson.subject, lessons: [] };
+    group.lessons.push(lesson);
+    groups.set(key, group);
+  }
+
+  const neisName = new Map<string, string | null>();
+  for (const [key, group] of groups) {
+    const tally = new Map<string, number>();
+    for (const lesson of group.lessons) {
+      for (const subject of subjectsAt(lesson)) {
+        if (subjectMatches(group.subject, subject)) tally.set(subject, (tally.get(subject) ?? 0) + 1);
+      }
+    }
+    let found = [...tally.entries()].sort((a, b) => b[1] - a[1] || koCompare(a[0], b[0]))[0]?.[0] ?? null;
+    if (!found) {
+      // 이번 주에 그 칸이 바뀌었으면 학급의 과목 중에서 찾는다. 후보가 여럿이면 주당 칸 수가 같은 하나만 쓴다
+      const options = [...(inClass.get(`${group.grade}-${group.classNum}`) ?? new Map<string, number>()).entries()]
+        .filter(([subject]) => subjectMatches(group.subject, subject));
+      const sameCount = options.filter(([, n]) => n === group.lessons.length);
+      if (options.length === 1) found = options[0][0];
+      else if (sameCount.length === 1) found = sameCount[0][0];
+    }
+    neisName.set(key, found);
+  }
+
+  const pairOf = (key: string) => {
+    const group = groups.get(key)!;
+    return `${group.grade}-${group.classNum}|${normalizeSubject(neisName.get(key) ?? group.subject)}`;
+  };
+  const owners = new Map<string, Set<string>>();
+  for (const [key, group] of groups) {
+    const pair = pairOf(key);
+    owners.set(pair, (owners.get(pair) ?? new Set<string>()).add(group.name));
+  }
+
+  const byName = new Map<string, ParsedLine>();
+  const unresolved: Array<TeachingItem & { name: string }> = [];
+  const sharedPairs = new Set<string>();
+  let sameCells = 0;
+  let total = 0;
+  for (const [key, group] of groups) {
+    const found = neisName.get(key) ?? null;
+    const subject = found ?? group.subject;
+    const pair = pairOf(key);
+    const shared = (owners.get(pair)?.size ?? 0) > 1;
+    if (shared) sharedPairs.add(pair);
+    const row = byName.get(group.name) ?? { items: [], slots: [] };
+    if (found && !shared) {
+      row.items.push({ subject, grade: group.grade, classNum: group.classNum });
+    } else {
+      row.slots.push(...group.lessons.map((l) => ({ subject, grade: l.grade, classNum: l.classNum, weekday: l.weekday, period: l.period })));
+    }
+    byName.set(group.name, row);
+    if (!found) unresolved.push({ name: group.name, subject: group.subject, grade: group.grade, classNum: group.classNum });
+    else sameCells += group.lessons.filter((l) => subjectsAt(l).some((s) => sameSubject(s, found))).length;
+    total += group.lessons.length;
+  }
+  const rows = [...byName.entries()]
+    .map(([name, row]) => ({ name, items: dedupeItems(row.items), slots: dedupeSlots(row.slots) }))
+    .sort((a, b) => koCompare(a.name, b.name));
+  return { rows, unresolved, shared: sharedPairs.size, sameCells, total };
 }
 
 /** 표로 만든 이번 주 수업이 전에 받은 시간표와 같은가. 휴일이 낀 주에는 빠진 요일을 알 수 없어 다르다고 한다 */

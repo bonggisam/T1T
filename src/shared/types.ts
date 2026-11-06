@@ -231,14 +231,17 @@ export interface TeachingSlot extends TeachingItem {
   period: number;
 }
 
-export type TeachingSource = 'timetable' | 'admin' | 'self';
+export type TeachingSource = 'timetable' | 'admin' | 'self' | 'file';
 
 /** 담당 학급 표의 한 사람. 학교와 이름으로 찾는다 */
 export interface TeachingAssignment {
   name: string;
   items: TeachingItem[];
   slots: TeachingSlot[];
-  /** timetable=전에 받은 시간표에서 자동으로 만듦, admin=관리자 표, self=본인 입력 */
+  /**
+   * timetable=전에 받은 시간표에서 자동으로 만듦, admin=관리자 표, self=본인 입력,
+   * file=관리자가 올린 컴시간 파일(학교 전체 기초 시간표로 만들어 이 PC의 옛 기록보다 정확하다)
+   */
   source: TeachingSource;
   updatedBy?: string;
   updatedAt?: Date | null;

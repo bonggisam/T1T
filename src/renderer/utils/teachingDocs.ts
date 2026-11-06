@@ -61,7 +61,7 @@ export function parseAssignmentDoc(id: string, data: Record<string, any>): Teach
     name: String(data?.name || id),
     items: parseItems(data?.items),
     slots: parseSlots(data?.slots),
-    source: data?.source === 'admin' || data?.source === 'self' ? data.source : 'timetable',
+    source: data?.source === 'admin' || data?.source === 'self' || data?.source === 'file' ? data.source : 'timetable',
     updatedBy: data?.updatedBy,
     updatedAt: data?.updatedAt?.toDate?.() ?? null,
   };
@@ -99,12 +99,17 @@ export async function saveAssignment(
   await setDoc(teacherDoc(school, name), assignmentData(name, items, slots, source, uid));
 }
 
-/** 관리자가 붙여 넣은 표를 저장한다 */
-export async function saveAssignmentRows(school: School, rows: AssignmentRow[], uid: string): Promise<void> {
+/** 관리자가 붙여 넣은 표(admin)나 올린 컴시간 파일(file)을 저장한다 */
+export async function saveAssignmentRows(
+  school: School,
+  rows: AssignmentRow[],
+  uid: string,
+  source: 'admin' | 'file' = 'admin',
+): Promise<void> {
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
     const batch = writeBatch(db);
     for (const row of rows.slice(i, i + BATCH_SIZE)) {
-      batch.set(teacherDoc(school, row.name), assignmentData(row.name, row.items, row.slots, 'admin', uid));
+      batch.set(teacherDoc(school, row.name), assignmentData(row.name, row.items, row.slots, source, uid));
     }
     await batch.commit();
   }
