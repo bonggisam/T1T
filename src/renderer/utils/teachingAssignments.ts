@@ -2,7 +2,7 @@
  * 담당 학급 표. 나이스 시간표에는 교사 이름이 없어서, 이름과 학교로 찾는 이 표로 칸을 찾는다.
  *
  * 표는 세 곳에서 채워진다.
- * - 전에 컴시간에서 받은 내 시간표 (이 PC에 남아 있으면 앱이 자동으로 만든다)
+ * - 전에 컴시간에서 받은 내 시간표 (이 PC에 남아 있으면 앱이 자동으로 올린다. 교사별 시간의 유일한 근거다)
  * - 관리자가 붙여 넣은 표
  * - 본인이 직접 넣은 값
  */
@@ -62,6 +62,15 @@ function dedupeSlots(slots: TeachingSlot[]): TeachingSlot[] {
   return [...seen.values()].sort((a, b) => a.weekday - b.weekday || a.period - b.period);
 }
 
+function slotKey(at: { weekday: number; period: number }): string {
+  return `${at.weekday}-${at.period}`;
+}
+
+/** 나이스에 다섯 요일이 다 있는 주. 휴일이 끼면 그 요일의 칸이 보이지 않는다 */
+function isFullWeek(cells: NeisCell[]): boolean {
+  return new Set(cells.map((c) => c.weekday)).size >= 5;
+}
+
 function startTimeOf(classTimes: string[], period: number): string | undefined {
   const entry = classTimes[period - 1];
   return entry?.match(/(\d{2}:\d{2})/)?.[1];
@@ -96,36 +105,69 @@ export function buildTeacherSchedule(
 }
 
 /**
- * 전에 받은 내 시간표를 나이스 칸과 맞춰 담당 학급을 만든다.
- * 같은 요일, 교시, 학급의 칸이 같은 과목이면 그 과목 이름을 나이스 이름으로 저장한다.
- * 나이스에 그 칸이 아예 없는 수업(이동수업 등)은 고정 수업 칸으로 남겨 내 수업에서 빠지지 않게 한다.
+ * 전에 받은 내 시간표를 표에 올릴 모양으로 나눈다. 이번 주 나이스 칸으로 다시 만들면 받은 시간표와 같아진다.
+ * - 담당 학급: 그 학급 그 과목의 나이스 칸이 모두 내 수업이다. 혼자 가르치므로 나이스가 바뀌면 따라간다.
+ * - 고정 수업 칸: 나머지는 요일과 교시를 그대로 둔다. 과목을 나눠 가르치거나, 나이스에 칸이 없거나, 이름을 맞출 수 없는 수업이다.
+ * 휴일이 낀 주에는 혼자 가르치는지 알 수 없어 모두 고정 수업 칸으로 둔다.
  */
 export function deriveItemsFromSchedule(
   schedule: TeacherPeriod[],
   cells: NeisCell[],
 ): { items: TeachingItem[]; slots: TeachingSlot[]; matched: number; total: number } {
-  const items: TeachingItem[] = [];
+  const toSlot = (period: TeacherPeriod, subject: string): TeachingSlot => ({
+    subject,
+    grade: period.grade,
+    classNum: period.classNum,
+    weekday: period.weekday,
+    period: period.period,
+  });
   const slots: TeachingSlot[] = [];
-  const schoolDays = new Set(cells.map((c) => c.weekday));
+  const groups = new Map<string, { cell: NeisCell; periods: TeacherPeriod[] }>();
   let matched = 0;
   for (const period of schedule) {
     const here = cells.filter((c) => c.grade === period.grade && c.classNum === period.classNum);
-    const sameSlot = here.filter((c) => c.weekday === period.weekday && c.period === period.period);
-    const atSameSlot = sameSlot.find((c) => subjectMatches(period.subject, c.subject));
-    if (atSameSlot) matched += 1;
-    const cell = atSameSlot ?? here.find((c) => subjectMatches(period.subject, c.subject));
-    if (cell) items.push({ subject: cell.subject, grade: cell.grade, classNum: cell.classNum });
-    if (sameSlot.length === 0 && schoolDays.has(period.weekday)) {
-      slots.push({
-        subject: cell?.subject ?? period.subject,
-        grade: period.grade,
-        classNum: period.classNum,
-        weekday: period.weekday,
-        period: period.period,
-      });
+    const cell = here.find((c) => slotKey(c) === slotKey(period) && subjectMatches(period.subject, c.subject));
+    if (cell) {
+      matched += 1;
+      const group = groups.get(itemKey(cell)) ?? { cell, periods: [] };
+      group.periods.push(period);
+      groups.set(itemKey(cell), group);
+    } else {
+      const named = here.find((c) => subjectMatches(period.subject, c.subject));
+      slots.push(toSlot(period, named?.subject ?? period.subject));
     }
   }
+  const items: TeachingItem[] = [];
+  for (const [key, { cell, periods }] of groups) {
+    const mine = new Set(periods.map(slotKey));
+    const alone = isFullWeek(cells) && cells.every((c) => itemKey(c) !== key || mine.has(slotKey(c)));
+    if (alone) items.push({ subject: cell.subject, grade: cell.grade, classNum: cell.classNum });
+    else slots.push(...periods.map((period) => toSlot(period, cell.subject)));
+  }
   return { items: dedupeItems(items), slots: dedupeSlots(slots), matched, total: schedule.length };
+}
+
+/** 표로 만든 이번 주 수업이 전에 받은 시간표와 같은가. 휴일이 낀 주에는 빠진 요일을 알 수 없어 다르다고 한다 */
+export function assignmentMatchesSchedule(
+  schedule: TeacherPeriod[],
+  cells: NeisCell[],
+  items: TeachingItem[],
+  slots: TeachingSlot[],
+): boolean {
+  if (!isFullWeek(cells)) return false;
+  const lessonKey = (p: TeacherPeriod) => `${slotKey(p)}|${p.grade}-${p.classNum}`;
+  const want = new Set(schedule.map(lessonKey));
+  const got = new Set(buildTeacherSchedule(cells, items, [], slots).map(lessonKey));
+  return want.size === got.size && [...want].every((key) => got.has(key));
+}
+
+/** 이번 학기에 받은 값인가. 지난 학기 시간표는 내 수업으로 쓰지 않는다. 1학기는 3월, 2학기는 8월에 시작한다 */
+export function isThisSemester(at: string | undefined, now: Date = new Date()): boolean {
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const start = month >= 8 ? new Date(year, 7, 1) : month >= 3 ? new Date(year, 2, 1) : new Date(year - 1, 7, 1);
+  const time = at ? new Date(at).getTime() : NaN;
+  return !Number.isNaN(time) && time >= start.getTime();
 }
 
 /** 쓴 과목 이름을 그 학급의 나이스 이름으로 바꾼다. 못 찾은 항목은 따로 돌려준다 */
@@ -234,20 +276,29 @@ export function parseAssignmentText(text: string): { rows: AssignmentRow[]; badL
   return { rows, badLines };
 }
 
-/** "국어 2-1, 2-3 · 독서 1-2 · 문학 3-1 월4, 수3" */
-export function formatItems(items: TeachingItem[], slots: TeachingSlot[] = []): string {
+function describeItems(items: TeachingItem[], slots: TeachingSlot[], between: string, lineBreak: string): string {
   const bySubject = new Map<string, string[]>();
   for (const item of dedupeItems(items)) {
     bySubject.set(item.subject, [...(bySubject.get(item.subject) ?? []), `${item.grade}-${item.classNum}`]);
   }
-  const parts = [...bySubject.entries()].map(([subject, classes]) => `${subject} ${classes.join(', ')}`);
+  const parts = [...bySubject.entries()].map(([subject, classes]) => `${subject} ${classes.join(between)}`);
   const fixed = new Map<string, string[]>();
   for (const slot of dedupeSlots(slots)) {
     const key = `${slot.subject} ${slot.grade}-${slot.classNum}`;
     fixed.set(key, [...(fixed.get(key) ?? []), `${WEEKDAY_NAMES[slot.weekday - 1] ?? ''}${slot.period}`]);
   }
-  for (const [key, when] of fixed) parts.push(`${key} ${when.join(', ')}`);
-  return parts.join(' · ');
+  for (const [key, when] of fixed) parts.push(`${key} ${when.join(between)}`);
+  return parts.join(lineBreak);
+}
+
+/** "국어 2-1, 2-3 · 독서 1-2 · 문학 3-1 월4, 수3" */
+export function formatItems(items: TeachingItem[], slots: TeachingSlot[] = []): string {
+  return describeItems(items, slots, ', ', ' · ');
+}
+
+/** 고치기 칸에 넣을 글. parseOwnItems가 그대로 다시 읽는다 */
+export function formatOwnText(items: TeachingItem[], slots: TeachingSlot[] = []): string {
+  return describeItems(items, slots, ' ', '\n');
 }
 
 /** 시각만 차례로 적은 글을 시정표로 바꾼다. "08:40 09:35 ..." */

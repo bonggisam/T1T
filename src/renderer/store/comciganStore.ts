@@ -14,7 +14,7 @@ import { playNotificationSound, showDesktopNotification } from '../utils/notific
 import { getNeisConfig } from '../utils/neisSchedule';
 import { loadNeisWeek, NEIS_REFRESH_MS, timetableWeekStart, type NeisWeek } from '../utils/neisTimetable';
 import {
-  buildTeacherSchedule, deriveItemsFromSchedule, parseOwnItems, resolveItems, teacherKey,
+  assignmentMatchesSchedule, buildTeacherSchedule, deriveItemsFromSchedule, isThisSemester, parseOwnItems, resolveItems, teacherKey,
 } from '../utils/teachingAssignments';
 import {
   parseAssignmentDoc, parseClassTimesDoc, saveAssignment, saveClassTimes, schoolTimesDoc, teacherDoc,
@@ -27,6 +27,7 @@ const LEGACY_CACHE_KEY = 't1t-timetable-cache';
 const LEGACY_CHANGES_KEY = 't1t-timetable-changes';
 const cacheKey = (userId: string) => `${LEGACY_CACHE_KEY}-${userId}`;
 const changesKey = (userId: string) => `${LEGACY_CHANGES_KEY}-${userId}`;
+const comciganKey = (userId: string) => `t1t-timetable-comcigan-${userId}`;
 let boundUser: string | null = null;
 
 function readJson<T>(key: string): T | null {
@@ -74,6 +75,35 @@ function saveChanges(changes: TimetableChange[] | null): void {
   if (boundUser) writeJson(changesKey(boundUser), changes);
 }
 
+/**
+ * 전에 컴시간에서 받은 내 시간표. 교사별 시간은 나이스에 없어 다시 구할 수 없으므로
+ * 나이스 값으로 바뀌는 저장본과 따로 둔다.
+ */
+interface ComciganRecord {
+  teacherSchedule: TeacherPeriod[];
+  lastUpdated: string;
+  /** 표에 올렸거나 표와 같음을 확인했다. 그 뒤에 관리자가 표를 고쳐도 되돌리지 않는다 */
+  uploaded: boolean;
+}
+
+function readComciganRecord(userId: string): ComciganRecord | null {
+  const record = readJson<ComciganRecord>(comciganKey(userId));
+  return record && Array.isArray(record.teacherSchedule) ? record : null;
+}
+
+function keepComciganRecord(userId: string, cached: ComciganTimetableData | null): void {
+  if (!cached || cached.source === 'neis' || cached.teacherSchedule.length === 0) return;
+  if (readComciganRecord(userId)) return;
+  writeJson(comciganKey(userId), { teacherSchedule: cached.teacherSchedule, lastUpdated: cached.lastUpdated, uploaded: false });
+}
+
+function markComciganUploaded(userId: string, record: ComciganRecord): void {
+  writeJson(comciganKey(userId), { ...record, uploaded: true });
+}
+
+/** 한 번 실패하면 이번 실행에는 다시 올리지 않는다. 다음 실행 때 다시 한다 */
+let recordUpload: 'idle' | 'busy' | 'failed' = 'idle';
+
 /** 표와 시정표의 첫 값을 이만큼만 기다린다. 오프라인에서도 저장된 시간표로 시작한다 */
 const FIRST_READ_TIMEOUT_MS = 12 * 1000;
 const CHECK_MS = 10 * 60 * 1000;
@@ -116,7 +146,8 @@ function notifyTimetableChanges(prev: ComciganTimetableData | null, next: Comcig
 
 /**
  * 받은 학교 시간표와 내 담당 학급으로 내 수업을 만든다.
- * 담당 학급이 아직 없고 이 PC에 전에 받은 내 시간표가 있으면, 그것으로 담당 학급을 만들어 표에 올린다.
+ * 이 PC에 전에 받은 내 시간표가 있고 표가 그것과 다르면 표에 올린다. 본인이 직접 넣은 값은 건드리지 않고,
+ * 표를 읽기 전에는 덮어쓰지 않는다. 올리지 못해도 이 PC에서는 그 시간표로 보여 준다.
  * @param quiet 표가 바뀌어 다시 맞출 때. 수업 변경 알림을 내지 않는다
  */
 function applyWeek(user: User, school: School, week: NeisWeek, quiet = false): void {
@@ -126,13 +157,31 @@ function applyWeek(user: User, school: School, week: NeisWeek, quiet = false): v
   let items: TeachingItem[] = state.assignment?.items ?? [];
   let slots: TeachingSlot[] = state.assignment?.slots ?? [];
 
-  if (items.length === 0 && slots.length === 0 && name && prev?.source !== 'neis' && prev?.teacherSchedule.length) {
-    const derived = deriveItemsFromSchedule(prev.teacherSchedule, week.cells);
-    console.info(`[Timetable] 전에 받은 시간표 ${derived.total}칸 중 ${derived.matched}칸이 나이스와 맞습니다`);
-    if (derived.items.length > 0 || derived.slots.length > 0) {
+  const record = readComciganRecord(user.id);
+  if (
+    record && !record.uploaded && isThisSemester(record.lastUpdated)
+    && name && state.assignmentChecked && state.assignment?.source !== 'self' && week.cells.length > 0
+  ) {
+    if (assignmentMatchesSchedule(record.teacherSchedule, week.cells, items, slots)) {
+      // 올리는 중이면 화면에 먼저 반영된 값이라 서버가 받았는지 아직 모른다
+      if (recordUpload === 'idle') markComciganUploaded(user.id, record);
+    } else {
+      const derived = deriveItemsFromSchedule(record.teacherSchedule, week.cells);
       ({ items, slots } = derived);
-      saveAssignment(school, name, items, slots, 'timetable', user.id)
-        .catch((err) => console.warn('[Timetable] assignment save failed:', err));
+      if (recordUpload === 'idle') {
+        console.info(`[Timetable] 전에 받은 시간표 ${derived.total}칸 중 ${derived.matched}칸이 나이스와 맞습니다`);
+        const owner = user.id;
+        recordUpload = 'busy';
+        saveAssignment(school, name, items, slots, 'timetable', owner)
+          .then(() => {
+            markComciganUploaded(owner, record);
+            if (boundUser === owner) recordUpload = 'idle';
+          })
+          .catch((err) => {
+            console.warn('[Timetable] assignment save failed:', err);
+            if (boundUser === owner) recordUpload = 'failed';
+          });
+      }
     }
   }
 
@@ -144,8 +193,8 @@ function applyWeek(user: User, school: School, week: NeisWeek, quiet = false): v
   }
 
   if (items.length === 0 && slots.length === 0) {
-    // 표에서 빠졌으면 비운다. 전에 컴시간에서 받은 값은 담당 학급을 찾을 때까지 그대로 쓴다
-    if (prev?.source === 'neis') useComciganStore.setState({ timetableData: null, config: null });
+    // 표에서 빠졌으면 비운다. 전에 컴시간에서 받은 값은 담당 학급을 찾을 때까지 그대로 쓰되, 지난 학기 값은 쓰지 않는다
+    if (prev?.source === 'neis' || (prev && !isThisSemester(prev.lastUpdated))) useComciganStore.setState({ timetableData: null, config: null });
     else useComciganStore.setState({ config: prev ? configOf(user, school) : null });
     return;
   }
@@ -239,7 +288,9 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
     if (userId !== boundUser) {
       boundUser = userId;
       lastWeek = null;
+      recordUpload = 'idle';
       const cached = readCachedTimetable(userId);
+      keepComciganRecord(userId, cached);
       set({
         timetableData: cached,
         changes: readChanges(userId),
@@ -349,6 +400,7 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
     if (refreshTimer) clearInterval(refreshTimer);
     // 먼저 주인을 비워, 화면에서 비운 값이 그 사람의 저장본을 지우지 않게 한다
     boundUser = null;
+    recordUpload = 'idle';
     set({
       refreshTimer: null,
       config: null,
