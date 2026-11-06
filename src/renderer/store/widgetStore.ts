@@ -19,7 +19,7 @@ export interface WidgetPrefs {
   classReminderMin: number;
   /** 컴시간 시간표 변경 감지 알림 */
   timetableChangeAlert: boolean;
-  /** Ctrl+Shift+C로 편집 모드 전환. Word, PowerPoint의 서식 복사와 겹쳐 끌 수 있다 */
+  /** Ctrl+Shift+C로 창 위치 잠금 전환. Word, PowerPoint의 서식 복사와 겹쳐 끌 수 있다 */
   editShortcut: boolean;
   customDDays: CustomDDay[];
   /** 숨긴 자동 D-Day 키 (`제목|YYYY-MM-DD`) */

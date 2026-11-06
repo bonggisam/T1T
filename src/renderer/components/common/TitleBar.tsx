@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Bell, Calendar, Eye, EyeOff, LayoutGrid, Minus, Pencil, Pin, Search, Settings, X,
+  Bell, Calendar, Eye, EyeOff, LayoutGrid, Lock, Minus, Search, Settings, Unlock, X,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/notificationStore';
 import { usePersonalHidden, usePrivacyStore } from '../../store/privacyStore';
 import { useUIStore } from '../../store/uiStore';
+import { useWindowLockStore } from '../../store/windowLockStore';
 import { usePopover } from '../../hooks/usePopover';
 import { useWindowSize, WIDE_MIN } from '../../hooks/useWindowSize';
 import { CalendarNav } from '../calendar/CalendarNav';
@@ -14,7 +15,7 @@ import { TOOL_TABS, ToolMenu, type ToolTab } from './ToolMenu';
 
 /*
  * 제목 줄에 글자와 단추를 얼마나 넣을지 정하는 폭. 보기마다 실제 화면을 재서 정했다.
- * 편집 모드는 고정, 최소화, 종료 단추가 편집 단추보다 넓어 그만큼 덜 남고,
+ * 위치를 풀면 잠금, 최소화, 종료 단추가 잠금 단추 하나보다 넓어 그만큼 덜 남고,
  * 달력 화면이 아니면 날짜 이동이 없어 그만큼 더 남는다.
  */
 const EDIT_BUTTONS_EXTRA = 31;
@@ -55,7 +56,8 @@ export function TitleBar({
   const user = useAuthStore((s) => s.user);
   const { unreadCount, setShowPanel, showPanel } = useNotificationStore();
   const setCalendarTool = useUIStore((s) => s.setCalendarTool);
-  const [widgetMode, setWidgetMode] = useState(true);
+  const widgetMode = useWindowLockStore((s) => s.locked);
+  const setWidgetMode = useWindowLockStore((s) => s.setLocked);
   const { width } = useWindowSize();
   const menu = usePopover();
   const signedIn = showSettingsBtn && !!user;
@@ -70,7 +72,7 @@ export function TitleBar({
       setWidgetMode(enabled);
     });
     return () => unsub?.();
-  }, []);
+  }, [setWidgetMode]);
 
   function handleToggleWidget() {
     const next = !widgetMode;
@@ -132,13 +134,18 @@ export function TitleBar({
         {!compact && <span style={styles.separator} />}
 
         {widgetMode ? (
-          <button onClick={handleToggleWidget} style={styles.editBtn} title="편집 모드 (Ctrl+Shift+C)" aria-label="편집 모드">
-            <Pencil size={12} strokeWidth={2} />
-            {!compact && '편집'}
+          <button
+            onClick={handleToggleWidget}
+            style={styles.editBtn}
+            title="창 위치가 잠겨 있습니다. 내용 입력은 그대로 됩니다. 누르면 창을 옮기거나 크기를 바꿀 수 있습니다 (Ctrl+Shift+C)"
+            aria-label="위치 잠금 풀기"
+          >
+            <Lock size={12} strokeWidth={2} />
+            {!compact && '잠금'}
           </button>
         ) : (
           <>
-            <IconBtn Icon={Pin} onClick={handleToggleWidget} title="위젯 모드 (바탕 고정)" accent />
+            <IconBtn Icon={Unlock} onClick={handleToggleWidget} title="위치 잠그기 (Ctrl+Shift+C). 잠가도 내용은 입력됩니다" accent />
             <IconBtn Icon={Minus} onClick={() => window.electronAPI?.minimize()} title="최소화" />
             <button
               onClick={() => window.electronAPI?.close()}

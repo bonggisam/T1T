@@ -1,4 +1,5 @@
 import React from 'react';
+import { useWindowLockStore } from '../../store/windowLockStore';
 
 type Edge = 'top'|'right'|'bottom'|'left'|'top-left'|'top-right'|'bottom-left'|'bottom-right';
 
@@ -6,9 +7,12 @@ type Edge = 'top'|'right'|'bottom'|'left'|'top-left'|'top-right'|'bottom-left'|'
  * 프레임리스+투명 윈도우의 가장자리 리사이즈 핸들.
  * 각 가장자리 4px 두께 + 모서리 8x8 잡기 영역.
  * mousedown → IPC로 시작, mouseup(전역) → IPC로 중지.
+ * 위치를 잠그면 없앤다. 가장자리의 내용도 그대로 누를 수 있다.
  */
 export function ResizeHandles() {
   const activeRef = React.useRef(false);
+  const locked = useWindowLockStore((st) => st.locked);
+  if (locked) return null;
 
   const start = (edge: Edge) => (e: React.MouseEvent) => {
     e.preventDefault();

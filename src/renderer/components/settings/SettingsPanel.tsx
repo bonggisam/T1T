@@ -176,8 +176,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           <AppearanceSettings />
           <div style={{ height: 4 }} />
           <ToggleRow label="항상 위 표시" value={alwaysOnTop} onChange={handleAlwaysOnTop} />
-          <ToggleRow label="클릭 통과 모드" value={clickThrough} onChange={handleClickThrough} />
-          <ToggleRow label="편집 모드 단축키 (Ctrl+Shift+C)" value={widget.editShortcut} onChange={(v) => widget.setPref('editShortcut', v)} />
+          <ToggleRow label="클릭 통과 모드 (앱을 누르거나 입력할 수 없음)" value={clickThrough} onChange={handleClickThrough} />
+          <ToggleRow label="위치 잠금 단축키 (Ctrl+Shift+C)" value={widget.editShortcut} onChange={(v) => widget.setPref('editShortcut', v)} />
           <p style={styles.privacyNote}>Word, PowerPoint의 서식 복사 단축키와 겹칩니다. 서식 복사를 쓰시면 꺼 주세요. 편집 단추는 그대로 쓸 수 있습니다.</p>
         </Section>
 

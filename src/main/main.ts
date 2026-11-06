@@ -349,14 +349,19 @@ function toggleWindow(): void {
   }
 }
 
-function applyWidgetMode(enabled: boolean): void {
+/**
+ * 창 위치 잠금. 잠그면 창을 옮기거나 크기를 바꾸지 못하고 바탕에 머문다.
+ * 내용을 누르고 입력하는 것은 잠금과 상관없이 그대로 된다.
+ * @param startup 앱을 켤 때. 다른 프로그램의 입력을 빼앗지 않도록 포커스를 내준다
+ */
+function applyWidgetMode(enabled: boolean, startup = false): void {
   if (!mainWindow) return;
   isWidgetMode = enabled;
+  mainWindow.setMovable(!enabled);
+  mainWindow.setResizable(!enabled);
   if (enabled) {
-    // Widget mode: behind all windows, not focusable, on desktop
     mainWindow.setAlwaysOnTop(false);
     mainWindow.setSkipTaskbar(true);
-    mainWindow.setResizable(false);
     // Move to bottom of z-order (desktop level)
     if (process.platform === 'win32') {
       mainWindow.setAlwaysOnTop(true, 'pop-up-menu');
@@ -365,19 +370,19 @@ function applyWidgetMode(enabled: boolean): void {
         mainWindow?.setAlwaysOnTop(false);
       }, 50);
     }
-    mainWindow.blur();
+    // 잠금 단추를 누른 직후에도 바로 입력할 수 있어야 하므로 켤 때만 포커스를 내준다
+    if (startup) mainWindow.blur();
   } else {
-    // Edit mode: interactive, resizable. 항상 위는 사용자 설정을 따른다
+    // 풀면 옮기고 크기를 바꿀 수 있다. 항상 위는 사용자 설정을 따른다
     mainWindow.setAlwaysOnTop(alwaysOnTopPref);
     mainWindow.setSkipTaskbar(false);
-    mainWindow.setResizable(true);
     mainWindow.focus();
   }
 }
 
 const EDIT_SHORTCUT = 'CommandOrControl+Shift+C';
 
-/** Ctrl+Shift+C: 편집 모드와 위젯 모드 전환 */
+/** Ctrl+Shift+C: 창 위치 잠금과 풀기 전환 */
 function setEditShortcut(enabled: boolean): void {
   const registered = globalShortcut.isRegistered(EDIT_SHORTCUT);
   if (registered === enabled) return;
@@ -488,7 +493,8 @@ function setupIPC(): void {
   }
 
   ipcMain.handle('window:start-edge-resize', (_event, edge: ResizeEdge) => {
-    if (!mainWindow || !VALID_EDGES.includes(edge)) return;
+    // 위치를 잠그면 가장자리로도 크기를 바꾸지 못한다
+    if (!mainWindow || isWidgetMode || !VALID_EDGES.includes(edge)) return;
     stopEdgeResize();
     const initBounds = mainWindow.getBounds();
     const initCursor = screen.getCursorScreenPoint();
@@ -1448,7 +1454,7 @@ app.whenReady().then(() => {
 
   // Start in widget mode after window loads
   mainWindow?.webContents.on('did-finish-load', () => {
-    applyWidgetMode(true);
+    applyWidgetMode(true, true);
   });
 
   setEditShortcut(true);

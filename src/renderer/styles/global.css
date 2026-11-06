@@ -312,6 +312,10 @@ html, body, #root {
 .titlebar button, .titlebar input, .titlebar select {
   -webkit-app-region: no-drag;
 }
+/* 창 위치를 잠그면 제목 줄로 옮길 수 없다. 내용은 그대로 누르고 입력한다 */
+.window-locked .titlebar {
+  -webkit-app-region: no-drag;
+}
 /* Widget mode: show edit button on hover */
 .glass:hover .titlebar {
   opacity: 1 !important;
