@@ -94,7 +94,7 @@ service cloud.firestore {
     }
 
     // 컴시간 표기와 계정 연결표 — 학교마다 문서 하나. 활성 교사는 읽고 관리자만 고친다.
-    // 회의 찾기와 감독·당직 표가 쓰는 이름과 표기만 담고 이메일은 넣지 않는다.
+    // 회의 찾기가 쓰는 이름과 표기만 담고 이메일은 넣지 않는다.
     match /comcigan_links/{school} {
       allow read: if isActive();
       allow write: if isAdmin()
@@ -106,6 +106,38 @@ service cloud.firestore {
         && request.resource.data.entries.size() <= 300;
     }
 
+    // 시험감독 게시판 — 부서, 교과별로 사진을 올린다. 승인된 교사가 보고 올리며, 올린 사람과 관리자가 지운다.
+    // Storage를 쓰지 않아 사진 한 장을 문서 하나에 넣는다. 문서 크기 제한(1MiB) 안으로 앱이 줄여서 올린다.
+    function validBoardPost(data) {
+      return data.keys().hasOnly(['group', 'tab', 'title', 'school', 'images', 'createdBy', 'createdByName', 'createdAt'])
+        && data.group in ['dept', 'subject']
+        && data.tab is string && data.tab.size() > 0 && data.tab.size() <= 20
+        && data.title is string && data.title.size() <= 60
+        && data.school in ['taeseong_middle', 'taeseong_high', 'all']
+        && data.images is list && data.images.size() > 0 && data.images.size() <= 20
+        && data.createdByName is string && data.createdByName.size() <= 50;
+    }
+    match /board_posts/{postId} {
+      allow read: if isActive();
+      allow create: if isActive()
+        && request.resource.data.createdBy == request.auth.uid
+        && validBoardPost(request.resource.data);
+      allow delete: if isActive()
+        && (resource.data.createdBy == request.auth.uid || isAdmin());
+    }
+    match /board_images/{imageId} {
+      // 사진은 글에 적힌 번호로 한 장씩만 읽는다. 목록으로 한꺼번에 받지 않는다.
+      allow get: if isActive();
+      allow create: if isActive()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.keys().hasOnly(['data', 'mime', 'width', 'height', 'createdBy', 'createdAt'])
+        && request.resource.data.mime in ['image/webp', 'image/jpeg', 'image/png']
+        && request.resource.data.data.size() <= 1000000;
+      allow delete: if isActive()
+        && (resource.data.createdBy == request.auth.uid || isAdmin());
+    }
+
+    // 옛 시험 감독·당직 표. 업데이트하지 않은 앱이 아직 읽는다. 앞으로 새로 쓰지 않는다.
     // 시험 감독·당직 표 — 활성 교사가 만들고, 만든 사람과 관리자가 고치거나 지운다. 활성 교사는 모두 볼 수 있다.
     function validDutyTable(data) {
       return data.keys().hasOnly(['title', 'school', 'entries', 'firstDate', 'lastDate', 'createdBy', 'createdByName', 'createdAt', 'updatedAt'])
