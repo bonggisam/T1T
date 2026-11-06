@@ -39,7 +39,7 @@ export function EventResponses({ event }: { event: CalendarEvent }) {
   const mine = responses.find((r) => r.userId === user?.id)?.status ?? null;
   const canManage = user?.id === event.createdBy || user?.role === 'admin' || user?.role === 'super_admin';
 
-  // 아직 응답하지 않은 사람. 교사 명단을 읽을 수 있는 사람(지금은 관리자)만 계산된다.
+  // 아직 응답하지 않은 사람. 일정을 만든 사람과 관리자에게만 보인다.
   const notResponded = useMemo(() => {
     if (!canManage || users.length === 0) return null;
     const answered = new Set(responses.map((r) => r.userId));

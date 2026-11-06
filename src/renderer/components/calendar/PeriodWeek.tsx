@@ -8,7 +8,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useComciganStore } from '../../store/comciganStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
-import { useCalendarEvents } from '../../hooks/useCalendarEvents';
+import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { useVisiblePersonalEvents } from '../../hooks/useVisiblePersonalEvents';
 import { canManageEvent, isEventOnDate } from '../../utils/calendarHelpers';
 import { getHoliday } from '../../utils/holidays';
@@ -46,7 +46,7 @@ function slotKey(day: Date, row: number): string {
 /** 주 화면의 교시 표. 가로는 요일, 세로는 교시다. 주말은 일정이 있는 주에만 나타난다. */
 export function PeriodWeek({ onAddPersonalEvent, onPersonalClick }: PeriodWeekProps) {
   const { selectedDate, setSelectedEvent, setShowEventDetail, updateEvent } = useCalendarStore();
-  const events = useCalendarEvents();
+  const events = useVisibleEvents();
   const personalEvents = useVisiblePersonalEvents();
   const updatePersonalEvent = usePersonalEventStore((s) => s.updatePersonalEvent);
   const user = useAuthStore((s) => s.user);

@@ -16,7 +16,7 @@ import { useComciganStore } from '../../store/comciganStore';
 import type { CalendarEvent, PersonalEvent, TeacherPeriod } from '@shared/types';
 import { showToast } from '../common/Toast';
 import { formatEventTooltip, formatPersonalTooltip, getCreatorTag, canManageEvent, PERSONAL_SUFFIX, getPersonalEventDisplayColor } from '../../utils/calendarHelpers';
-import { useCalendarEvents } from '../../hooks/useCalendarEvents';
+import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { useTimelineScroll } from '../../hooks/useTimelineScroll';
 import { SchoolBadge } from '../common/SchoolBadge';
 import { Ic } from '../common/Ic';
@@ -55,7 +55,7 @@ export function WeekView(props: WeekViewProps) {
 
 function HourWeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps) {
   const { selectedDate, setSelectedDate, setSelectedEvent, setShowEventDetail, setShowEventModal, updateEvent } = useCalendarStore();
-  const events = useCalendarEvents();
+  const events = useVisibleEvents();
   const { user } = useAuthStore();
   const { updatePersonalEvent } = usePersonalEventStore();
   const personalEvents = useVisiblePersonalEvents();

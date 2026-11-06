@@ -10,7 +10,6 @@ import { comciganService } from './comcigan';
 import { defaultBounds, isReachable, parseSavedState, resolveBounds } from './windowPlacement';
 import type { DisplayArea, Rect, SavedWindowState } from './windowPlacement';
 import * as macUpdater from './macUpdater';
-import { readImageWords } from './dutyOcr';
 import { isTpassView, tpassAutoLogin } from './tpassLogin';
 import { GOOGLE_CLIENT_ID as INJECTED_GOOGLE_ID, GOOGLE_CLIENT_SECRET as INJECTED_GOOGLE_SECRET, TPASS_PASSWORD } from './credentials.gen';
 
@@ -571,9 +570,6 @@ function setupIPC(): void {
       return { ok: false, reason: e?.message || 'unknown' };
     }
   });
-
-  // 시험감독 표 사진의 글자 읽기. 이 PC 안에서만 처리한다.
-  ipcMain.handle('duty:ocr', (_event, bytes: Uint8Array) => readImageWords(bytes));
 
   // 외출시스템 비밀번호 단계 건너뛰기. 값은 메인 프로세스에만 두고 렌더러로 보내지 않는다.
   ipcMain.handle('tpass:auto-login', async (_event, webContentsId: number) => {

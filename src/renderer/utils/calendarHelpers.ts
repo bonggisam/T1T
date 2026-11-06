@@ -81,9 +81,7 @@ export const PERSONAL_SUFFIX = 'P';
  * v2.0.2부터: 작성자(creatorSchool)가 아니라 scope(school)를 기준으로 표시.
  * '공통' 일정은 작성자 학교와 무관하게 '공'으로 표시.
  */
-export function getCreatorTag(event: { creatorSchool?: string; school?: string; duty?: unknown }): string {
-  // 내 시험감독 차례는 학교 공유 일정이 아니므로 학교 글자를 붙이지 않는다
-  if (event.duty) return '';
+export function getCreatorTag(event: { creatorSchool?: string; school?: string }): string {
   return getSchoolTag(event.school);
 }
 
@@ -103,12 +101,10 @@ export function formatTitleWithSchool(title: string, school?: string | null): st
  * - admin / super_admin은 모든 일정 관리 가능
  */
 export function canManageEvent(
-  event: { createdBy: string; duty?: unknown; schoolScheduleImport?: boolean },
+  event: { createdBy: string; schoolScheduleImport?: boolean },
   user?: { id: string; role?: string } | null,
 ): boolean {
   if (!user) return false;
-  // 달력에 그린 내 시험감독 차례는 일정 문서가 아니다. 옮기거나 고치려면 표에서 한다.
-  if (event.duty) return false;
   const isAdmin = user.role === 'admin' || user.role === 'super_admin';
   // 학사일정은 자동으로 가져온 것이다. 동기화를 돌린 PC의 교사가 작성자로 남을 뿐이므로 관리자만 고친다
   if (event.schoolScheduleImport) return isAdmin;

@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   AlertTriangle, BarChart3, Bell, BookOpen, Briefcase, Building2, Calendar, CalendarDays, Check, CheckCircle2,
-  CheckSquare, Clock, Cloud, CloudDrizzle, CloudFog, CloudLightning, CloudRain, CloudSnow, CloudSun, Crown, DoorOpen,
+  CheckSquare, ClipboardCheck, Clock, Cloud, CloudDrizzle, CloudFog, CloudLightning, CloudRain, CloudSnow, CloudSun, Crown, DoorOpen,
   Download, Eye, Flame, Folder, Globe2, GraduationCap, Inbox, Info, Lightbulb, Link, ListChecks, Lock, Megaphone, MessageSquare,
   Palette, PartyPopper, Pencil, Phone, Pin, Printer, RefreshCw, School, Search, Settings, Square, Sun, Moon, Thermometer,
   Trash2, Umbrella, User, Users, UtensilsCrossed, Wand2, Wrench, X, Zap,
@@ -18,6 +18,7 @@ const ICONS = {
   chart: BarChart3,
   check: Check,
   checkCircle: CheckCircle2,
+  clipboardCheck: ClipboardCheck,
   checkSquare: CheckSquare,
   clock: Clock,
   cloud: Cloud,

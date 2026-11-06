@@ -36,9 +36,7 @@ import { AccountNotice } from './components/auth/AccountNotice';
 import { publishOwnDirectoryRow, reconcileUserDirectory } from './utils/userDirectory';
 import { useClassReminder } from './hooks/useClassReminder';
 import { useClassPrivacy } from './hooks/useClassPrivacy';
-import { useDutyReminder } from './hooks/useDutyReminder';
 import { useComciganOutageWatch, useOperatorOutageAlert } from './hooks/useComciganOutage';
-import { useDutyStore, useDutySubscription } from './store/dutyStore';
 import { useComciganLinksStore } from './store/comciganLinksStore';
 import { isPersonalHidden } from './store/privacyStore';
 import { parseEventDrafts } from './utils/pasteEventParser';
@@ -46,8 +44,7 @@ import { ScheduleView } from './components/schedule/ScheduleView';
 import { KeyphoneView } from './components/keyphone/KeyphoneView';
 import { LibraryView } from './components/library/LibraryView';
 import { MeetingFinderView } from './components/meeting/MeetingFinderView';
-import { DutyView } from './components/duty/DutyView';
-import { DutyEntryDetail } from './components/duty/DutyEntryDetail';
+import { BoardView } from './components/board/BoardView';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ResizeHandles } from './components/common/ResizeHandles';
 import { startSchoolScheduleAutoSync } from './utils/schoolScheduleSync';
@@ -105,9 +102,6 @@ export function App() {
   useClassReminder();
   // 내 수업 시간에 개인 일정 자동 가리기, 단축키 처리
   useClassPrivacy();
-  // 시험감독 표와 내 차례 미리 알림
-  useDutySubscription(user?.status === 'active' ? user.id : null);
-  useDutyReminder();
   // 컴시간이 막혔는지 지켜보고, 운영자는 선생님이 보낸 알림을 받는다
   const isOperator = user?.status === 'active' && (user.role === 'admin' || user.role === 'super_admin');
   useComciganOutageWatch();
@@ -173,7 +167,6 @@ export function App() {
         subscribeToPersonalEvents(currentUser.id);
         subscribeToTodos(currentUser.id);
         subscribeToUsers();
-        useDutyStore.getState().subscribe();
         useComciganLinksStore.getState().subscribe();
       } catch (e) {
         console.warn(`[App] 재구독 실패 (시도 ${attempt + 1}):`, e);
@@ -241,6 +234,8 @@ export function App() {
       subscribeToPersonalEvents(user.id);
       subscribeToTodos(user.id);
       subscribeToUsers();
+      // 회의 찾기와 컴시간 설정이 쓰는 연결표
+      useComciganLinksStore.getState().subscribe();
       loadComcigan(user.id);
       // 학교 홈페이지 학사일정 자동 동기화 (매일 오전 7시)
       const stopSchoolSync = startSchoolScheduleAutoSync(user.id, user.name || '학사일정 자동동기화');
@@ -251,6 +246,7 @@ export function App() {
         cleanupTodos();
         cleanupUsers();
         cleanupComcigan();
+        useComciganLinksStore.getState().cleanup();
         stopSchoolSync();
         useWidgetStore.getState().bindUser(null);
         // 다음 교사에게 앞 교사가 열어 둔 화면을 넘기지 않는다
@@ -511,7 +507,7 @@ export function App() {
           ) : showMeeting ? (
             <MeetingFinderView onBack={() => setActiveTab(null)} />
           ) : showDuty ? (
-            <DutyView onBack={() => setActiveTab(null)} />
+            <BoardView onBack={() => setActiveTab(null)} />
           ) : (
             <Calendar
               key={dayKey}
@@ -535,10 +531,8 @@ export function App() {
         )}
 
         {showEventModal && <EventModal />}
-        {showEventDetail && (selectedEvent?.duty
-          ? <DutyEntryDetail onOpenTable={() => setActiveTab('duty')} />
-          : <EventDetail />)}
-        {showNotifications && <NotificationPanel />}
+        {showEventDetail && <EventDetail />}
+        {showNotifications && <NotificationPanel onOpenBoard={() => setActiveTab('duty')} />}
         {/* 쓰는 중에 수업이 시작되면 글을 잃지 않고 표시만 끈다 */}
         {showPersonalModal && (
           <PrivateContent>

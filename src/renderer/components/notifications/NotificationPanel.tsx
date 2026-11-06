@@ -7,7 +7,7 @@ import { useCalendarStore } from '../../store/calendarStore';
 import { showToast } from '../common/Toast';
 import { Ic } from '../common/Ic';
 
-export function NotificationPanel() {
+export function NotificationPanel({ onOpenBoard }: { onOpenBoard?: () => void }) {
   const { notifications, markAsRead, markAllAsRead, setShowPanel } = useNotificationStore();
   const { user } = useAuthStore();
   const { events, setSelectedEvent, setShowEventDetail } = useCalendarStore();
@@ -19,6 +19,11 @@ export function NotificationPanel() {
         console.warn('[Notification] markAsRead failed:', err);
         showToast('알림 읽음 표시 실패', 'error');
       });
+    }
+    if (notification.type === 'board_post') {
+      setShowPanel(false);
+      onOpenBoard?.();
+      return;
     }
     if (notification.eventId) {
       const event = events.find((e) => e.id === notification.eventId);
@@ -89,6 +94,7 @@ export function NotificationPanel() {
                   {n.type === 'event_updated' && <Ic name="pencil" gap={false} />}
                   {n.type === 'event_deleted' && <Ic name="trash" gap={false} />}
                   {n.type === 'approval' && <Ic name="checkCircle" gap={false} />}
+                  {n.type === 'board_post' && <Ic name="clipboardCheck" gap={false} />}
                 </div>
                 <div style={styles.itemContent}>
                   <p style={styles.itemMessage}>{n.message}</p>

@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '../utils/firebase';
 import type { ComciganConfig, ComciganLinkDoc, ComciganLinkEntry, ComciganSchoolGrid, School } from '@shared/types';
-import type { DutyLabelLinks } from '../utils/dutyEntries';
 import type { SchoolGrids, SchoolLinks } from '../utils/meetingFinder';
 import { useComciganStore } from './comciganStore';
 
@@ -157,32 +156,3 @@ export const useComciganLinksStore = create<ComciganLinksState>((set, get) => ({
   },
 }));
 
-/** 표기로 된 감독표에서 내 차례를 가리는 데 쓴다 */
-export function labelLinksFor(links: SchoolLinks, userId: string | undefined): DutyLabelLinks {
-  const mine: DutyLabelLinks['mine'] = {};
-  const others = new Set<string>();
-  for (const school of LINK_SCHOOLS) {
-    for (const entry of links[school]?.entries ?? []) {
-      if (entry.userId === userId) mine[school] = [...(mine[school] ?? []), entry.label];
-      else others.add(entry.label);
-    }
-  }
-  // 겸임 교사의 표기는 다른 학교에서 다른 사람 표기로 치지 않는다
-  Object.values(mine).flat().forEach((label) => others.delete(label as string));
-  return { mine, others };
-}
-
-/** 연결표에서 표기 → 이름. 같은 표기를 다른 사람이 쓰면 이름으로 바꾸지 않는다. */
-export function labelNamesOf(links: SchoolLinks, school: School | 'all'): Record<string, string> {
-  const names: Record<string, string> = {};
-  const clash = new Set<string>();
-  for (const key of LINK_SCHOOLS) {
-    if (school !== 'all' && school !== key) continue;
-    for (const entry of links[key]?.entries ?? []) {
-      if (names[entry.label] && names[entry.label] !== entry.name) clash.add(entry.label);
-      names[entry.label] = entry.name;
-    }
-  }
-  clash.forEach((label) => delete names[label]);
-  return names;
-}

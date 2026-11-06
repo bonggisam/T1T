@@ -82,7 +82,7 @@ function describeCell(cell: FinderCell): string {
 /** 회의 시간 찾기: 회원과 요일을 고르면 공강을 추천한다. 모든 칸은 주간 격자로도 볼 수 있다 */
 export function MeetingFinderView({ onBack }: { onBack: () => void }) {
   const user = useAuthStore((s) => s.user);
-  // 공유 일정만 쓴다. 이 값에는 내 시험감독 차례도 들어 있지 않다.
+  // 공유 일정만 쓴다.
   const events = useCalendarStore((s) => s.events);
   const openEventDraft = useCalendarStore((s) => s.openEventDraft);
   const links = useComciganLinksStore((s) => s.links);

@@ -83,8 +83,6 @@ export interface CalendarEvent {
   seriesId?: string | null;
   /** 응답을 받는 일정이면 그 종류 */
   responseType?: ResponseType | null;
-  /** 달력에 함께 그리는 내 시험감독 차례. 일정 문서가 아니어서 저장하지 않고 화면에서만 쓴다. */
-  duty?: DutyRef;
   /** 학교 홈페이지에서 자동으로 가져온 학사일정 */
   schoolScheduleImport?: boolean;
   attachments: Attachment[];
@@ -182,7 +180,7 @@ export interface EventComment {
 }
 
 // Notifications
-export type NotificationType = 'new_event' | 'event_updated' | 'event_deleted' | 'approval';
+export type NotificationType = 'new_event' | 'event_updated' | 'event_deleted' | 'approval' | 'board_post';
 
 export interface AppNotification {
   id: string;
@@ -244,40 +242,26 @@ export interface ComciganLinkDoc {
   updatedAt?: Date | null;
 }
 
-// 시험감독 표
-export interface DutyEntry {
+// 시험감독 게시판: 부서, 교과별로 사진을 올려 탭으로 본다
+export type BoardGroup = 'dept' | 'subject';
+
+export interface BoardImageRef {
   id: string;
-  date: string; // yyyy-MM-dd
-  /** 자정부터 분. 없으면 하루 종일로 표시한다 */
-  startMin: number | null;
-  endMin: number | null;
-  /** 표에 적힌 교시. 시각을 교시마다 고칠 때 쓴다 */
-  periods: number[];
-  name: string;
-  kind: string;
-  place: string;
+  width: number;
+  height: number;
 }
 
-export interface DutyTable {
+export interface BoardPost {
   id: string;
+  group: BoardGroup;
+  /** 탭 이름. 교무부, 수학 등 */
+  tab: string;
   title: string;
   school: School | 'all';
+  images: BoardImageRef[];
   createdBy: string;
   createdByName: string;
-  firstDate: string;
-  lastDate: string;
-  entries: DutyEntry[];
   createdAt: Date | null;
-  updatedAt: Date | null;
-}
-
-export interface DutyRef {
-  tableId: string;
-  entryId: string;
-  tableTitle: string;
-  kind: string;
-  place: string;
-  periods: number[];
 }
 
 export interface TeacherPeriod {
@@ -346,12 +330,6 @@ export interface ElectronAPI {
   openExternal: (url: string) => Promise<{ ok: boolean; reason?: string }>;
   /** 외출시스템 비밀번호 단계를 넘긴다. 값은 메인 프로세스에만 있다 */
   tpassAutoLogin: (webContentsId: number) => Promise<{ ok: boolean; reason?: string; attempt?: number }>;
-  /** 시험감독 표 사진의 글자와 위치를 읽는다. 이 PC 안에서 처리한다 */
-  dutyOcr: (bytes: Uint8Array) => Promise<{
-    ok: boolean;
-    reason?: string;
-    words?: Array<{ text: string; x0: number; y0: number; x1: number; y1: number; confidence: number }>;
-  }>;
   onWidgetModeChanged: (callback: (enabled: boolean) => void) => () => void;
   onClickThroughChanged: (callback: (enabled: boolean) => void) => () => void;
   /** 절전 복귀나 화면 잠금 해제 때 호출 */

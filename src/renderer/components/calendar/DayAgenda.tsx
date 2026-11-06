@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react';
 import { format, isSameDay, isSameWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { AlertTriangle, ClipboardCheck, Lock } from 'lucide-react';
+import { AlertTriangle, Lock } from 'lucide-react';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
 import { useAuthStore } from '../../store/authStore';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useComciganStore } from '../../store/comciganStore';
-import { useCalendarEvents } from '../../hooks/useCalendarEvents';
+import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { useVisiblePersonalEvents } from '../../hooks/useVisiblePersonalEvents';
 import { CATEGORY_LABELS, getSchoolTag, isEventOnDate } from '../../utils/calendarHelpers';
 import { formatMinutes, getTimedPeriods } from '../../utils/classPeriods';
@@ -47,7 +47,7 @@ export function DayAgenda({ date, onPersonalClick, showClasses = true, hideEmpty
   const user = useAuthStore((s) => s.user);
   const setSelectedEvent = useCalendarStore((s) => s.setSelectedEvent);
   const setShowEventDetail = useCalendarStore((s) => s.setShowEventDetail);
-  const events = useCalendarEvents();
+  const events = useVisibleEvents();
   const personalEvents = useVisiblePersonalEvents();
   const timetableData = useComciganStore((s) => s.timetableData);
   const hasConfig = useComciganStore((s) => !!s.config);
@@ -137,15 +137,11 @@ export function DayAgenda({ date, onPersonalClick, showClasses = true, hideEmpty
             <span style={{ ...styles.mark, background: vars['--c-base'] }} />
             <span style={styles.body}>
               <span style={styles.title}>
-                {row.event.duty
-                  ? <ClipboardCheck size="0.95em" strokeWidth={2.4} aria-label="내 시험감독 차례" style={{ ...styles.lock, color: vars['--c-ink'] }} />
-                  : <span style={{ ...styles.letter, color: vars['--c-ink'] }}>{getSchoolTag(row.event.school)}</span>}
+                <span style={{ ...styles.letter, color: vars['--c-ink'] }}>{getSchoolTag(row.event.school)}</span>
                 {row.event.title}
               </span>
               <span style={styles.sub}>
-                {row.event.duty
-                  ? row.event.duty.tableTitle
-                  : <>{SCHOOL_NAMES[row.event.school] ?? ''} {CATEGORY_LABELS[row.event.category] ?? ''}{spanLabel(row.event)}</>}
+                {SCHOOL_NAMES[row.event.school] ?? ''} {CATEGORY_LABELS[row.event.category] ?? ''}{spanLabel(row.event)}
               </span>
               {overlaps.length > 0 && (
                 <span style={styles.warn}>

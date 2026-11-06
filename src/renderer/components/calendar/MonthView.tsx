@@ -8,7 +8,7 @@ import { useCalendarStore } from '../../store/calendarStore';
 import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/notificationStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
-import { useCalendarEvents } from '../../hooks/useCalendarEvents';
+import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { useVisiblePersonalEvents } from '../../hooks/useVisiblePersonalEvents';
 import { NARROW_MAX, useWindowSize, WIDE_MIN } from '../../hooks/useWindowSize';
 import { canManageEvent } from '../../utils/calendarHelpers';
@@ -68,7 +68,7 @@ export function MonthView({ onAddPersonalEvent, onPersonalClick }: MonthViewProp
   const {
     currentMonth, selectedDate, setSelectedDate, setSelectedEvent, setShowEventDetail, setView, updateEvent,
   } = useCalendarStore();
-  const events = useCalendarEvents();
+  const events = useVisibleEvents();
   const user = useAuthStore((s) => s.user);
   const { notifications } = useNotificationStore();
   const updatePersonalEvent = usePersonalEventStore((s) => s.updatePersonalEvent);

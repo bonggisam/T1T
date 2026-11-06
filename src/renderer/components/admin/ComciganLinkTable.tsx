@@ -37,7 +37,7 @@ function statusColor(row: LinkRow, duplicate: boolean): string {
 /**
  * 컴시간 표기와 계정 연결표.
  * 컴시간은 이름을 두 글자로만 보여 주므로, 앞 두 글자가 같은 계정을 제안하고 관리자가 확인해 저장한다.
- * 저장한 값은 회의 찾기와 시험감독 표가 쓴다.
+ * 저장한 값은 회의 찾기가 쓴다.
  */
 export function ComciganLinkTable({ users }: { users: User[] }) {
   const me = useAuthStore((s) => s.user);
@@ -265,7 +265,7 @@ export function ComciganLinkTable({ users }: { users: User[] }) {
               );
             })}
           </div>
-          <p style={styles.note}>제안은 이름 앞 두 글자가 같다는 뜻일 뿐입니다. 저장한 값만 회의 찾기와 시험감독 표에 쓰입니다.</p>
+          <p style={styles.note}>제안은 이름 앞 두 글자가 같다는 뜻일 뿐입니다. 저장한 값만 회의 찾기에 쓰입니다.</p>
         </>
       )}
     </div>

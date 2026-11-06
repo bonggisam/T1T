@@ -19,8 +19,6 @@ export interface WidgetPrefs {
   classReminderMin: number;
   /** 컴시간 시간표 변경 감지 알림 */
   timetableChangeAlert: boolean;
-  /** 내 시험감독 차례 미리 알림 */
-  dutyReminder: boolean;
   /** Ctrl+Shift+C로 편집 모드 전환. Word, PowerPoint의 서식 복사와 겹쳐 끌 수 있다 */
   editShortcut: boolean;
   customDDays: CustomDDay[];
@@ -41,7 +39,6 @@ const DEFAULT_PREFS: WidgetPrefs = {
   showNextClass: true,
   classReminderMin: 5,
   timetableChangeAlert: true,
-  dutyReminder: true,
   editShortcut: true,
   customDDays: [],
   hiddenAutoDDays: [],
