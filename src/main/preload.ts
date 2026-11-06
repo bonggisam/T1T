@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webFrame } from 'electron';
-import type { ComciganConfig, ComciganSchool, ComciganSchoolGrid, ComciganTimetableData, WeatherData } from '../shared/types';
+import type { WeatherData } from '../shared/types';
 
 contextBridge.exposeInMainWorld('electronAPI', {
   toggleAlwaysOnTop: (value: boolean) => ipcRenderer.invoke('window:toggle-always-on-top', value),
@@ -72,21 +72,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Weather (날씨 + 미세먼지)
   weatherFetch: (lat: number, lon: number): Promise<WeatherData> => ipcRenderer.invoke('weather:fetch', lat, lon),
 
-  // Comcigan
-  comciganSearch: (name: string): Promise<ComciganSchool[]> => ipcRenderer.invoke('comcigan:search', name),
-  comciganConfigure: (config: ComciganConfig): Promise<void> => ipcRenderer.invoke('comcigan:configure', config),
+  // 앱 설정
   clearWebSessions: (): Promise<void> => ipcRenderer.invoke('app:clear-web-sessions'),
   setEditShortcut: (enabled: boolean): Promise<void> => ipcRenderer.invoke('app:set-edit-shortcut', enabled),
-  comciganSetUser: (userId: string | null): Promise<void> => ipcRenderer.invoke('comcigan:set-user', userId),
-  comciganGetConfig: (): Promise<ComciganConfig | null> => ipcRenderer.invoke('comcigan:get-config'),
-  comciganFetch: (force?: boolean): Promise<ComciganTimetableData | null> => ipcRenderer.invoke('comcigan:fetch', force === true),
-  comciganGetCached: (): Promise<ComciganTimetableData | null> => ipcRenderer.invoke('comcigan:get-cached'),
-  comciganClear: (): Promise<void> => ipcRenderer.invoke('comcigan:clear'),
-  comciganSchoolGrid: (schoolCode: number, maxGrade: number, force?: boolean): Promise<ComciganSchoolGrid> =>
-    ipcRenderer.invoke('comcigan:school-grid', schoolCode, maxGrade, force),
-  onComciganUpdate: (callback: (data: ComciganTimetableData) => void) => {
-    const listener = (_event: any, data: ComciganTimetableData) => callback(data);
-    ipcRenderer.on('comcigan:updated', listener);
-    return () => ipcRenderer.removeListener('comcigan:updated', listener);
-  },
 });

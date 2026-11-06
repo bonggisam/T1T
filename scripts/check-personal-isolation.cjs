@@ -14,7 +14,9 @@ const path = require('path');
 const SRC = path.join(__dirname, '..', 'src', 'renderer');
 const ENTRIES = [
   'utils/meetingFinder.ts',
-  'utils/comciganLinks.ts',
+  'utils/neisTimetable.ts',
+  'utils/teachingAssignments.ts',
+  'utils/teachingDocs.ts',
   'components/board/BoardView.tsx',
   'components/board/BoardUploadModal.tsx',
   'components/board/BoardImageViewer.tsx',
@@ -26,7 +28,7 @@ const ENTRIES = [
   'utils/comciganOutage.ts',
   'components/common/ComciganCall.tsx',
   'components/meeting/MeetingFinderView.tsx',
-  'components/admin/ComciganLinkTable.tsx',
+  'components/admin/TeachingTable.tsx',
 ];
 const FORBIDDEN = [
   /personalEventStore/,

@@ -1,200 +1,148 @@
 import React, { useState } from 'react';
 import { useComciganStore } from '../../store/comciganStore';
 import { useAuthStore } from '../../store/authStore';
-import { LINK_SCHOOLS, useComciganLinksStore } from '../../store/comciganLinksStore';
 import { useComciganOutageStore } from '../../store/comciganOutageStore';
+import { formatItems } from '../../utils/teachingAssignments';
 import { ComciganCallButton } from '../common/ComciganCall';
+import { showToast } from '../common/Toast';
 
+const SOURCE_LABEL: Record<string, string> = {
+  admin: '관리자 표',
+  self: '직접 입력',
+  timetable: '전에 받은 시간표',
+};
+
+/**
+ * 내 시간표. 나이스 시간표를 담당 학급 표와 맞춘 값이고, 학교와 이름으로 자동으로 연결된다.
+ * 표에 없을 때만 직접 넣는다.
+ */
 export function ComciganSettings() {
-  const { config, timetableData, searchResults, searching, loading, error, searchSchool, configure, fetchTimetable, clearConfig } = useComciganStore();
-
-  const [schoolQuery, setSchoolQuery] = useState('');
-  const [selectedSchool, setSelectedSchool] = useState<{ code: number; name: string } | null>(null);
-  const [teacherName, setTeacherName] = useState('');
-  const [maxGrade, setMaxGrade] = useState(3);
   const user = useAuthStore((s) => s.user);
-  const links = useComciganLinksStore((s) => s.links);
+  const timetableData = useComciganStore((s) => s.timetableData);
+  const assignment = useComciganStore((s) => s.assignment);
+  const assignmentChecked = useComciganStore((s) => s.assignmentChecked);
+  const loading = useComciganStore((s) => s.loading);
+  const error = useComciganStore((s) => s.error);
+  const fetchTimetable = useComciganStore((s) => s.fetchTimetable);
+  const saveOwnItems = useComciganStore((s) => s.saveOwnItems);
   const outage = useComciganOutageStore((s) => s.outage);
-  // 관리자가 연결표에 올린 내 표기
-  const myLinks = LINK_SCHOOLS.flatMap((school) => {
-    const doc = links[school];
-    return (doc?.entries ?? [])
-      .filter((e) => e.userId === user?.id)
-      .map((e) => ({ label: e.label, schoolCode: doc!.schoolCode, schoolName: doc!.schoolName, maxGrade: doc!.maxGrade }));
-  });
 
-  if (config) {
-    // Already configured — show status
-    const lastUpdate = timetableData?.lastUpdated
-      ? new Date(timetableData.lastUpdated).toLocaleString('ko-KR')
-      : '없음';
-    const periodCount = timetableData?.teacherSchedule.length ?? 0;
-    const currentLabel = config.teacherLabel ?? config.teacherName.substring(0, 2);
-    const linked = myLinks.find((l) => l.schoolCode === config.schoolCode);
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState('');
+  const [note, setNote] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-    return (
-      <div style={styles.container}>
-        <div style={styles.row}>
-          <span style={styles.label}>학교</span>
-          <span style={styles.value}>{config.schoolName}</span>
-        </div>
-        <div style={styles.row}>
-          <span style={styles.label}>교사</span>
-          <span style={styles.value}>{config.teacherName}</span>
-        </div>
-        <div style={styles.row}>
-          <span style={styles.label}>컴시간 표기</span>
-          <span style={styles.value}>{currentLabel}</span>
-        </div>
-        {linked && linked.label !== currentLabel && (
-          <div style={styles.row}>
-            <span style={{ ...styles.label, color: 'var(--warning)' }}>연결표의 내 표기는 {linked.label}입니다</span>
-            <button onClick={() => configure({ ...config, teacherLabel: linked.label })} disabled={loading} style={styles.btn}>맞추기</button>
-          </div>
-        )}
-        <div style={styles.row}>
-          <span style={styles.label}>수업</span>
-          <span style={styles.value}>주 {periodCount}교시</span>
-        </div>
-        <div style={styles.row}>
-          <span style={styles.label}>갱신</span>
-          <span style={styles.value}>{lastUpdate}</span>
-        </div>
-        <div style={styles.row}>
-          <span style={styles.label}>자동갱신</span>
-          <span style={styles.value}>주중 07:30~17:00, 5분 간격</span>
-        </div>
-        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-          <button onClick={() => fetchTimetable()} disabled={loading} style={styles.btn}>
-            {loading ? '갱신 중...' : '새로고침'}
-          </button>
-          <button onClick={() => clearConfig()} style={{ ...styles.btn, color: 'var(--danger)' }}>
-            초기화
-          </button>
-        </div>
-        {error && <p style={styles.error}>{error}</p>}
-        {(error || outage) && (
-          <div style={styles.row}>
-            <span style={styles.label}>시간표를 받지 못하고 있습니다</span>
-            <ComciganCallButton />
-          </div>
-        )}
-      </div>
-    );
+  const items = assignment?.items ?? [];
+  const slots = assignment?.slots ?? [];
+  const hasItems = items.length > 0 || slots.length > 0;
+  const showForm = editing || (assignmentChecked && !hasItems);
+
+  async function handleSave() {
+    if (saving) return;
+    setSaving(true);
+    setNote(null);
+    try {
+      const result = await saveOwnItems(text);
+      if (!result.ok) {
+        setNote(result.badLines.length > 0
+          ? `이 줄을 읽지 못했습니다: ${result.badLines[0]}`
+          : '과목과 학급을 넣어 주세요. 예: 국어 2-1 2-3');
+        return;
+      }
+      setEditing(false);
+      setText('');
+      if (result.unknown.length > 0) {
+        const first = result.unknown[0];
+        setNote(`${first.grade}-${first.classNum} 시간표에서 ${first.subject}을(를) 찾지 못했습니다. 과목 이름을 확인해 주세요.`);
+      } else {
+        showToast('담당 학급을 저장했습니다', 'success');
+      }
+    } catch (err: any) {
+      console.warn('[Timetable] save failed:', err);
+      setNote(err?.code === 'permission-denied'
+        ? '서버 규칙이 아직 적용되지 않아 저장하지 못했습니다'
+        : '저장하지 못했습니다. 잠시 뒤 다시 해 주세요.');
+    } finally {
+      setSaving(false);
+    }
   }
 
-  // Setup mode
-  async function handleSearch() {
-    if (!schoolQuery.trim()) return;
-    await searchSchool(schoolQuery.trim());
-  }
-
-  async function handleConfigure() {
-    if (!selectedSchool || !teacherName.trim()) return;
-    await configure({
-      schoolCode: selectedSchool.code,
-      schoolName: selectedSchool.name,
-      teacherName: teacherName.trim(),
-      maxGrade,
-    });
-  }
+  const lastUpdate = timetableData?.lastUpdated
+    ? new Date(timetableData.lastUpdated).toLocaleString('ko-KR')
+    : '없음';
 
   return (
     <div style={styles.container}>
-      {/* 관리자가 연결표에 올려 두었으면 검색 없이 바로 연결한다 */}
-      {user && myLinks.map((link) => (
-        <button
-          key={link.schoolCode}
-          onClick={() => configure({
-            schoolCode: link.schoolCode,
-            schoolName: link.schoolName,
-            teacherName: user.name,
-            maxGrade: link.maxGrade || 3,
-            teacherLabel: link.label,
-          })}
-          disabled={loading}
-          style={{ ...styles.btn, background: 'var(--accent)', color: 'var(--on-accent)', width: '100%', marginBottom: 4 }}
-        >
-          {loading ? '설정 중...' : `연결표로 바로 연결: ${link.schoolName} (${link.label})`}
-        </button>
-      ))}
-
-      {/* School search */}
-      <div style={styles.searchRow}>
-        <input
-          type="text"
-          placeholder="학교 이름 검색"
-          value={schoolQuery}
-          onChange={(e) => setSchoolQuery(e.target.value)}
-          onKeyDown={(e) => { if (e.nativeEvent.isComposing) return; if (e.key === 'Enter') handleSearch(); }}
-          style={styles.input}
-        />
-        <button onClick={handleSearch} disabled={searching} style={styles.btn}>
-          {searching ? '...' : '검색'}
-        </button>
+      <div style={styles.row}>
+        <span style={styles.label}>연결</span>
+        <span style={styles.value}>{user?.name || '이름 없음'}{timetableData?.schoolName ? ` · ${timetableData.schoolName}` : ''}</span>
       </div>
 
-      {/* Search results */}
-      {searchResults.length > 0 && (
-        <div style={styles.results}>
-          {searchResults.map((s) => (
-            <div
-              key={s.code}
-              onClick={() => setSelectedSchool({ code: s.code, name: s.name })}
-              style={{
-                ...styles.resultItem,
-                background: selectedSchool?.code === s.code ? 'var(--accent)' : 'transparent',
-                color: selectedSchool?.code === s.code ? 'var(--on-accent)' : 'var(--text-primary)',
-              }}
-            >
-              {s.name} <span style={{ fontSize: 'var(--fs-caption)', opacity: 0.7 }}>({s.region})</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {selectedSchool && (
+      {hasItems && (
         <>
-          <div style={{ fontSize: 'var(--fs-label)', color: 'var(--text-secondary)', marginTop: 6 }}>
-            선택: <strong>{selectedSchool.name}</strong>
+          <div style={styles.row}>
+            <span style={styles.label}>담당</span>
+            <span style={{ ...styles.value, textAlign: 'right' }}>{formatItems(items, slots)}</span>
           </div>
-
-          {/* Teacher name */}
-          <input
-            type="text"
-            placeholder="교사 이름 (예: 김철수)"
-            value={teacherName}
-            onChange={(e) => setTeacherName(e.target.value)}
-            style={{ ...styles.input, marginTop: 6 }}
-          />
-
-          {/* Max grade */}
-          <div style={{ ...styles.row, marginTop: 6 }}>
-            <span style={styles.label}>최고 학년</span>
-            <select
-              value={maxGrade}
-              onChange={(e) => setMaxGrade(Number(e.target.value))}
-              style={styles.select}
-            >
-              <option value={3}>3학년</option>
-              <option value={6}>6학년</option>
-            </select>
+          <div style={styles.row}>
+            <span style={styles.label}>근거</span>
+            <span style={styles.value}>{SOURCE_LABEL[assignment?.source ?? 'timetable']}</span>
           </div>
-
-          <button
-            onClick={handleConfigure}
-            disabled={!teacherName.trim() || loading}
-            style={{ ...styles.btn, marginTop: 8, background: 'var(--accent)', color: 'var(--on-accent)', width: '100%' }}
-          >
-            {loading ? '설정 중...' : '시간표 연동 시작'}
-          </button>
+          <div style={styles.row}>
+            <span style={styles.label}>이번 주 수업</span>
+            <span style={styles.value}>주 {timetableData?.teacherSchedule.length ?? 0}교시</span>
+          </div>
         </>
       )}
 
+      <div style={styles.row}>
+        <span style={styles.label}>갱신</span>
+        <span style={styles.value}>{lastUpdate}</span>
+      </div>
+
+      {hasItems && timetableData && timetableData.classTimes.length === 0 && (
+        <p style={styles.warn}>시정표가 아직 없어 수업 시각을 모릅니다. 관리자에게 시정표 입력을 부탁해 주세요.</p>
+      )}
+
+      {!showForm && (
+        <div style={styles.buttons}>
+          <button onClick={() => fetchTimetable()} disabled={loading} style={styles.btn}>
+            {loading ? '갱신 중...' : '새로고침'}
+          </button>
+          <button onClick={() => setEditing(true)} style={styles.btn}>담당 학급 고치기</button>
+        </div>
+      )}
+
+      {showForm && (
+        <div style={styles.form}>
+          {!hasItems && (
+            <p style={styles.note}>
+              담당 학급 표에서 이름을 찾지 못했습니다. 관리자가 표를 올리면 자동으로 연결됩니다. 먼저 쓰시려면 직접 넣어 주세요.
+            </p>
+          )}
+          <p style={styles.note}>나이스 시간표에 없는 이동수업은 요일과 교시를 함께 적습니다. 예: 문학 3-1 월4 수3</p>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={'국어 2-1 2-3\n문학 3-1 월4 수3'}
+            rows={3}
+            aria-label="담당 과목과 학급"
+            style={styles.textarea}
+          />
+          <div style={styles.buttons}>
+            <button onClick={handleSave} disabled={saving || !text.trim()} style={styles.primary}>
+              {saving ? '저장 중...' : '저장'}
+            </button>
+            {editing && <button onClick={() => { setEditing(false); setNote(null); }} style={styles.btn}>취소</button>}
+          </div>
+        </div>
+      )}
+
+      {note && <p style={styles.warn}>{note}</p>}
       {error && <p style={styles.error}>{error}</p>}
-      {error && (
+      {(error || outage) && (
         <div style={styles.row}>
-          <span style={styles.label}>계속 안 되면 알려 주세요</span>
+          <span style={styles.label}>시간표를 받지 못하고 있습니다</span>
           <ComciganCallButton />
         </div>
       )}
@@ -212,8 +160,10 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
   },
   label: {
+    flex: 'none',
     fontSize: 'var(--fs-label)',
     color: 'var(--text-secondary)',
   },
@@ -222,27 +172,29 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 500,
     color: 'var(--text-primary)',
   },
-  searchRow: {
+  buttons: {
     display: 'flex',
-    gap: 4,
+    gap: 6,
+    marginTop: 6,
   },
-  input: {
-    flex: 1,
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+    marginTop: 6,
+  },
+  textarea: {
+    width: '100%',
+    boxSizing: 'border-box',
     padding: '5px 8px',
     fontSize: 'var(--fs-label)',
+    fontFamily: 'inherit',
     border: '1px solid var(--border-color)',
     borderRadius: 6,
     background: 'var(--bg-secondary)',
     color: 'var(--text-primary)',
     outline: 'none',
-  },
-  select: {
-    padding: '3px 6px',
-    fontSize: 'var(--fs-label)',
-    border: '1px solid var(--border-color)',
-    borderRadius: 6,
-    background: 'var(--bg-secondary)',
-    color: 'var(--text-primary)',
+    resize: 'vertical',
   },
   btn: {
     padding: '4px 10px',
@@ -254,22 +206,29 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     whiteSpace: 'nowrap',
   },
-  results: {
-    maxHeight: 100,
-    overflow: 'auto',
-    border: '1px solid var(--border-color)',
-    borderRadius: 6,
-    marginTop: 4,
-  },
-  resultItem: {
-    padding: '4px 8px',
+  primary: {
+    padding: '4px 10px',
     fontSize: 'var(--fs-label)',
+    border: '1px solid var(--accent)',
+    borderRadius: 6,
+    background: 'var(--accent)',
+    color: 'var(--on-accent)',
     cursor: 'pointer',
-    transition: 'background 0.1s',
+    whiteSpace: 'nowrap',
+  },
+  note: {
+    margin: 0,
+    fontSize: 'var(--fs-caption)',
+    color: 'var(--text-secondary)',
+  },
+  warn: {
+    margin: '4px 0 0',
+    fontSize: 'var(--fs-caption)',
+    color: 'var(--warning)',
   },
   error: {
+    margin: '4px 0 0',
     fontSize: 'var(--fs-caption)',
     color: 'var(--danger)',
-    marginTop: 4,
   },
 };

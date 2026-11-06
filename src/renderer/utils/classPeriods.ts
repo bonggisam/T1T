@@ -9,8 +9,8 @@ const DEFAULT_PERIOD_START_HOURS: Record<number, number> = { 1: 9, 2: 10, 3: 11,
 
 /** 수업 시작 몇 분 전부터 수업 중으로 볼지. 교실에 들어가 화면을 켜는 시간이다. */
 const CLASS_LEAD_MIN = 1;
-/** 평일 학교 시간에 이만큼 넘게 시간표를 확인하지 못했으면 알린다. 갱신은 5분마다 한다. */
-const TIMETABLE_STALE_MIN = 60;
+/** 평일 학교 시간에 이만큼 넘게 시간표를 받지 못했으면 알린다. 갱신은 3시간마다 한다 */
+const TIMETABLE_STALE_MIN = 8 * 60;
 
 export interface TimedPeriod extends TeacherPeriod {
   startMin: number; // 자정부터 분

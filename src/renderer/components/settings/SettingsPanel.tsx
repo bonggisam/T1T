@@ -217,7 +217,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           </p>
           {!hasTimetable && (
             <p style={{ ...styles.privacyNote, color: 'var(--warning)' }}>
-              컴시간 시간표를 연결해야 자동으로 가립니다. 연결 전에는 단축키로만 가릴 수 있습니다.
+              담당 학급이 연결되어야 자동으로 가립니다. 연결 전에는 단축키로만 가릴 수 있습니다.
             </p>
           )}
         </Section>
@@ -232,7 +232,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
               <button onClick={widget.resetHiddenAutoDDays} style={styles.widgetSelect}>다시 보이기</button>
             </div>
           )}
-          <ToggleRow label="지금·다음 수업 (컴시간)" value={widget.showNextClass} onChange={(v) => widget.setPref('showNextClass', v)} />
+          <ToggleRow label="지금·다음 수업" value={widget.showNextClass} onChange={(v) => widget.setPref('showNextClass', v)} />
           <div style={styles.settingRow}>
             <span style={styles.label}>수업 시작 전 알림</span>
             <select
@@ -258,8 +258,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           />
         </Section>
 
-        {/* Comcigan timetable */}
-        <Section icon="school" title="컴시간 시간표">
+        {/* 나이스 시간표와 담당 학급 */}
+        <Section icon="school" title="내 시간표">
           <ComciganSettings />
         </Section>
 

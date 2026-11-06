@@ -52,7 +52,7 @@ export function removeNeisConfig(schoolKey: string): void {
 /**
  * 10초 타임아웃 fetch 헬퍼.
  */
-async function fetchWithTimeout(url: string, timeoutMs = 10000): Promise<Response> {
+export async function fetchWithTimeout(url: string, timeoutMs = 10000): Promise<Response> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {

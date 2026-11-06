@@ -192,20 +192,12 @@ export interface AppNotification {
   createdBy: string;
 }
 
-// Comcigan (school timetable)
-export interface ComciganSchool {
-  code: number;
-  name: string;
-  region: string;
-}
-
+// 내 시간표 (나이스 시간표 + 담당 학급 표). 이름은 컴시간을 쓰던 때 그대로다
 export interface ComciganConfig {
   schoolCode: number;
   schoolName: string;
   teacherName: string;
   maxGrade: number;
-  /** 연결표로 확인한 컴시간 표기. 있으면 이름 앞 두 글자 대신 이 값으로 내 수업을 찾는다. */
-  teacherLabel?: string;
 }
 
 /** 한 교사의 전교 시간표 요약. 어느 반에 들어가는지는 넘기지 않는다. */
@@ -219,10 +211,37 @@ export interface ComciganTeacherSlots {
 /** 회의 찾기와 연결표에 쓰는 학교 전체의 교사별 수업 칸 */
 export interface ComciganSchoolGrid {
   schoolCode: number;
-  /** 컴시간 교사 표기(두 글자)별 수업 */
+  /** 교사 이름별 수업 */
   teachers: Record<string, ComciganTeacherSlots>;
   classTimes: string[];
   fetchedAt: string;
+}
+
+/** 한 교사가 맡은 과목과 학급 한 칸 */
+export interface TeachingItem {
+  subject: string;
+  grade: number;
+  classNum: number;
+}
+
+/** 나이스에 칸이 없는 수업(선택과목 이동수업 등). 요일과 교시로 적는다 */
+export interface TeachingSlot extends TeachingItem {
+  /** 1=월 ~ 5=금 */
+  weekday: number;
+  period: number;
+}
+
+export type TeachingSource = 'timetable' | 'admin' | 'self';
+
+/** 담당 학급 표의 한 사람. 학교와 이름으로 찾는다 */
+export interface TeachingAssignment {
+  name: string;
+  items: TeachingItem[];
+  slots: TeachingSlot[];
+  /** timetable=전에 받은 시간표에서 자동으로 만듦, admin=관리자 표, self=본인 입력 */
+  source: TeachingSource;
+  updatedBy?: string;
+  updatedAt?: Date | null;
 }
 
 export interface ComciganLinkEntry {
@@ -231,7 +250,7 @@ export interface ComciganLinkEntry {
   name: string;
 }
 
-/** 컴시간 표기와 계정 연결표. 학교마다 문서 하나이고 관리자가 고친다. */
+/** 표의 이름과 계정 연결. 담당 학급 표와 명단에서 만든다. */
 export interface ComciganLinkDoc {
   school: School;
   schoolCode: number;
@@ -279,6 +298,10 @@ export interface ComciganTimetableData {
   classTimes: string[];
   lastUpdated: string;
   schoolName: string;
+  /** neis면 나이스에서 받은 자료다. 없으면 전에 컴시간에서 받은 값이다 */
+  source?: 'neis';
+  /** 어느 주의 자료인지. 그 주 월요일 yyyy-MM-dd */
+  weekStart?: string;
 }
 
 // Weather (Open-Meteo)
@@ -363,20 +386,9 @@ export interface ElectronAPI {
   }>;
   // Weather
   weatherFetch: (lat: number, lon: number) => Promise<WeatherData>;
-  // Comcigan
-  comciganSearch: (name: string) => Promise<ComciganSchool[]>;
-  comciganConfigure: (config: ComciganConfig) => Promise<void>;
+  // 앱 설정
   clearWebSessions: () => Promise<void>;
   setEditShortcut: (enabled: boolean) => Promise<void>;
-  /** 시간표 설정은 사람마다 따로 둔다. 로그인하면 부르고 로그아웃하면 null로 부른다 */
-  comciganSetUser: (userId: string | null) => Promise<void>;
-  comciganGetConfig: () => Promise<ComciganConfig | null>;
-  comciganFetch: (force?: boolean) => Promise<ComciganTimetableData | null>;
-  comciganGetCached: () => Promise<ComciganTimetableData | null>;
-  comciganClear: () => Promise<void>;
-  /** 학교 전체의 교사별 수업 칸. 내 시간표 설정과 상관없이 학교 코드로 읽는다. */
-  comciganSchoolGrid: (schoolCode: number, maxGrade: number, force?: boolean) => Promise<ComciganSchoolGrid>;
-  onComciganUpdate: (callback: (data: ComciganTimetableData) => void) => () => void;
 }
 
 declare global {

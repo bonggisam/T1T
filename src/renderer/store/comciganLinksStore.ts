@@ -1,50 +1,56 @@
 import { create } from 'zustand';
-import { doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
-import { db } from '../utils/firebase';
-import type { ComciganConfig, ComciganLinkDoc, ComciganLinkEntry, ComciganSchoolGrid, School } from '@shared/types';
+import { onSnapshot } from 'firebase/firestore';
+import { SCHOOL_LABELS } from '@shared/types';
+import type { ComciganLinkDoc, School, TeachingAssignment } from '@shared/types';
+import { getNeisConfig } from '../utils/neisSchedule';
+import { loadNeisWeek, NeisTimetableError } from '../utils/neisTimetable';
+import { buildSchoolGrid } from '../utils/teachingAssignments';
+import { parseAssignmentDoc, parseClassTimesDoc, schoolTimesDoc, teachersCollection } from '../utils/teachingDocs';
 import type { SchoolGrids, SchoolLinks } from '../utils/meetingFinder';
-import { useComciganStore } from './comciganStore';
+import { useUsersStore } from './usersStore';
 
 export const LINK_SCHOOLS: School[] = ['taeseong_middle', 'taeseong_high'];
 
-/** 내 컴시간 설정의 학교가 어느 쪽인지. 연결표가 없어도 내 학교만은 볼 수 있게 한다. */
-function schoolOfName(name: string | undefined): School | null {
-  if (!name) return null;
-  if (name.includes('태성중')) return 'taeseong_middle';
-  if (name.includes('태성고')) return 'taeseong_high';
-  return null;
+function schoolCodeOf(school: School): number {
+  return Number(getNeisConfig(school)?.school) || 0;
 }
 
-export interface GridTarget {
-  school: School;
-  code: number;
-  maxGrade: number;
+type UserRow = { id: string; name: string; school: string };
+
+/** 표의 이름을 계정과 잇는다. 같은 이름이 여럿이면 그 학교 사람을 고르고, 그래도 여럿이면 잇지 않는다 */
+function linkOf(name: string, school: School, users: UserRow[]): UserRow | null {
+  const same = users.filter((u) => u.name.trim() === name);
+  if (same.length === 1) return same[0];
+  const inSchool = same.filter((u) => u.school === school);
+  return inSchool.length === 1 ? inSchool[0] : null;
 }
 
-/** 시간표를 읽을 학교: 연결표에 코드가 있는 학교와 내 컴시간 설정의 학교 */
-export function gridTargets(links: SchoolLinks, config: ComciganConfig | null): GridTarget[] {
-  const targets: GridTarget[] = [];
+/** 회의 찾기가 쓰는 표기와 계정 연결. 이제 표기가 곧 이름이다 */
+function deriveLinks(assignments: Partial<Record<School, TeachingAssignment[]>>, users: UserRow[]): SchoolLinks {
+  const links: SchoolLinks = {};
   for (const school of LINK_SCHOOLS) {
-    const link = links[school];
-    if (link?.schoolCode) targets.push({ school, code: link.schoolCode, maxGrade: link.maxGrade || 3 });
+    const rows = assignments[school];
+    if (!rows) continue;
+    const doc: ComciganLinkDoc = {
+      school,
+      schoolCode: schoolCodeOf(school),
+      schoolName: SCHOOL_LABELS[school],
+      maxGrade: 3,
+      entries: rows.flatMap((row) => {
+        const user = linkOf(row.name, school, users);
+        return user ? [{ label: row.name, userId: user.id, name: user.name }] : [];
+      }),
+    };
+    links[school] = doc;
   }
-  const own = schoolOfName(config?.schoolName);
-  if (config && own && !targets.some((t) => t.school === own)) {
-    targets.push({ school: own, code: config.schoolCode, maxGrade: config.maxGrade || 3 });
-  }
-  return targets;
-}
-
-interface SaveLinksInput {
-  school: School;
-  schoolCode: number;
-  schoolName: string;
-  maxGrade: number;
-  entries: ComciganLinkEntry[];
-  updatedBy: string;
+  return links;
 }
 
 interface ComciganLinksState {
+  /** 학교별 담당 학급 표 */
+  assignments: Partial<Record<School, TeachingAssignment[]>>;
+  /** 학교별 시정표 */
+  classTimes: Partial<Record<School, string[]>>;
   links: SchoolLinks;
   linksLoaded: boolean;
   /** 서버 규칙이 아직 배포되지 않았거나 읽을 권한이 없다 */
@@ -56,14 +62,12 @@ interface ComciganLinksState {
 
   subscribe: () => void;
   cleanup: () => void;
-  /** 연결표에 코드가 있는 학교와 내 컴시간 설정의 학교를 읽는다 */
   loadGrids: (force?: boolean) => Promise<void>;
-  /** 연결표를 쓰는 관리자 화면에서 학교 하나를 읽는다 */
-  loadGrid: (school: School, schoolCode: number, maxGrade: number, force?: boolean) => Promise<ComciganSchoolGrid>;
-  saveLinks: (input: SaveLinksInput) => Promise<void>;
 }
 
 export const useComciganLinksStore = create<ComciganLinksState>((set, get) => ({
+  assignments: {},
+  classTimes: {},
   links: {},
   linksLoaded: false,
   linksDenied: false,
@@ -75,84 +79,84 @@ export const useComciganLinksStore = create<ComciganLinksState>((set, get) => ({
   subscribe: () => {
     get().unsubscribers.forEach((unsub) => unsub());
     let pending = LINK_SCHOOLS.length;
-    const settled = () => {
-      pending -= 1;
-      if (pending <= 0) set({ linksLoaded: true });
+    const relink = () => {
+      set((state) => ({ links: deriveLinks(state.assignments, useUsersStore.getState().users) }));
     };
-    const unsubscribers = LINK_SCHOOLS.map((school) => {
+    const unsubscribers: Array<() => void> = LINK_SCHOOLS.flatMap((school) => {
       let first = true;
       const once = () => {
-        if (first) { first = false; settled(); }
+        if (!first) return;
+        first = false;
+        pending -= 1;
+        if (pending <= 0) set({ linksLoaded: true });
       };
-      return onSnapshot(doc(db, 'comcigan_links', school), (snap) => {
-        const data = snap.exists() ? snap.data() : null;
-        set((state) => ({
-          linksDenied: false,
-          links: {
-            ...state.links,
-            [school]: data
-              ? {
-                school,
-                schoolCode: Number(data.schoolCode) || 0,
-                schoolName: data.schoolName || '',
-                maxGrade: Number(data.maxGrade) || 3,
-                entries: Array.isArray(data.entries) ? data.entries : [],
-                updatedBy: data.updatedBy,
-                updatedAt: data.updatedAt?.toDate?.() ?? null,
-              } as ComciganLinkDoc
-              : undefined,
-          },
-        }));
-        once();
-      }, (err) => {
-        console.warn('[ComciganLinks] subscription error:', err);
-        set({ linksDenied: true });
-        once();
-      });
+      return [
+        onSnapshot(teachersCollection(school), (snap) => {
+          const rows = snap.docs.map((d) => parseAssignmentDoc(d.id, d.data()));
+          set((state) => ({
+            linksDenied: false,
+            assignments: { ...state.assignments, [school]: rows },
+          }));
+          relink();
+          once();
+        }, (err) => {
+          console.warn('[Teaching] subscription error:', err);
+          set({ linksDenied: true });
+          once();
+        }),
+        onSnapshot(schoolTimesDoc(school), (snap) => {
+          const times = snap.exists() ? parseClassTimesDoc(snap.data()) : [];
+          set((state) => ({ classTimes: { ...state.classTimes, [school]: times } }));
+        }, (err) => console.warn('[Teaching] class times error:', err)),
+      ];
     });
+    // 가입이나 이름 변경으로 명단이 바뀌면 다시 잇는다
+    unsubscribers.push(useUsersStore.subscribe((state, prev) => {
+      if (state.users !== prev.users) relink();
+    }));
     set({ unsubscribers });
   },
 
   cleanup: () => {
     get().unsubscribers.forEach((unsub) => unsub());
-    set({ unsubscribers: [], links: {}, linksLoaded: false, linksDenied: false, grids: {}, gridError: null });
+    set({
+      unsubscribers: [],
+      assignments: {},
+      classTimes: {},
+      links: {},
+      linksLoaded: false,
+      linksDenied: false,
+      grids: {},
+      gridError: null,
+    });
   },
 
   loadGrids: async (force = false) => {
-    const targets = gridTargets(get().links, useComciganStore.getState().config);
+    const { assignments, classTimes } = get();
+    const targets = LINK_SCHOOLS.filter((school) => (assignments[school]?.length ?? 0) > 0);
     if (targets.length === 0) {
-      set({ gridLoading: false, gridError: null });
+      set({ gridLoading: false, gridError: null, grids: {} });
       return;
     }
     set({ gridLoading: true, gridError: null });
-    const results = await Promise.allSettled(
-      targets.map((t) => get().loadGrid(t.school, t.code, t.maxGrade, force)),
-    );
-    const failed = results.filter((r) => r.status === 'rejected').length;
-    set({
-      gridLoading: false,
-      gridError: failed > 0 ? '컴시간에서 시간표를 받지 못했습니다. 잠시 뒤 다시 시도해 주세요.' : null,
+    const results = await Promise.allSettled(targets.map(async (school) => {
+      const week = await loadNeisWeek(school, force);
+      return {
+        school,
+        grid: buildSchoolGrid(schoolCodeOf(school), week.cells, assignments[school] ?? [], classTimes[school] ?? []),
+      };
+    }));
+    const grids: SchoolGrids = {};
+    let failure: string | null = null;
+    results.forEach((result) => {
+      if (result.status === 'fulfilled') grids[result.value.school] = result.value.grid;
+      else {
+        console.warn('[Teaching] grid failed:', result.reason);
+        failure = result.reason instanceof NeisTimetableError
+          ? result.reason.message
+          : '나이스에서 시간표를 받지 못했습니다. 잠시 뒤 다시 시도해 주세요.';
+      }
     });
-  },
-
-  loadGrid: async (school, schoolCode, maxGrade, force = false) => {
-    const api = window.electronAPI;
-    if (!api?.comciganSchoolGrid) throw new Error('이 환경에서는 컴시간을 읽을 수 없습니다');
-    const grid = await api.comciganSchoolGrid(schoolCode, maxGrade, force);
-    set((state) => ({ grids: { ...state.grids, [school]: grid } }));
-    return grid;
-  },
-
-  saveLinks: async ({ school, schoolCode, schoolName, maxGrade, entries, updatedBy }) => {
-    await setDoc(doc(db, 'comcigan_links', school), {
-      school,
-      schoolCode,
-      schoolName,
-      maxGrade,
-      entries: entries.map(({ label, userId, name }) => ({ label, userId, name })),
-      updatedBy,
-      updatedAt: serverTimestamp(),
-    });
+    set({ grids, gridLoading: false, gridError: failure });
   },
 }));
-

@@ -9,7 +9,7 @@ import { ComciganCallButton } from '../common/ComciganCall';
 import { showToast } from '../common/Toast';
 import { useAuthStore } from '../../store/authStore';
 import { useCalendarStore } from '../../store/calendarStore';
-import { gridTargets, LINK_SCHOOLS, useComciganLinksStore } from '../../store/comciganLinksStore';
+import { LINK_SCHOOLS, useComciganLinksStore } from '../../store/comciganLinksStore';
 import { useComciganStore } from '../../store/comciganStore';
 import {
   buildFinderRows, buildPeople, cellKey, computeFinderWeek, FINDER_CONDITIONS, matchesFilter, subjectOptions, suggestSlots,
@@ -86,6 +86,7 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
   const events = useCalendarStore((s) => s.events);
   const openEventDraft = useCalendarStore((s) => s.openEventDraft);
   const links = useComciganLinksStore((s) => s.links);
+  const assignments = useComciganLinksStore((s) => s.assignments);
   const linksLoaded = useComciganLinksStore((s) => s.linksLoaded);
   const linksDenied = useComciganLinksStore((s) => s.linksDenied);
   const grids = useComciganLinksStore((s) => s.grids);
@@ -116,7 +117,7 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
     return () => clearInterval(timer);
   }, []);
 
-  // 연결표를 읽은 뒤에 어떤 학교를 받을지 정한다
+  // 표를 읽은 뒤에 표가 있는 학교의 시간표를 받는다
   useEffect(() => {
     if (linksLoaded) loadGrids();
   }, [linksLoaded, links, ownConfig, loadGrids]);
@@ -125,7 +126,7 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
   const availableSchools = LINK_SCHOOLS.filter((s) => grids[s]);
   // 고른 학교의 시간표를 받지 못했으면 받은 학교를 모두 보여 준다. 목록이 빈 채 멈추지 않게 한다.
   const school = pickedSchool && grids[pickedSchool] ? pickedSchool : null;
-  // 가입해 시간표가 연결된 회원만 고른다. 그 학교 연결표가 아직 없으면 컴시간 표기로 고를 수 있게 둔다.
+  // 가입해 시간표가 연결된 회원만 고른다. 아직 가입한 사람이 없으면 표의 이름으로 고를 수 있게 둔다.
   const hasMembers = useMemo(() => people.some((p) => p.userId && matchesFilter(p, { school })), [people, school]);
   const filtered = useMemo(
     () => people.filter((p) => (!hasMembers || p.userId) && matchesFilter(p, { school, grade, subject, query })),
@@ -255,7 +256,7 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
     });
   }
 
-  const noSource = linksLoaded && gridTargets(links, ownConfig).length === 0;
+  const noSource = linksLoaded && LINK_SCHOOLS.every((s) => (assignments[s]?.length ?? 0) === 0);
 
   const pickedLines = picked && pickedDay && (
     <>
@@ -363,12 +364,12 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
 
       {noSource ? (
         <div style={styles.center}>
-          <p style={styles.empty}>컴시간 학교가 아직 정해지지 않았습니다.</p>
-          {linksDenied && <p style={styles.warn}>연결표를 읽지 못했습니다. 서버 규칙 적용 여부를 관리자에게 확인해 주세요.</p>}
+          <p style={styles.empty}>담당 학급 표가 아직 없습니다.</p>
+          {linksDenied && <p style={styles.warn}>표를 읽지 못했습니다. 서버 규칙 적용 여부를 관리자에게 확인해 주세요.</p>}
           <p style={styles.note}>
             {user?.role === 'admin' || user?.role === 'super_admin'
-              ? '도구 모음의 관리자 > 컴시간 연결에서 학교를 정해 주세요.'
-              : '관리자가 연결표를 저장하거나, 설정에서 내 컴시간 시간표를 연결하면 쓸 수 있습니다.'}
+              ? '도구 모음의 관리자 > 담당 학급 표에서 표를 올려 주세요.'
+              : '관리자가 담당 학급 표를 올리면 쓸 수 있습니다.'}
           </p>
         </div>
       ) : gridLoading && people.length === 0 ? (
@@ -553,16 +554,16 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
             )}
 
             <div style={styles.notes}>
-              {linksDenied && <p style={styles.warn}>연결표를 읽지 못해 컴시간 표기로 보여 드립니다. 서버 규칙 적용 여부를 관리자에게 확인해 주세요.</p>}
+              {linksDenied && <p style={styles.warn}>표를 읽지 못했습니다. 서버 규칙 적용 여부를 관리자에게 확인해 주세요.</p>}
               {!linksDenied && (hasMembers
-                ? <p style={styles.note}>가입해 시간표가 연결된 회원만 보입니다.</p>
-                : <p style={styles.note}>아직 계정과 연결되지 않아 컴시간 표기로 보입니다. 관리자 &gt; 컴시간 연결에서 저장하면 회원 이름으로 나옵니다.</p>)}
+                ? <p style={styles.note}>담당 학급이 연결된 회원만 보입니다.</p>
+                : <p style={styles.note}>아직 가입한 선생님과 연결되지 않아 표의 이름으로 보입니다.</p>)}
               {gridError && people.length > 0 && (
                 <p style={styles.warn}>{gridError} <ComciganCallButton style={{ marginLeft: 4 }} /></p>
               )}
-              {weekOffset > 0 && <p style={styles.note}>컴시간은 이번 주 시간표만 알려 주므로 다음 주 이후는 이번 주 시간표로 어림합니다.</p>}
+              {weekOffset > 0 && <p style={styles.note}>이번 주 시간표를 받으므로 다음 주 이후는 이번 주 시간표로 어림합니다.</p>}
               {targetSchools.size > 1 && baseSchool && <p style={styles.note}>시각은 {SCHOOL_LABELS[baseSchool]} 시정표 기준이고, 다른 학교 수업은 시각으로 견줍니다.</p>}
-              <p style={styles.note}>컴시간 시간표와 공유 일정만 봅니다. 개인 일정은 계산에 쓰지 않으며, 수업 중인 분은 인원수만 보여 드립니다.</p>
+              <p style={styles.note}>나이스 시간표와 공유 일정만 봅니다. 개인 일정은 계산에 쓰지 않으며, 수업 중인 분은 인원수만 보여 드립니다.</p>
             </div>
           </section>
         </div>

@@ -473,7 +473,7 @@ export function DayView({ onAddPersonalEvent, onPersonalClick }: DayViewProps = 
                     </div>
                   );
                 })}
-                {/* 컴시간 시간표 */}
+                {/* 내 수업 */}
                 {(periodsByHour.get(hour) || []).map((cp) => (
                   <div
                     key={`cc-${cp.weekday}-${cp.period}`}

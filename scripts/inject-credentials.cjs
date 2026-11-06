@@ -35,7 +35,7 @@ if (!tpassPassword) {
 }
 
 // 렌더러용 주소는 Vite가 .env에서 직접 읽어 번들에 넣는다. 빠지면 해당 화면이 안내문만 표시하므로 미리 알린다.
-for (const key of ['VITE_TPASS_URL', 'VITE_OUTING_URL']) {
+for (const key of ['VITE_TPASS_URL', 'VITE_OUTING_URL', 'VITE_NEIS_KEY']) {
   if (!env[key] && !process.env[key]) {
     console.warn(`[InjectCredentials] ${key} 미설정 — 해당 화면은 주소 없음 안내만 표시합니다`);
   }

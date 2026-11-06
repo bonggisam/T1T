@@ -7,7 +7,7 @@ import { showToast } from '../common/Toast';
 import type { User, UserStatus } from '@shared/types';
 import { SCHOOL_LABELS } from '@shared/types';
 import { Ic } from '../common/Ic';
-import { ComciganLinkTable } from './ComciganLinkTable';
+import { TeachingTable } from './TeachingTable';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -258,7 +258,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
           onClick={() => { setTab('links'); setSchoolFilter('all'); }}
           style={{ ...styles.tab, ...(tab === 'links' ? styles.tabActive : {}) }}
         >
-          컴시간 연결
+          담당 학급 표
         </button>
       </div>
 
@@ -283,7 +283,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
         </div>
       )}
 
-      {tab === 'links' && !loading && <ComciganLinkTable users={activeUsers} />}
+      {tab === 'links' && !loading && <TeachingTable users={activeUsers} />}
 
       {/* Content */}
       {tab !== 'links' && <div style={styles.list}>

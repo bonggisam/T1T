@@ -528,7 +528,7 @@ function DayTimeline({
               );
             })}
 
-            {/* 컴시간 시간표 블록 */}
+            {/* 내 수업 블록 */}
             {periodsForDay.map((cp) => {
               const startHour = cp.startTime
                 ? parseInt(cp.startTime.split(':')[0], 10)

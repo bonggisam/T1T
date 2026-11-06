@@ -1,15 +1,27 @@
 import { create } from 'zustand';
-import type { ComciganConfig, ComciganSchool, ComciganTimetableData, TeacherPeriod } from '@shared/types';
+import { onSnapshot } from 'firebase/firestore';
+import { format } from 'date-fns';
+import { SCHOOL_LABELS } from '@shared/types';
+import type {
+  ComciganConfig, ComciganTimetableData, School, TeacherPeriod, TeachingAssignment, TeachingItem, TeachingSlot, User,
+} from '@shared/types';
 import { diffTimetable, formatTimetableChange, mergeTimetableChanges, type TimetableChange } from '../utils/classPeriods';
 import { useWidgetStore } from './widgetStore';
 import { useAuthStore } from './authStore';
 import { isPersonalHidden } from './privacyStore';
 import { showToast } from '../components/common/Toast';
 import { playNotificationSound, showDesktopNotification } from '../utils/notifications';
-import { ipcErrorMessage } from '../utils/ipcError';
+import { getNeisConfig } from '../utils/neisSchedule';
+import { loadNeisWeek, NEIS_REFRESH_MS, timetableWeekStart, type NeisWeek } from '../utils/neisTimetable';
+import {
+  buildTeacherSchedule, deriveItemsFromSchedule, parseOwnItems, resolveItems, teacherKey,
+} from '../utils/teachingAssignments';
+import {
+  parseAssignmentDoc, parseClassTimesDoc, saveAssignment, saveClassTimes, schoolTimesDoc, teacherDoc,
+} from '../utils/teachingDocs';
 
-// 메인 프로세스는 시간표를 메모리에만 들고 있어, 네트워크 없이 켜면 시간표를 모른다.
-// 그러면 수업 화면 보호가 동작하지 않고 꺼져 있던 동안의 변경도 알 수 없으므로 이 PC에 마지막 값을 둔다.
+// 시간표는 나이스에서 받아 담당 학급 표(학교와 이름으로 찾는다)와 맞춰 내 수업을 만든다.
+// 받지 못해도 수업 화면 보호가 돌도록 이 PC에 마지막 값을 둔다.
 // 사람마다 따로 둔다. 앞 교사의 시간표로 다음 교사의 수업 화면 보호가 돌면 안 된다.
 const LEGACY_CACHE_KEY = 't1t-timetable-cache';
 const LEGACY_CHANGES_KEY = 't1t-timetable-changes';
@@ -62,12 +74,30 @@ function saveChanges(changes: TimetableChange[] | null): void {
   if (boundUser) writeJson(changesKey(boundUser), changes);
 }
 
-// 학교나 교사를 새로 설정하는 동안 오는 갱신은 시간표 변경이 아니다
-let configuring = false;
+/** 표와 시정표의 첫 값을 이만큼만 기다린다. 오프라인에서도 저장된 시간표로 시작한다 */
+const FIRST_READ_TIMEOUT_MS = 12 * 1000;
+const CHECK_MS = 10 * 60 * 1000;
+
+let listeners: Array<() => void> = [];
+/** 마지막으로 받은 학교 시간표. 표가 바뀌면 다시 받지 않고 이 값으로 다시 맞춘다 */
+let lastWeek: NeisWeek | null = null;
+
+function schoolOf(user: User | null | undefined): School | null {
+  return user?.school === 'taeseong_middle' || user?.school === 'taeseong_high' ? user.school : null;
+}
+
+function configOf(user: User, school: School): ComciganConfig {
+  return {
+    schoolCode: Number(getNeisConfig(school)?.school) || 0,
+    schoolName: SCHOOL_LABELS[school],
+    teacherName: user.name || '',
+    maxGrade: 3,
+  };
+}
 
 /** 자동 갱신으로 받은 시간표가 이번 주 남은 수업과 다르면 기록하고 알린다 */
 function notifyTimetableChanges(prev: ComciganTimetableData | null, next: ComciganTimetableData | null): void {
-  if (configuring || !useWidgetStore.getState().timetableChangeAlert) return;
+  if (!useWidgetStore.getState().timetableChangeAlert) return;
   const now = new Date();
   const found = diffTimetable(prev, next, now);
   if (found.length === 0) return;
@@ -84,25 +114,101 @@ function notifyTimetableChanges(prev: ComciganTimetableData | null, next: Comcig
   showDesktopNotification('내 수업이 바뀌었습니다', lines.slice(0, 4).join('\n'));
 }
 
+/**
+ * 받은 학교 시간표와 내 담당 학급으로 내 수업을 만든다.
+ * 담당 학급이 아직 없고 이 PC에 전에 받은 내 시간표가 있으면, 그것으로 담당 학급을 만들어 표에 올린다.
+ * @param quiet 표가 바뀌어 다시 맞출 때. 수업 변경 알림을 내지 않는다
+ */
+function applyWeek(user: User, school: School, week: NeisWeek, quiet = false): void {
+  const state = useComciganStore.getState();
+  const prev = state.timetableData;
+  const name = teacherKey(user.name || '');
+  let items: TeachingItem[] = state.assignment?.items ?? [];
+  let slots: TeachingSlot[] = state.assignment?.slots ?? [];
+
+  if (items.length === 0 && slots.length === 0 && name && prev?.source !== 'neis' && prev?.teacherSchedule.length) {
+    const derived = deriveItemsFromSchedule(prev.teacherSchedule, week.cells);
+    console.info(`[Timetable] 전에 받은 시간표 ${derived.total}칸 중 ${derived.matched}칸이 나이스와 맞습니다`);
+    if (derived.items.length > 0 || derived.slots.length > 0) {
+      ({ items, slots } = derived);
+      saveAssignment(school, name, items, slots, 'timetable', user.id)
+        .catch((err) => console.warn('[Timetable] assignment save failed:', err));
+    }
+  }
+
+  const prevTimes = prev?.classTimes ?? [];
+  const classTimes = state.schoolClassTimes.length > 0 ? state.schoolClassTimes : prevTimes;
+  // 시정표가 학교에 아직 없으면 이 PC에 남은 값을 올린다. 나이스에는 시정표가 없다
+  if (state.schoolClassTimes.length === 0 && prevTimes.length > 0) {
+    saveClassTimes(school, prevTimes, user.id).catch((err) => console.warn('[Timetable] class times save failed:', err));
+  }
+
+  if (items.length === 0 && slots.length === 0) {
+    // 표에서 빠졌으면 비운다. 전에 컴시간에서 받은 값은 담당 학급을 찾을 때까지 그대로 쓴다
+    if (prev?.source === 'neis') useComciganStore.setState({ timetableData: null, config: null });
+    else useComciganStore.setState({ config: prev ? configOf(user, school) : null });
+    return;
+  }
+
+  const data: ComciganTimetableData = {
+    teacherSchedule: buildTeacherSchedule(week.cells, items, classTimes, slots),
+    classTimes,
+    lastUpdated: week.fetchedAt,
+    schoolName: SCHOOL_LABELS[school],
+    source: 'neis',
+    weekStart: week.weekStart,
+  };
+  // 컴시간 자료에서 넘어올 때나 주가 바뀔 때는 수업 변경이 아니다
+  if (!quiet && prev?.source === 'neis' && prev.weekStart === data.weekStart) notifyTimetableChanges(prev, data);
+  useComciganStore.setState({ timetableData: data, config: configOf(user, school) });
+}
+
+/**
+ * 나이스에서 받아 내 수업을 맞춘다.
+ * @param force 새로고침 단추처럼 사람이 눌렀을 때
+ * @throws 받지 못하면. 같은 주의 저장본이 있으면 그 값으로 맞춘 뒤에 던진다
+ */
+async function syncTimetable(force: boolean): Promise<void> {
+  const user = useAuthStore.getState().user;
+  const school = schoolOf(user);
+  if (!user || !school || user.id !== boundUser) return;
+  const owner = boundUser;
+  const week = await loadNeisWeek(school, force);
+  // 받는 사이 로그아웃했으면 다음 교사에게 넘기지 않는다
+  if (boundUser !== owner) return;
+  lastWeek = week;
+  applyWeek(user, school, week);
+  if (week.error) throw week.error;
+}
+
+export interface SaveOwnItemsResult {
+  ok: boolean;
+  badLines: string[];
+  /** 나이스 시간표의 그 학급에서 찾지 못한 과목 */
+  unknown: TeachingItem[];
+}
+
 interface ComciganState {
   config: ComciganConfig | null;
   timetableData: ComciganTimetableData | null;
   /** 확인하지 않은 내 수업 변경 */
   changes: TimetableChange[];
-  searchResults: ComciganSchool[];
+  /** 내 담당 과목과 학급. 표에 아직 없으면 null */
+  assignment: TeachingAssignment | null;
+  /** 표를 한 번 읽었다. 그 전에는 담당 학급이 없다고 말하지 않는다 */
+  assignmentChecked: boolean;
+  /** 학교 시정표 */
+  schoolClassTimes: string[];
   loading: boolean;
-  searching: boolean;
   error: string | null;
-  unsubscribe: (() => void) | null;
   refreshTimer: ReturnType<typeof setInterval> | null;
   showTimetable: boolean;
 
-  /** 로그인한 사람의 설정과 마지막 시간표를 읽는다 */
+  /** 로그인한 사람의 표와 마지막 시간표를 읽고 나이스에서 받는다 */
   loadConfig: (userId?: string) => Promise<void>;
-  searchSchool: (name: string) => Promise<void>;
-  configure: (config: ComciganConfig) => Promise<void>;
   fetchTimetable: () => Promise<void>;
-  clearConfig: () => Promise<void>;
+  /** 본인이 담당 과목과 학급을 넣는다. 줄마다 "국어 2-1 2-3" */
+  saveOwnItems: (text: string) => Promise<SaveOwnItemsResult>;
   cleanup: () => void;
   getPeriodsForWeekday: (weekday: number) => TeacherPeriod[];
   toggleTimetable: () => void;
@@ -113,11 +219,11 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
   config: null,
   timetableData: null,
   changes: [],
-  searchResults: [],
+  assignment: null,
+  assignmentChecked: false,
+  schoolClassTimes: [],
   loading: false,
-  searching: false,
   error: null,
-  unsubscribe: null,
   refreshTimer: null,
   showTimetable: (() => {
     try { return localStorage.getItem('tonet-show-timetable') !== 'false'; }
@@ -125,123 +231,134 @@ export const useComciganStore = create<ComciganState>((set, get) => ({
   })(),
 
   loadConfig: async (userId) => {
-    try {
-      set({ error: null });
-      if (userId && userId !== boundUser) {
-        boundUser = userId;
-        set({ timetableData: readCachedTimetable(userId), changes: readChanges(userId) });
-        await window.electronAPI?.comciganSetUser?.(userId);
-      }
-      const owner = boundUser;
-      const config = await window.electronAPI?.comciganGetConfig() ?? null;
-      let cached = await window.electronAPI?.comciganGetCached() ?? null;
+    const user = useAuthStore.getState().user;
+    const school = schoolOf(user);
+    set({ error: null });
+    if (!user || !school || !userId || user.id !== userId) return;
 
-      // If config exists but no cached data, trigger a fresh fetch
-      if (config && !cached) {
-        try {
-          cached = await window.electronAPI?.comciganFetch() ?? null;
-        } catch (fetchErr: any) {
-          console.warn('[ComciganStore] Fetch failed:', fetchErr);
-          set({ error: ipcErrorMessage(fetchErr, '시간표를 가져올 수 없습니다') });
-        }
-      }
-
-      // 받는 사이 로그아웃했으면 다음 교사에게 넘기지 않는다
-      if (boundUser !== owner) return;
-
-      // 지금 받지 못했으면 이 PC에 남은 마지막 시간표를 쓴다. 설정이 없으면 비운다.
-      const previous = get().timetableData;
-      const usable = previous && config && previous.schoolName === config.schoolName ? previous : null;
-      if (cached) notifyTimetableChanges(usable, cached);
-      set({ config, timetableData: config ? cached ?? usable : null });
-
-      // Subscribe to auto-refresh updates from main process
-      get().unsubscribe?.();
-      const unsub = window.electronAPI?.onComciganUpdate((data) => {
-        notifyTimetableChanges(get().timetableData, data);
-        set({ timetableData: data });
+    if (userId !== boundUser) {
+      boundUser = userId;
+      lastWeek = null;
+      const cached = readCachedTimetable(userId);
+      set({
+        timetableData: cached,
+        changes: readChanges(userId),
+        assignment: null,
+        assignmentChecked: false,
+        schoolClassTimes: [],
+        config: cached ? configOf(user, school) : null,
       });
-      set({ unsubscribe: unsub ?? null });
-
-      // 5분마다 자동 갱신 (렌더러 측)
-      const prevTimer = get().refreshTimer;
-      if (prevTimer) clearInterval(prevTimer);
-      if (config) {
-        const timer = setInterval(async () => {
-          try {
-            const data = await window.electronAPI?.comciganFetch() ?? null;
-            if (data) {
-              notifyTimetableChanges(get().timetableData, data);
-              set({ timetableData: data });
-            }
-          } catch (err) {
-            console.warn('[ComciganStore] Auto-refresh failed:', err);
-          }
-        }, 5 * 60 * 1000);
-        set({ refreshTimer: timer });
-      }
-    } catch (err: any) {
-      console.error('[ComciganStore] loadConfig error:', err);
-      set({ error: ipcErrorMessage(err, '시간표 설정 로드 실패') });
     }
-  },
+    const owner = boundUser;
 
-  searchSchool: async (name: string) => {
-    set({ searching: true, error: null, searchResults: [] });
+    listeners.forEach((stop) => stop());
+    let pending = 2;
+    let settled = false;
+    const ready = new Promise<void>((resolve) => {
+      const done = () => { if (!settled) { settled = true; resolve(); } };
+      const timeout = setTimeout(done, FIRST_READ_TIMEOUT_MS);
+      const once = (fired: { value: boolean }) => {
+        if (fired.value) return;
+        fired.value = true;
+        pending -= 1;
+        if (pending <= 0) { clearTimeout(timeout); done(); }
+      };
+      // 표가 바뀌면 다시 받지 않고 받아 둔 시간표로 맞춘다
+      const reapply = () => {
+        if (settled && lastWeek && boundUser === owner) applyWeek(user, school, lastWeek, true);
+      };
+      const firstAssignment = { value: false };
+      const firstTimes = { value: false };
+      const name = teacherKey(user.name || '');
+      const stopAssignment = name
+        ? onSnapshot(teacherDoc(school, name), (snap) => {
+          set({
+            assignment: snap.exists() ? parseAssignmentDoc(snap.id, snap.data()) : null,
+            assignmentChecked: true,
+          });
+          once(firstAssignment);
+          reapply();
+        }, (err) => {
+          console.warn('[Timetable] assignment read failed:', err);
+          set({ assignmentChecked: true });
+          once(firstAssignment);
+        })
+        : (() => { set({ assignmentChecked: true }); once(firstAssignment); return () => {}; })();
+      const stopTimes = onSnapshot(schoolTimesDoc(school), (snap) => {
+        set({ schoolClassTimes: snap.exists() ? parseClassTimesDoc(snap.data()) : [] });
+        once(firstTimes);
+        reapply();
+      }, (err) => {
+        console.warn('[Timetable] class times read failed:', err);
+        once(firstTimes);
+      });
+      listeners = [stopAssignment, stopTimes];
+    });
+    await ready;
+    if (boundUser !== owner) return;
+
     try {
-      const results = await window.electronAPI?.comciganSearch(name) ?? [];
-      set({ searchResults: results, searching: false });
+      await syncTimetable(false);
     } catch (err: any) {
-      set({ searching: false, error: ipcErrorMessage(err, '검색 실패') });
+      console.warn('[Timetable] first sync failed:', err);
+      set({ error: err?.message || '시간표를 받지 못했습니다' });
     }
-  },
 
-  configure: async (config: ComciganConfig) => {
-    set({ loading: true, error: null });
-    configuring = true;
-    try {
-      await window.electronAPI?.comciganConfigure(config);
-      const data = await window.electronAPI?.comciganGetCached() ?? null;
-      saveChanges(null);
-      set({ config, timetableData: data, changes: [], loading: false, searchResults: [] });
-    } catch (err: any) {
-      set({ loading: false, error: ipcErrorMessage(err, '설정 실패') });
-    } finally {
-      configuring = false;
-    }
+    // 3시간마다, 그리고 주가 바뀌면 다시 받는다. 받아 둔 값이 새것이면 나이스에 묻지 않는다
+    const prevTimer = get().refreshTimer;
+    if (prevTimer) clearInterval(prevTimer);
+    const timer = setInterval(() => {
+      const data = get().timetableData;
+      const fetchedAt = lastWeek ? new Date(lastWeek.fetchedAt).getTime() : 0;
+      const newWeek = lastWeek?.weekStart !== format(timetableWeekStart(), 'yyyy-MM-dd');
+      if (!newWeek && data && Date.now() - fetchedAt < NEIS_REFRESH_MS) return;
+      syncTimetable(false).catch((err) => console.warn('[Timetable] refresh failed:', err));
+    }, CHECK_MS);
+    set({ refreshTimer: timer });
   },
 
   fetchTimetable: async () => {
     set({ loading: true, error: null });
-    const startedAt = Date.now();
     try {
-      const data = await window.electronAPI?.comciganFetch(true) ?? null;
-      // 받지 못하면 메인이 전에 받은 값이나 빈 값을 돌려준다. 지금 시간표를 지우거나 성공처럼 보이면 안 된다
-      if (!data || new Date(data.lastUpdated).getTime() < startedAt - 1000) {
-        set({ loading: false, error: '컴시간에 연결하지 못했습니다. 전에 받은 시간표를 그대로 씁니다.' });
-        return;
-      }
-      notifyTimetableChanges(get().timetableData, data);
-      set({ timetableData: data, loading: false });
+      await syncTimetable(true);
+      set({ loading: false });
     } catch (err: any) {
-      set({ loading: false, error: ipcErrorMessage(err, '시간표 가져오기 실패') });
+      const message = err?.message || '시간표를 받지 못했습니다';
+      set({ loading: false, error: get().timetableData ? `${message}. 전에 받은 시간표를 그대로 씁니다.` : message });
     }
   },
 
-  clearConfig: async () => {
-    await window.electronAPI?.comciganClear();
-    saveChanges(null);
-    set({ config: null, timetableData: null, changes: [], searchResults: [], error: null });
+  saveOwnItems: async (text) => {
+    const user = useAuthStore.getState().user;
+    const school = schoolOf(user);
+    const { items, slots, badLines } = parseOwnItems(text);
+    if (!user || !school || (items.length === 0 && slots.length === 0) || badLines.length > 0) {
+      return { ok: false, badLines, unknown: [] };
+    }
+    const week = lastWeek ?? await loadNeisWeek(school).catch(() => null);
+    const resolved = week ? resolveItems(items, week.cells) : { items, unknown: [] };
+    await saveAssignment(school, teacherKey(user.name || ''), resolved.items, slots, 'self', user.id);
+    return { ok: true, badLines: [], unknown: resolved.unknown };
   },
 
   cleanup: () => {
-    const { unsubscribe, refreshTimer } = get();
-    unsubscribe?.();
+    const { refreshTimer } = get();
+    listeners.forEach((stop) => stop());
+    listeners = [];
+    lastWeek = null;
     if (refreshTimer) clearInterval(refreshTimer);
     // 먼저 주인을 비워, 화면에서 비운 값이 그 사람의 저장본을 지우지 않게 한다
     boundUser = null;
-    set({ unsubscribe: null, refreshTimer: null, config: null, timetableData: null, changes: [], error: null, searchResults: [] });
-    window.electronAPI?.comciganSetUser?.(null)?.catch?.(() => {});
+    set({
+      refreshTimer: null,
+      config: null,
+      timetableData: null,
+      changes: [],
+      assignment: null,
+      assignmentChecked: false,
+      schoolClassTimes: [],
+      error: null,
+    });
   },
 
   // Get teacher's periods for a specific weekday (1=Mon, 5=Fri)

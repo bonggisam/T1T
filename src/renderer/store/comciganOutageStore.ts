@@ -3,8 +3,8 @@ import { format } from 'date-fns';
 import { doc, increment, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '../utils/firebase';
 
-/** 운영자가 컴시간 쪽 사정을 확인할 곳 */
-export const COMCIGAN_SUPPORT_URL = 'https://comcigan.co.kr/xe/?mid=FAQ';
+/** 운영자가 시간표 자료 쪽 사정을 확인할 곳 */
+export const COMCIGAN_SUPPORT_URL = 'https://open.neis.go.kr';
 
 const CALLED_KEY = 't1t-comcigan-called';
 const DISMISSED_KEY = 't1t-comcigan-dismissed';

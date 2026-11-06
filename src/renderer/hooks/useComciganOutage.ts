@@ -69,7 +69,7 @@ export function useOperatorOutageAlert(enabled: boolean): void {
     const at = alert.reportedAt.getTime();
     if (at <= readSeen()) return;
     writeSeen(at);
-    const text = `컴시간 시간표가 막혔다는 알림 ${alert.count}건 (${format(alert.reportedAt, 'HH:mm')})`;
+    const text = `시간표를 받지 못한다는 알림 ${alert.count}건 (${format(alert.reportedAt, 'HH:mm')})`;
     showToast(text, 'error');
     if (sound) playNotificationSound();
     showDesktopNotification('운영자 알림', text, { immediate: true });

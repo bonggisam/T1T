@@ -106,6 +106,41 @@ service cloud.firestore {
         && request.resource.data.entries.size() <= 300;
     }
 
+    // 담당 학급 표 — 나이스 시간표에는 교사 이름이 없어, 학교와 이름으로 찾는 이 표로 잇는다.
+    // 활성 교사가 읽고, 본인 이름의 문서는 본인이, 나머지는 관리자가 쓴다. 시정표는 없을 때만 교사가 올린다.
+    function validClassTimes(school) {
+      let data = request.resource.data;
+      return school in ['taeseong_middle', 'taeseong_high']
+        && data.keys().hasOnly(['school', 'classTimes', 'updatedBy', 'updatedAt'])
+        && data.school == school
+        && data.updatedBy == request.auth.uid
+        && data.classTimes is list
+        && data.classTimes.size() <= 12;
+    }
+    function validAssignment(school, teacherName) {
+      let data = request.resource.data;
+      return school in ['taeseong_middle', 'taeseong_high']
+        && data.keys().hasOnly(['name', 'items', 'slots', 'source', 'updatedBy', 'updatedAt'])
+        && data.name == teacherName
+        && data.source in ['timetable', 'admin', 'self']
+        && data.updatedBy == request.auth.uid
+        && data.items is list
+        && data.items.size() <= 200
+        && (!('slots' in data) || (data.slots is list && data.slots.size() <= 100));
+    }
+    match /teaching_assignments/{school} {
+      allow read: if isActive();
+      allow create: if isActive() && validClassTimes(school);
+      allow update: if isAdmin() && validClassTimes(school);
+
+      match /teachers/{teacherName} {
+        allow read: if isActive();
+        allow create, update: if validAssignment(school, teacherName)
+          && (isAdmin() || (isActive() && getUserData().name == teacherName && getUserData().school == school));
+        allow delete: if isAdmin();
+      }
+    }
+
     // 시험감독 게시판 — 부서, 교과별로 사진을 올린다. 승인된 교사가 보고 올리며, 올린 사람과 관리자가 지운다.
     // Storage를 쓰지 않아 사진 한 장을 문서 하나에 넣는다. 문서 크기 제한(1MiB) 안으로 앱이 줄여서 올린다.
     function validBoardPost(data) {

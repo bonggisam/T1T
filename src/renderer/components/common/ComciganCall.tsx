@@ -18,7 +18,7 @@ function openSupport(): void {
 }
 
 /**
- * 컴시간이 막혔을 때 누르는 단추. 선생님은 운영자에게 알리고, 운영자는 컴시간 문의 게시판을 연다.
+ * 시간표를 받지 못할 때 누르는 단추. 선생님은 운영자에게 알리고, 운영자는 나이스 포털을 연다.
  * 하루에 한 번만 알린다.
  */
 export function ComciganCallButton({ style }: { style?: React.CSSProperties }) {
@@ -28,7 +28,7 @@ export function ComciganCallButton({ style }: { style?: React.CSSProperties }) {
   const [busy, setBusy] = useState(false);
 
   if (isOperator(user?.role)) {
-    return <button type="button" onClick={openSupport} style={{ ...styles.call, ...style }}>컴시간 문의</button>;
+    return <button type="button" onClick={openSupport} style={{ ...styles.call, ...style }}>나이스 포털</button>;
   }
   if (calledOn === format(new Date(), 'yyyy-MM-dd')) {
     return <span style={{ ...styles.done, ...style }}>운영자에게 알렸습니다</span>;
@@ -65,7 +65,7 @@ export function ComciganOutageBanner() {
     <div role="status" style={styles.banner}>
       <AlertTriangle size={12} strokeWidth={2.4} style={styles.icon} />
       <span style={styles.summary} title="수업 표시와 수업 화면 보호는 마지막으로 받은 시간표를 따릅니다">
-        컴시간에서 시간표를 받지 못하고 있습니다
+        나이스에서 시간표를 받지 못하고 있습니다
       </span>
       <ComciganCallButton />
       <button type="button" onClick={dismissToday} style={styles.plain}>닫기</button>
@@ -97,9 +97,9 @@ export function OperatorOutageBanner() {
     <div role="alert" style={styles.banner}>
       <AlertTriangle size={12} strokeWidth={2.4} style={styles.icon} />
       <span style={styles.summary} title={detail}>
-        컴시간이 막혔다는 알림 {alert.count}건{detail ? ` · ${detail}` : ''}
+        시간표를 받지 못한다는 알림 {alert.count}건{detail ? ` · ${detail}` : ''}
       </span>
-      <button type="button" onClick={openSupport} style={styles.call}>컴시간 문의</button>
+      <button type="button" onClick={openSupport} style={styles.call}>나이스 포털</button>
       <button type="button" onClick={handleAcknowledge} style={styles.plain}>확인</button>
     </div>
   );

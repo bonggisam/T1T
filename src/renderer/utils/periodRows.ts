@@ -1,7 +1,7 @@
 import { classDurationMin } from './classPeriods';
 
 /**
- * 오늘·주 화면을 교시 기준으로 그릴 때 쓰는 줄. 컴시간 시정표에서 만든다.
+ * 오늘·주 화면을 교시 기준으로 그릴 때 쓰는 줄. 시정표에서 만든다.
  * 일정은 시작 시각이 들어가는 교시 줄에 놓는다 (쉬는 시간에 시작하면 앞 교시 줄).
  */
 export interface PeriodRow {

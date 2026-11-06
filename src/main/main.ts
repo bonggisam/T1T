@@ -6,7 +6,6 @@ import * as fs from 'fs';
 import * as dotenv from 'dotenv';
 import { autoUpdater, CancellationToken } from 'electron-updater';
 import type { UpdateState } from '../shared/types';
-import { comciganService } from './comcigan';
 import { defaultBounds, isReachable, parseSavedState, resolveBounds } from './windowPlacement';
 import type { DisplayArea, Rect, SavedWindowState } from './windowPlacement';
 import * as macUpdater from './macUpdater';
@@ -54,7 +53,7 @@ let updaterInterval: NodeJS.Timeout | null = null;
 let isQuitting = false;
 
 // ─── 글로벌 크래시 안전망 ───
-// comcigan-parser 등 서드파티 라이브러리의 비동기 콜백 내 예외는 promise 체인을
+// 서드파티 라이브러리의 비동기 콜백 내 예외는 promise 체인을
 // 탈출해 uncaughtException이 됨 → 기본 동작은 흉측한 크래시 다이얼로그 + 앱 종료.
 // 네트워크 오류 같은 회복 가능한 예외로 앱 전체가 죽으면 안 되므로 로그만 남기고 계속.
 function logCrash(kind: string, err: unknown): void {
@@ -559,7 +558,7 @@ function setupIPC(): void {
     const ALLOWED_HOSTS = [
       'read365.edunet.net',         // 학교 도서관(독서로)
       'comci.net',                  // 컴시간
-      'comcigan.co.kr',             // 컴시간 문의 게시판
+      'open.neis.go.kr',            // 나이스 포털
       'taesung-m.goeyi.kr',         // 태성중 홈페이지
       'taesung-h.goeyi.kr',         // 태성고 홈페이지
       'github.com',                 // 릴리스 페이지
@@ -1341,50 +1340,6 @@ function setupWeatherIPC(): void {
   });
 }
 
-// Comcigan IPC
-function setupComciganIPC(): void {
-  ipcMain.handle('comcigan:search', async (_event, name: string) => {
-    if (typeof name !== 'string') throw new Error('Invalid school name');
-    const trimmed = name.trim();
-    if (!trimmed || trimmed.length > 50) throw new Error('Invalid school name');
-    // 한글·영문·숫자·공백·괄호·하이픈만 허용 (입력 sanitize)
-    if (!/^[가-힣a-zA-Z0-9\s\-()]+$/.test(trimmed)) {
-      throw new Error('학교 이름은 한글/영문/숫자만 입력 가능합니다');
-    }
-    return comciganService.searchSchool(trimmed);
-  });
-
-  ipcMain.handle('comcigan:school-grid', async (_event, schoolCode: number, maxGrade: number, force?: boolean) => {
-    if (!Number.isInteger(schoolCode) || schoolCode <= 0 || schoolCode > 9_999_999) throw new Error('Invalid school code');
-    if (!Number.isInteger(maxGrade) || maxGrade < 1 || maxGrade > 6) throw new Error('Invalid grade');
-    return comciganService.getSchoolGrid(schoolCode, maxGrade, force === true);
-  });
-
-  ipcMain.handle('comcigan:configure', async (_event, config) => {
-    await comciganService.configure(config);
-  });
-
-  ipcMain.handle('comcigan:set-user', (_event, userId: unknown) => {
-    comciganService.setUser(typeof userId === 'string' && userId ? userId : null);
-  });
-
-  ipcMain.handle('comcigan:get-config', () => {
-    return comciganService.getConfig();
-  });
-
-  ipcMain.handle('comcigan:fetch', async (_event, force?: unknown) => {
-    return comciganService.fetchTimetable(force === true);
-  });
-
-  ipcMain.handle('comcigan:get-cached', () => {
-    return comciganService.getCachedData();
-  });
-
-  ipcMain.handle('comcigan:clear', () => {
-    comciganService.clearConfig();
-  });
-}
-
 function sendToRenderer(channel: string, data?: any): void {
   mainWindow?.webContents.send(channel, data);
 }
@@ -1419,13 +1374,9 @@ app.whenReady().then(() => {
   // 트레이/업데이터/스크래퍼는 50ms 후 지연 (메인 창 페인트 우선)
   setTimeout(() => {
     createTray();
-    setupComciganIPC();
     setupSchoolScrapeIPC();
     setupWeatherIPC();
     setupAutoUpdater();
-    if (mainWindow) comciganService.setMainWindow(mainWindow);
-    // 시간표 조회는 5초 더 늦춘다 (네트워크 무거움). 설정은 로그인하면 comcigan:set-user가 바로 읽는다
-    setTimeout(() => comciganService.init().catch(() => {}), 5000);
   }, 50);
 
   // 화면 구성 변경: 모니터 연결, 해제, 해상도 변경
@@ -1439,12 +1390,11 @@ app.whenReady().then(() => {
   screen.on('display-removed', onDisplayChanged);
   screen.on('display-metrics-changed', onDisplayChanged);
 
-  // 절전 복귀, 화면 잠금 해제: 창 위치와 날짜, 시간표를 다시 맞춘다
+  // 절전 복귀, 화면 잠금 해제: 창 위치와 날짜를 다시 맞춘다
   const onWake = () => {
     setTimeout(() => {
       repositionForDisplays();
       mainWindow?.webContents.send('system:woke');
-      comciganService.fetchTimetable().catch(() => {});
     }, 1500);
   };
   powerMonitor.on('resume', onWake);
@@ -1491,7 +1441,6 @@ app.on('before-quit', () => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
-  comciganService.stopAutoRefresh();
   if (updaterInterval) { clearInterval(updaterInterval); updaterInterval = null; }
   if (autoInstallTimer) { clearInterval(autoInstallTimer); autoInstallTimer = null; }
 });
