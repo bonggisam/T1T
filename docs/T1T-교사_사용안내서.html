@@ -121,7 +121,7 @@
 <div class="cover">
   <h1>T1T 교사 사용 안내서</h1>
   <div class="tag">학교 일정 공유 시스템 · 태성중·고</div>
-  <div class="ver">v2.6.6 기준 · 2026.11</div>
+  <div class="ver">v2.6.7 기준 · 2026.11</div>
 </div>
 
 <div class="toc">
@@ -138,7 +138,7 @@
     <li>수업 화면 보호</li>
     <li>컴시간 시간표</li>
     <li>회의 시간 찾기</li>
-    <li>시험감독 표</li>
+    <li>시험감독 게시판</li>
     <li>테마와 개인 옵션</li>
     <li>외부 도구</li>
     <li>업데이트와 종료</li>
@@ -169,7 +169,7 @@
   <div class="feature"><b>쪽지 · 공문 붙여넣기</b><div class="desc">날짜를 읽어 개인 일정 초안을 만듭니다</div></div>
   <div class="feature"><b>수업 화면 보호</b><div class="desc">내 수업 시간에 개인 일정을 자동으로 가립니다</div></div>
   <div class="feature"><b>회의 시간 찾기</b><div class="desc">대상 교사가 모두 수업이 없는 교시를 보여 줍니다</div></div>
-  <div class="feature"><b>시험감독 표</b><div class="desc">파일을 올리거나 표를 붙여 넣으면 각자 달력에 차례가 나타납니다</div></div>
+  <div class="feature"><b>시험감독 게시판</b><div class="desc">부서, 교과별로 표 사진을 올리고 탭을 골라 봅니다</div></div>
   <div class="feature"><b>컴시간 시간표</b><div class="desc">내 수업 표시, 수업 전 알림, 수업 변경 알림</div></div>
   <div class="feature"><b>테마와 개인 옵션</b><div class="desc">테마 7종, 강조색, 글자 크기, 크게 보기</div></div>
   <div class="feature"><b>일정 알림</b><div class="desc">10분 · 30분 · 1시간 · 1일 전 알림</div></div>
@@ -316,7 +316,7 @@
   <div class="ic-card"><div class="nm">할 일</div><div class="ds">내 작업 관리</div></div>
   <div class="ic-card"><div class="nm">회의실</div><div class="ds">회의실 예약</div></div>
   <div class="ic-card"><div class="nm">회의 찾기</div><div class="ds">모두 비는 교시</div></div>
-  <div class="ic-card"><div class="nm">시험감독</div><div class="ds">내 차례와 표</div></div>
+  <div class="ic-card"><div class="nm">시험감독</div><div class="ds">부서·교과별 표 사진</div></div>
   <div class="ic-card"><div class="nm">급식</div><div class="ds">주간 식단</div></div>
   <div class="ic-card"><div class="nm">학사일정</div><div class="ds">홈페이지 일정</div></div>
   <div class="ic-card"><div class="nm">키폰</div><div class="ds">양교 번호부</div></div>
@@ -439,41 +439,32 @@
 <p class="small"><b>관리자:</b> 도구 모음 &gt; 관리자 &gt; 컴시간 연결에서 학교를 정하고, 제안을 확인해 표기와 계정을 연결해 저장합니다. 제안은 이름 앞 두 글자가 같다는 뜻일 뿐입니다.</p>
 <p class="small"><b>관리자:</b> 비활성화와 가입 거절은 확인을 받습니다. 실수했으면 도구 모음 &gt; 관리자 &gt; 비활성·거절에서 되돌립니다.</p>
 
-<h2>12. 시험감독 표</h2>
+<h2>12. 시험감독 게시판</h2>
 <div class="shots">
   <div style="flex:1 1 0; min-width:0;">
-    <h3 style="margin-top:0;">선생님</h3>
+    <h3 style="margin-top:0;">보기</h3>
     <ul>
-      <li>담당자가 표를 올리면 <b>내 차례만</b> 달력에 나타납니다. 클립보드 모양 표시가 붙습니다.</li>
-      <li>차례를 누르면 시각과 장소를 볼 수 있고, <b>표 보기</b>로 전체 표를 엽니다.</li>
-      <li>전날 오후 4시, 당일 아침(시각이 없는 차례), 시작 10분 전에 알려 드립니다. 수업 중이면 쉬는 시간으로 미룹니다. <b>설정 &gt; 오늘 화면 위젯</b>에서 끌 수 있습니다.</li>
+      <li>아이콘 줄의 <b>시험감독</b>을 누르면 올라온 표 사진이 최신순으로 나옵니다.</li>
+      <li>위쪽 탭에서 <b>부서</b>나 <b>교과</b>를 고르면 그 사진만 나옵니다. 처음에는 내 학교와 양교 글이 보이고, 오른쪽 위에서 학교를 바꿀 수 있습니다.</li>
+      <li>사진을 누르면 크게 봅니다. 화살표로 넘기고, 사진을 누르거나 <b>+</b> 단추로 키운 뒤 끌어서 옮깁니다. 저장 단추를 누르면 PNG 파일로 저장합니다.</li>
+      <li>새 사진이 올라오면 양교 모든 선생님께 알림이 갑니다. 알림을 누르면 게시판이 열립니다.</li>
     </ul>
   </div>
-  <figure class="shot" style="flex:0 0 34%;"><img src="guide-img/duty-view.png" alt="시험감독 화면"><figcaption>내 차례와 표 목록 (예시)</figcaption></figure>
+  <figure class="shot" style="flex:0 0 34%;"><img src="guide-img/board-view.png" alt="시험감독 게시판 화면"><figcaption>탭을 골라 보는 표 사진 (예시)</figcaption></figure>
 </div>
-<h3>담당자</h3>
+<h3>올리기</h3>
 <div class="step">
   <ol>
-    <li>아이콘 줄이나 도구 모음에서 <b>시험감독</b>을 열고 <b>표 올리기</b>를 누릅니다.</li>
-    <li>표 이름, 학교, 기본 종류(시험 감독, 당직 등)를 넣습니다.</li>
-    <li><b>파일 올리기</b>로 엑셀, 한글(hwp, hwpx), 워드, PDF, 사진을 올립니다. 끌어다 놓아도 되고, 표를 복사하거나 화면을 캡처해 붙여 넣어도 됩니다.</li>
-    <li><b>확인할 이름</b>을 고치고, 시험 교시가 수업 시정표와 다르면 <b>교시 시각</b>을 고칩니다.</li>
-    <li>날짜별 내용을 확인하고 저장합니다.</li>
+    <li><b>시험감독</b>을 열고 <b>올리기</b>를 누릅니다.</li>
+    <li><b>부서</b>나 <b>교과</b>를 고르고 이름을 넣습니다. 이 이름이 탭이 됩니다. 제목은 없어도 됩니다.</li>
+    <li>학교를 고릅니다. 태성중, 태성고, 양교 중에서 고릅니다.</li>
+    <li><b>사진 고르기</b>로 여러 장을 고릅니다. 끌어다 놓아도 됩니다. 한글, 엑셀, PDF 표는 화면을 캡처해 <kbd>Ctrl+V</kbd>로 붙여 넣습니다.</li>
+    <li>순서를 확인하고 올립니다. 글 하나에 20장까지 올릴 수 있습니다.</li>
   </ol>
 </div>
-<p>제목 줄이 있어도, 칸이 병합되어 있어도, 표가 날짜별로 나뉘어 있어도 읽습니다. 자주 쓰는 모양은 다음과 같습니다.</p>
-<table>
-  <tr><th>모양</th><th>예</th></tr>
-  <tr><td>고사실이 열</td><td>일자 | 교시 | 1-1 | 1-2 | 2-1 …, 칸에 이름</td></tr>
-  <tr><td>고사실이 행</td><td>고사실 | 1교시 | 2교시 …, 날짜는 표 위의 줄이나 시트 이름</td></tr>
-  <tr><td>날짜 · 교시가 열</td><td>고사실 | 11/16 1교시 | 11/16 2교시 …</td></tr>
-  <tr><td>교사가 행</td><td>성명 | 11/16 1교시 …, 칸에 고사실이나 ○ 표시</td></tr>
-  <tr><td>목록</td><td>날짜 | 교시 | 고사실 | 감독</td></tr>
-  <tr><td>날짜 묶음</td><td>날짜만 있는 줄 아래에 "1교시 김철수 이영희"</td></tr>
-</table>
-<p class="small"><b>사진은 글자를 잘못 읽을 수 있습니다.</b> 저장하기 전에 이름과 날짜를 꼭 확인해 주세요. 엑셀이나 한글 파일이 있으면 그 파일이 더 정확합니다. 손글씨, 암호가 걸린 파일, 배포용 한글 파일, 아이폰 HEIC 사진은 읽지 못합니다.</p>
+<p>고칠 때는 지우고 다시 올립니다. 글은 올린 사람과 관리자만 지울 수 있습니다. 사진은 글자가 보이는 크기로 줄여서 올라갑니다. 아이폰 HEIC 사진은 읽지 못하니 화면을 캡처해 주세요.</p>
 <div class="warn">
-  표는 모든 선생님이 볼 수 있습니다. <b>시험 문제, 평가 자료, 개인 사유는 넣지 마세요.</b> 파일은 이 PC 안에서 읽어 어디로도 보내지 않으며, 원문은 저장하지 않고 이름, 날짜, 시각, 장소, 종류만 남습니다. 틀리게 읽을 수 있으니 저장 전에 꼭 확인해 주세요. 교사별 횟수는 표를 만든 사람과 관리자에게만 보입니다.
+  사진은 모든 선생님이 볼 수 있습니다. <b>시험 문제, 평가 자료, 개인 사유가 사진에 들어 있지 않은지</b> 확인하고 올려 주세요.
 </div>
 
 <h2>13. 테마와 개인 옵션</h2>
@@ -545,8 +536,8 @@
 </div>
 
 <div class="footer">
-  T1T v2.6.6 · 2026.11 · 태성중·고 학교 일정 공유 시스템<br>
-  본 안내서는 v2.6.6 기준이며, 자동 업데이트로 일부 화면이 다를 수 있습니다. 그림의 이름은 예시입니다.
+  T1T v2.6.7 · 2026.11 · 태성중·고 학교 일정 공유 시스템<br>
+  본 안내서는 v2.6.7 기준이며, 자동 업데이트로 일부 화면이 다를 수 있습니다. 그림의 이름은 예시입니다.
 </div>
 
 </body>
