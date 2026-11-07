@@ -76,9 +76,10 @@ export function App() {
   // 설정은 위에 뜨는 창이다. 그 뒤의 화면은 그대로 두고, 닫으면 돌아간다
   const tabBehindSettings = useRef<Tab>(null);
   const view: Tab = showSettings ? tabBehindSettings.current : activeTab;
-  const showAdmin = view === 'admin';
-  // 기초 시간표는 관리자만 연다. 관리자가 아니면 아래에서 달력을 보여 준다
-  const showBase = view === 'base' && user?.status === 'active' && (user.role === 'admin' || user.role === 'super_admin');
+  const adminRole = user?.role === 'admin' || user?.role === 'super_admin';
+  // 관리자 화면과 기초 시간표는 관리자만 연다. 관리자가 아니면 아래에서 달력을 보여 준다
+  const showAdmin = view === 'admin' && adminRole;
+  const showBase = view === 'base' && user?.status === 'active' && adminRole;
   const showTodos = view === 'todos';
   const showMeal = view === 'meal';
   const showSchedule = view === 'schedule';
@@ -91,6 +92,12 @@ export function App() {
     tabBehindSettings.current = cur;
     return 'settings';
   });
+  // 관리자 권한이 없어지면 관리자 화면과 기초 시간표를 닫는다. 탭이 열린 채로 남으면 달력에 날짜 이동이 나오지 않는다
+  useEffect(() => {
+    if (adminRole) return;
+    if (tabBehindSettings.current === 'admin' || tabBehindSettings.current === 'base') tabBehindSettings.current = null;
+    setActiveTab((cur) => (cur === 'admin' || cur === 'base' ? null : cur));
+  }, [adminRole]);
   // 한 번 연 웹 화면은 숨겨서 둔다. 지우면 입력하던 내용이 사라지고 페이지를 처음부터 다시 받는다
   const [openedWebTabs, setOpenedWebTabs] = useState<WebTab[]>([]);
   const webTabs = view && isWebTab(view) && !openedWebTabs.includes(view) ? [...openedWebTabs, view] : openedWebTabs;

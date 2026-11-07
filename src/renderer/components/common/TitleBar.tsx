@@ -67,6 +67,7 @@ export function TitleBar({
   const room = width - (widgetMode ? 0 : EDIT_BUTTONS_EXTRA) + (calendarVisible ? 0 : NAV_WIDTH);
   const compact = room < COMPACT_MAX;
   const wide = width >= WIDE_MIN;
+  const menuTop = menu.open ? (menu.anchorRef.current?.getBoundingClientRect().bottom ?? 40) + 4 : 0;
 
   useEffect(() => {
     window.electronAPI?.getWidgetMode().then((v) => setWidgetMode(v)).catch(() => {});
@@ -171,9 +172,12 @@ export function TitleBar({
         <ToolMenu
           popRef={menu.popRef}
           style={{
-            top: (menu.anchorRef.current?.getBoundingClientRect().bottom ?? 40) + 4,
+            top: menuTop,
             right: 8,
             width: Math.min(TOOL_MENU_WIDTH, width - 16),
+            // 창이 낮으면 아래 단추(관리자, 기초 시간표)가 잘리지 않게 창 안에서 스크롤한다
+            maxHeight: `calc(100vh - ${menuTop + 8}px)`,
+            overflowY: 'auto',
           }}
           activeTab={activeTab}
           onOpenTab={onOpenTab}

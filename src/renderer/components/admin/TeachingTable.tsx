@@ -23,9 +23,9 @@ interface PreviewRow extends AssignmentRow {
 /**
  * 담당 학급 표. 나이스 시간표에는 교사 이름이 없어서, 이 표로 이름과 시간표를 잇는다.
  * 한 번 올리면 선생님은 로그인한 이름과 학교로 자동으로 연결된다.
- * 컴시간 파일(학교 기초 시간표)은 도구 모음의 기초 시간표 메뉴에서 올린다.
+ * 컴시간 파일(학교 기초 시간표)은 관리자 화면의 기초 시간표 탭(도구 모음의 기초 시간표와 같은 화면)에서 올린다.
  */
-export function TeachingTable({ users }: { users: User[] }) {
+export function TeachingTable({ users, onOpenBase }: { users: User[]; onOpenBase?: () => void }) {
   const me = useAuthStore((s) => s.user);
   const assignments = useComciganLinksStore((s) => s.assignments);
   const classTimes = useComciganLinksStore((s) => s.classTimes);
@@ -84,7 +84,7 @@ export function TeachingTable({ users }: { users: User[] }) {
     (replaceAuto || !autoNames.has(row.name)) && (replaceFileRows || !fileNames.has(row.name))
   )) ?? [];
 
-  // 기초 시간표는 기초 시간표 메뉴에서 올린다. 여기서는 올라 있는지만 보여 준다
+  // 기초 시간표는 기초 시간표 탭에서 올린다. 여기서는 올라 있는지만 보여 준다
   const base = bases[school] ?? null;
   const baseTeachers = useMemo(() => new Set(base?.lessons.map((l) => l.name) ?? []).size, [base]);
 
@@ -176,8 +176,13 @@ export function TeachingTable({ users }: { users: User[] }) {
           {base
             ? `선생님 ${baseTeachers}명 · 수업 ${base.lessons.length}칸${base.updatedAt ? ` · ${format(base.updatedAt, 'M/d HH:mm')} 올림` : ''}. `
             : basesDenied ? '서버 규칙이 적용되지 않아 읽지 못했습니다. ' : '아직 올리지 않았습니다. '}
-          컴시간 파일은 도구 모음의 기초 시간표 메뉴에서 올립니다. 올리면 이 표도 함께 채워집니다.
+          컴시간 파일은 기초 시간표 탭에서 올립니다. 올리면 이 표도 함께 채워집니다.
         </p>
+        {onOpenBase && (
+          <div style={styles.actions}>
+            <button type="button" onClick={onOpenBase} style={styles.btn}>기초 시간표 열기</button>
+          </div>
+        )}
       </section>
 
       <section style={styles.card}>

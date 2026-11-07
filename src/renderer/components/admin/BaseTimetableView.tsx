@@ -15,24 +15,17 @@ function isTimetableAdmin(user: { status?: string; role?: string } | null | unde
 }
 
 /**
- * 기초 시간표 메뉴. 태성중과 태성고의 컴시간 파일을 학교마다 올리고, 지금 올라 있는 표와 그 주 나이스 대조 결과를 본다.
+ * 태성중과 태성고 단추, 고른 학교의 기초 시간표 올리기.
+ * 관리자 화면의 기초 시간표 탭과 도구 모음의 기초 시간표 화면이 함께 쓴다.
  */
-export function BaseTimetableView({ onBack }: { onBack: () => void }) {
+export function BaseTimetablePanel() {
   const user = useAuthStore((s) => s.user);
   const bases = useComciganLinksStore((s) => s.bases);
   const isDark = useDarkMode();
   const [school, setSchool] = useState<School>(user?.school === 'taeseong_high' ? 'taeseong_high' : 'taeseong_middle');
 
   if (!isTimetableAdmin(user)) {
-    return (
-      <div style={styles.container}>
-        <div style={styles.toolbar}>
-          <button onClick={onBack} style={styles.backBtn} title="캘린더로 돌아가기"><Ic name="calendar" />캘린더</button>
-          <span style={styles.label}><Ic name="sheet" />기초 시간표</span>
-        </div>
-        <p style={styles.denied}>관리자 권한이 필요합니다.</p>
-      </div>
-    );
+    return <p style={styles.denied}>관리자 권한이 필요합니다.</p>;
   }
 
   const colorOf = (s: School) => {
@@ -41,12 +34,7 @@ export function BaseTimetableView({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.toolbar}>
-        <button onClick={onBack} style={styles.backBtn} title="캘린더로 돌아가기"><Ic name="calendar" />캘린더</button>
-        <span style={styles.label}><Ic name="sheet" />기초 시간표</span>
-      </div>
-
+    <div style={styles.panel}>
       <div style={styles.schoolToggle} role="group" aria-label="학교">
         {LINK_SCHOOLS.map((s) => {
           const base = bases[s];
@@ -81,8 +69,24 @@ export function BaseTimetableView({ onBack }: { onBack: () => void }) {
   );
 }
 
+/**
+ * 도구 모음의 기초 시간표 화면. 태성중과 태성고의 컴시간 파일을 학교마다 올리고, 지금 올라 있는 표와 그 주 나이스 대조 결과를 본다.
+ */
+export function BaseTimetableView({ onBack }: { onBack: () => void }) {
+  return (
+    <div style={styles.container}>
+      <div style={styles.toolbar}>
+        <button onClick={onBack} style={styles.backBtn} title="캘린더로 돌아가기"><Ic name="calendar" />캘린더</button>
+        <span style={styles.label}><Ic name="sheet" />기초 시간표</span>
+      </div>
+      <BaseTimetablePanel />
+    </div>
+  );
+}
+
 const styles: Record<string, React.CSSProperties> = {
   container: { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' },
+  panel: { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' },
   toolbar: {
     display: 'flex', alignItems: 'center', gap: 8,
     padding: '6px 12px', borderBottom: '1px solid var(--border-subtle)',

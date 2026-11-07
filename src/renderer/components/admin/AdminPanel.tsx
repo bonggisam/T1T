@@ -8,12 +8,14 @@ import type { User, UserStatus } from '@shared/types';
 import { SCHOOL_LABELS } from '@shared/types';
 import { Ic } from '../common/Ic';
 import { TeachingTable } from './TeachingTable';
+import { BaseTimetablePanel } from './BaseTimetableView';
 
 interface AdminPanelProps {
   onClose: () => void;
 }
 
 type SchoolFilter = 'all' | 'taeseong_middle' | 'taeseong_high';
+type AdminTab = 'pending' | 'active' | 'blocked' | 'links' | 'base';
 
 interface ActiveUserCardProps {
   u: User;
@@ -98,7 +100,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
   const [activeUsers, setActiveUsers] = useState<User[]>([]);
   const [blockedUsers, setBlockedUsers] = useState<User[]>([]);
   const [loadFailed, setLoadFailed] = useState(false);
-  const [tab, setTab] = useState<'pending' | 'active' | 'blocked' | 'links'>('pending');
+  const [tab, setTab] = useState<AdminTab>('pending');
   const [schoolFilter, setSchoolFilter] = useState<SchoolFilter>('all');
   const [loading, setLoading] = useState(true);
 
@@ -234,32 +236,43 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
         <button onClick={onClose} style={styles.closeBtn}><Ic name="x" gap={false} /></button>
       </div>
 
-      {/* Tab buttons */}
+      {/* Tab buttons. 좁은 창에서는 사용자 탭과 시간표 탭을 두 줄로 나눈다 */}
       <div style={styles.tabs}>
-        <button
-          onClick={() => { setTab('pending'); setSchoolFilter('all'); }}
-          style={{ ...styles.tab, ...(tab === 'pending' ? styles.tabActive : {}) }}
-        >
-          승인 대기 ({pendingUsers.length})
-        </button>
-        <button
-          onClick={() => { setTab('active'); setSchoolFilter('all'); }}
-          style={{ ...styles.tab, ...(tab === 'active' ? styles.tabActive : {}) }}
-        >
-          활성 사용자 ({activeUsers.length})
-        </button>
-        <button
-          onClick={() => { setTab('blocked'); setSchoolFilter('all'); }}
-          style={{ ...styles.tab, ...(tab === 'blocked' ? styles.tabActive : {}) }}
-        >
-          비활성·거절 ({blockedUsers.length})
-        </button>
-        <button
-          onClick={() => { setTab('links'); setSchoolFilter('all'); }}
-          style={{ ...styles.tab, ...(tab === 'links' ? styles.tabActive : {}) }}
-        >
-          담당 학급 표
-        </button>
+        <div style={{ ...styles.tabGroup, flexGrow: 3 }}>
+          <button
+            onClick={() => { setTab('pending'); setSchoolFilter('all'); }}
+            style={{ ...styles.tab, ...(tab === 'pending' ? styles.tabActive : {}) }}
+          >
+            승인 대기 ({pendingUsers.length})
+          </button>
+          <button
+            onClick={() => { setTab('active'); setSchoolFilter('all'); }}
+            style={{ ...styles.tab, ...(tab === 'active' ? styles.tabActive : {}) }}
+          >
+            활성 사용자 ({activeUsers.length})
+          </button>
+          <button
+            onClick={() => { setTab('blocked'); setSchoolFilter('all'); }}
+            style={{ ...styles.tab, ...(tab === 'blocked' ? styles.tabActive : {}) }}
+          >
+            비활성·거절 ({blockedUsers.length})
+          </button>
+        </div>
+        <div style={{ ...styles.tabGroup, flexGrow: 2 }}>
+          <button
+            onClick={() => { setTab('links'); setSchoolFilter('all'); }}
+            style={{ ...styles.tab, ...(tab === 'links' ? styles.tabActive : {}) }}
+          >
+            담당 학급 표
+          </button>
+          <button
+            onClick={() => { setTab('base'); setSchoolFilter('all'); }}
+            style={{ ...styles.tab, ...(tab === 'base' ? styles.tabActive : {}) }}
+            title="태성중, 태성고 컴시간 기초 시간표 올리기"
+          >
+            기초 시간표
+          </button>
+        </div>
       </div>
 
       {/* 학교별 서브필터 (활성 탭에서만) */}
@@ -283,10 +296,13 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
         </div>
       )}
 
-      {tab === 'links' && !loading && <TeachingTable users={activeUsers} />}
+      {tab === 'links' && !loading && <TeachingTable users={activeUsers} onOpenBase={() => setTab('base')} />}
+
+      {/* 태성중, 태성고 컴시간 파일 올리기. 도구 모음의 기초 시간표와 같은 화면이다 */}
+      {tab === 'base' && <BaseTimetablePanel />}
 
       {/* Content */}
-      {tab !== 'links' && <div style={styles.list}>
+      {tab !== 'links' && tab !== 'base' && <div style={styles.list}>
         {loading ? (
           <p style={styles.emptyMsg}>로딩 중...</p>
         ) : loadFailed ? (
@@ -432,14 +448,24 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 'var(--fs-lead)',
     color: 'var(--text-muted)',
   },
+  // 좁은 창에서는 글자를 꺾지 않고 탭 묶음을 두 줄로 놓는다
   tabs: {
     display: 'flex',
+    flexWrap: 'wrap',
     gap: 4,
     marginBottom: 10,
   },
+  tabGroup: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    flexShrink: 1,
+    flexBasis: 'auto',
+    gap: 4,
+  },
   tab: {
-    flex: 1,
-    padding: '6px 0',
+    flex: '1 0 auto',
+    padding: '6px 8px',
+    whiteSpace: 'nowrap',
     fontSize: 'var(--fs-body)',
     fontWeight: 500,
     border: 'none',
