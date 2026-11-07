@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   BookMarked, BookOpen, Building2, CalendarDays, CalendarSearch, CheckSquare, ClipboardCheck, ClipboardPaste, DoorOpen,
-  ListChecks, Moon, Phone,
+  FileSpreadsheet, ListChecks, Moon, Phone,
   Printer, Search, Settings, Share, Sun, Users, UtensilsCrossed,
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -25,6 +25,8 @@ interface ToolMenuProps {
   onPasteEvents?: () => void;
   onToggleSettings: () => void;
   onToggleAdmin: () => void;
+  /** 기초 시간표 메뉴. 관리자에게만 넘긴다 */
+  onOpenBase?: () => void;
   showAdmin: boolean;
   theme?: 'light' | 'dark';
   onToggleTheme?: () => void;
@@ -48,7 +50,7 @@ export const TOOL_TABS: Array<{ tab: ToolTab; label: string; Icon: React.Compone
 /** 아이콘만 늘어놓던 제목 줄 대신, 이름이 붙은 도구 모음 */
 export function ToolMenu({
   style, popRef, activeTab, onOpenTab, onOpenCalendar, onPasteEvents,
-  onToggleSettings, onToggleAdmin, showAdmin, theme, onToggleTheme, onClose,
+  onToggleSettings, onToggleAdmin, onOpenBase, showAdmin, theme, onToggleTheme, onClose,
 }: ToolMenuProps) {
   const user = useAuthStore((s) => s.user);
   const setCalendarTool = useUIStore((s) => s.setCalendarTool);
@@ -135,6 +137,16 @@ export function ToolMenu({
         {showAdmin && (
           <button role="menuitem" className="tool-btn" onClick={() => run(onToggleAdmin)}>
             <Users size={19} strokeWidth={2} />관리자
+          </button>
+        )}
+        {showAdmin && onOpenBase && (
+          <button
+            role="menuitem"
+            className={`tool-btn${activeTab === 'base' ? ' on' : ''}`}
+            onClick={() => run(onOpenBase)}
+            title="태성중, 태성고 컴시간 기초 시간표 올리기 (관리자)"
+          >
+            <FileSpreadsheet size={19} strokeWidth={2} />기초 시간표
           </button>
         )}
       </div>

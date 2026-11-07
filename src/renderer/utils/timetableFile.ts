@@ -3,7 +3,10 @@
  *
  * 세 가지 모양을 읽는다. 담긴 내용은 같다.
  * - 주간시간표: 줄은 요일과 교시, 칸은 교사. 칸 값은 "204 영II"(학년과 반, 과목 줄임말)
+ *   중학교 프로그램은 가로세로를 바꿔 줄은 교사, 칸은 요일과 교시로 저장한다. 교사 칸은 "(1)홍길동 (18)"
  * - 교사시간표: 교사마다 표 하나. 줄은 교시와 시작 시각, 칸은 요일. 시정표도 여기서 얻는다
+ *   고등학교 파일은 "홍길동 시간표" 제목 줄 아래 "교시, 월, 화…" 머리 줄이 오고 교시 칸은 "1교시(08:40)"다.
+ *   중학교 파일은 제목 줄 없이 머리 줄 첫 칸에 이름을 쓰고("홍길동, 월, 화…") 교시 칸은 "1(09:05)"다
  * - 전체시간표: 줄은 학년과 반, 칸은 요일과 교시. 칸 값은 "영II 홍길동"(과목, 교사)
  *
  * 프로그램은 보통 EUC-KR로 저장한다.
@@ -95,6 +98,43 @@ function isTableEnd(row: string[]): boolean {
   return row.length <= 1 && (row[0] ?? '').startsWith(';');
 }
 
+/** 교사 칸: "홍길동 (18)", "(1)홍길동 (18)". 앞의 번호와 뒤의 시수를 뗀다 */
+function teacherHead(value: string): { name: string; hours: number | null } | null {
+  const match = value.match(/^(?:\(\s*\d+\s*\)\s*)?(.*?)\s*(?:\(\s*(\d+)\s*\))?$/);
+  const name = (match?.[1] ?? '').trim();
+  return name ? { name, hours: match?.[2] !== undefined ? Number(match[2]) : null } : null;
+}
+
+/** 요일 이름만 있는 머리 칸들인가. 빈 칸은 앞 요일이 이어진다는 뜻이다 */
+function isDayHeader(cells: string[]): boolean {
+  const filled = cells.filter(Boolean);
+  return filled.filter((d) => WEEKDAYS[d]).length >= 3 && filled.every((d) => WEEKDAYS[d] || d === '토');
+}
+
+/** 교시 칸: "1교시", "1교시(08:40)", "1(09:05)". 숫자만 있으면 교시 칸으로 보지 않는다 */
+function periodHead(value: string): { period: number; time?: string } | null {
+  const match = value.match(/^(\d{1,2})\s*(교시)?\s*(?:\(\s*(\d{1,2}:\d{2})\s*\))?/);
+  if (!match || (!match[2] && !match[3])) return null;
+  return { period: Number(match[1]), time: match[3] };
+}
+
+/** 머리 줄의 요일과 그 아래 줄의 교시로 칸마다 요일과 교시를 정한다. from은 첫 수업 칸 */
+function slotColumns(dayRow: string[], periodRow: string[], from: number): Array<{ weekday: number; period: number }> {
+  const columns: Array<{ weekday: number; period: number }> = [];
+  let weekday = 0;
+  for (let j = from; j < Math.max(dayRow.length, periodRow.length); j++) {
+    if (dayRow[j]) weekday = WEEKDAYS[dayRow[j]] ?? 0;
+    columns.push({ weekday, period: Number(periodRow[j]) });
+  }
+  return columns;
+}
+
+function countByName(lessons: FileLesson[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const l of lessons) counts.set(l.name, (counts.get(l.name) ?? 0) + 1);
+  return counts;
+}
+
 function result(kind: TimetableFileKind, teachers: string[], lessons: FileLesson[], classTimes: string[], warnings: string[]): TimetableFile {
   const seen = new Set<string>();
   const unique = lessons.filter((l) => {
@@ -107,10 +147,7 @@ function result(kind: TimetableFileKind, teachers: string[], lessons: FileLesson
 }
 
 function parseWeekly(rows: string[][], headerAt: number): TimetableFile {
-  const header = rows[headerAt].slice(2).map((h) => {
-    const match = h.match(/^(.*?)\s*\((\d+)\)$/);
-    return { name: (match ? match[1] : h).trim(), hours: match ? Number(match[2]) : null };
-  });
+  const header = rows[headerAt].slice(2).map((h) => teacherHead(h) ?? { name: '', hours: null });
   const lessons: FileLesson[] = [];
   let weekday = 0;
   let skipped = 0;
@@ -130,11 +167,38 @@ function parseWeekly(rows: string[][], headerAt: number): TimetableFile {
   }
   const warnings: string[] = [];
   if (skipped > 0) warnings.push(`읽지 못한 칸 ${skipped}개`);
-  const counts = new Map<string, number>();
-  for (const l of lessons) counts.set(l.name, (counts.get(l.name) ?? 0) + 1);
+  const counts = countByName(lessons);
   const off = header.filter((h) => h.name && h.hours !== null && h.hours !== (counts.get(h.name) ?? 0)).length;
   if (off > 0) warnings.push(`시수가 칸 수와 다른 교사 ${off}명`);
   return result('weekly', header.map((h) => h.name).filter(Boolean), lessons, [], warnings);
+}
+
+/** 가로세로를 바꾼 주간시간표: 머리 줄 "교사명, 월, , 화…", 그 아래 줄 교시 번호, 그 뒤 교사마다 한 줄 */
+function parseWeeklyByTeacher(rows: string[][], headerAt: number): TimetableFile {
+  const columns = slotColumns(rows[headerAt], rows[headerAt + 1] ?? [], 1);
+  const teachers: Array<{ name: string; hours: number | null }> = [];
+  const lessons: FileLesson[] = [];
+  let skipped = 0;
+  for (let i = headerAt + 2; i < rows.length; i++) {
+    const row = rows[i];
+    if (isTableEnd(row)) break;
+    const head = teacherHead(row[0] ?? '');
+    if (!head) continue;
+    teachers.push(head);
+    row.slice(1).forEach((value, j) => {
+      if (!value) return;
+      const col = columns[j];
+      const cell = lessonCell(value);
+      if (!cell || !col?.weekday || !Number.isInteger(col.period) || col.period < 1) { skipped++; return; }
+      lessons.push({ name: head.name, weekday: col.weekday, period: col.period, ...cell });
+    });
+  }
+  const warnings: string[] = [];
+  if (skipped > 0) warnings.push(`읽지 못한 칸 ${skipped}개`);
+  const counts = countByName(lessons);
+  const off = teachers.filter((t) => t.hours !== null && t.hours !== (counts.get(t.name) ?? 0)).length;
+  if (off > 0) warnings.push(`시수가 칸 수와 다른 교사 ${off}명`);
+  return result('weekly', teachers.map((t) => t.name), lessons, [], warnings);
 }
 
 function parseTeacherBlocks(rows: string[][]): TimetableFile {
@@ -154,15 +218,23 @@ function parseTeacherBlocks(rows: string[][]): TimetableFile {
       }
       continue;
     }
+    // 중학교 파일: 제목 줄 없이 머리 줄 첫 칸이 이름이다
+    if (row[0] && row[0] !== '교시' && isDayHeader(row.slice(1))) {
+      const head = teacherHead(row[0]);
+      name = head ? head.name : null;
+      if (name) teachers.push(name);
+      days = row.slice(1).map((d) => WEEKDAYS[d] ?? 0);
+      continue;
+    }
     if (!name) continue;
     if (row[0] === '교시') {
       days = row.slice(1).map((d) => WEEKDAYS[d] ?? 0);
       continue;
     }
-    const head = row[0].match(/^(\d{1,2})\s*교시\s*(?:\(\s*(\d{1,2}:\d{2})\s*\))?/);
+    const head = periodHead(row[0]);
     if (!head) continue;
-    const period = Number(head[1]);
-    if (head[2]) times.set(period, head[2].padStart(5, '0'));
+    const period = head.period;
+    if (head.time) times.set(period, head.time.padStart(5, '0'));
     row.slice(1).forEach((value, j) => {
       if (!value) return;
       const weekday = days[j] ?? 0;
@@ -184,14 +256,7 @@ function parseTeacherBlocks(rows: string[][]): TimetableFile {
 }
 
 function parseWhole(rows: string[][], headerAt: number): TimetableFile {
-  const dayRow = rows[headerAt];
-  const periodRow = rows[headerAt + 1] ?? [];
-  const columns: Array<{ weekday: number; period: number }> = [];
-  let weekday = 0;
-  for (let j = 2; j < Math.max(dayRow.length, periodRow.length); j++) {
-    if (dayRow[j]) weekday = WEEKDAYS[dayRow[j]] ?? 0;
-    columns.push({ weekday, period: Number(periodRow[j]) });
-  }
+  const columns = slotColumns(rows[headerAt], rows[headerAt + 1] ?? [], 2);
   const lessons: FileLesson[] = [];
   let grade = 0;
   let skipped = 0;
@@ -222,8 +287,16 @@ export function parseTimetableFile(text: string): TimetableFile | null {
   if (whole >= 0) return parseWhole(rows, whole);
   const weekly = rows.findIndex((r) => r[0] === '요일' && r[1] === '교시');
   if (weekly >= 0) return parseWeekly(rows, weekly);
+  // 머리 줄 아래 줄이 교시 번호뿐이면 가로세로를 바꾼 주간시간표다
+  const byTeacher = rows.findIndex((r, i) => {
+    const next = rows[i + 1];
+    return !!r[0] && isDayHeader(r.slice(1)) && !!next && !next[0] && next[1] === '1'
+      && next.slice(1).every((p) => !p || /^\d{1,2}$/.test(p));
+  });
+  if (byTeacher >= 0) return parseWeeklyByTeacher(rows, byTeacher);
   const hasTitles = rows.some((r) => r.length === 1 && /\S\s*시간표$/.test(r[0]));
   const hasPeriods = rows.some((r) => r[0] === '교시' && r.includes('월'));
-  if (hasTitles && hasPeriods) return parseTeacherBlocks(rows);
+  const namedHeads = rows.some((r, i) => !!r[0] && r[0] !== '교시' && isDayHeader(r.slice(1)) && !!periodHead(rows[i + 1]?.[0] ?? ''));
+  if ((hasTitles && hasPeriods) || namedHeads) return parseTeacherBlocks(rows);
   return null;
 }

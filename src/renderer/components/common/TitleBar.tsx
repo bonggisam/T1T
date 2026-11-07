@@ -39,6 +39,8 @@ interface TitleBarProps {
   /** 달력 화면으로 돌아간다 */
   onOpenCalendar?: () => void;
   onPasteEvents?: () => void;
+  /** 기초 시간표 메뉴. 관리자에게만 넘긴다 */
+  onOpenBase?: () => void;
   theme?: 'light' | 'dark';
   onToggleTheme?: () => void;
   onGoHome?: () => void; // 메인 달력으로 복귀
@@ -50,7 +52,7 @@ interface TitleBarProps {
  */
 export function TitleBar({
   onToggleSettings, onToggleAdmin, showSettingsBtn, showAdminBtn,
-  activeTab = null, onOpenTab, onOpenCalendar, onPasteEvents,
+  activeTab = null, onOpenTab, onOpenCalendar, onPasteEvents, onOpenBase,
   theme, onToggleTheme, onGoHome,
 }: TitleBarProps) {
   const user = useAuthStore((s) => s.user);
@@ -179,6 +181,7 @@ export function TitleBar({
           onPasteEvents={onPasteEvents}
           onToggleSettings={onToggleSettings}
           onToggleAdmin={onToggleAdmin}
+          onOpenBase={showAdminBtn ? onOpenBase : undefined}
           showAdmin={showAdminBtn}
           theme={theme}
           onToggleTheme={onToggleTheme}

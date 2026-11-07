@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 import { onSnapshot } from 'firebase/firestore';
 import { SCHOOL_LABELS } from '@shared/types';
-import type { ComciganLinkDoc, School, TeachingAssignment } from '@shared/types';
+import type { BaseTimetable, ComciganLinkDoc, School, TeachingAssignment } from '@shared/types';
 import { getNeisConfig } from '../utils/neisSchedule';
 import { loadNeisWeek, NeisTimetableError } from '../utils/neisTimetable';
 import { buildSchoolGrid } from '../utils/teachingAssignments';
-import { parseAssignmentDoc, parseClassTimesDoc, schoolTimesDoc, teachersCollection } from '../utils/teachingDocs';
+import {
+  baseDoc, parseAssignmentDoc, parseBaseDoc, parseClassTimesDoc, schoolTimesDoc, teachersCollection,
+} from '../utils/teachingDocs';
 import type { SchoolGrids, SchoolLinks } from '../utils/meetingFinder';
 import { useUsersStore } from './usersStore';
 
@@ -51,6 +53,10 @@ interface ComciganLinksState {
   assignments: Partial<Record<School, TeachingAssignment[]>>;
   /** 학교별 시정표 */
   classTimes: Partial<Record<School, string[]>>;
+  /** 학교별 기초 시간표. 컴시간 파일을 올린 적이 없으면 null */
+  bases: Partial<Record<School, BaseTimetable | null>>;
+  /** 기초 시간표를 읽을 권한이 없다. 서버 규칙이 아직 배포되지 않았다 */
+  basesDenied: boolean;
   links: SchoolLinks;
   linksLoaded: boolean;
   /** 서버 규칙이 아직 배포되지 않았거나 읽을 권한이 없다 */
@@ -68,6 +74,8 @@ interface ComciganLinksState {
 export const useComciganLinksStore = create<ComciganLinksState>((set, get) => ({
   assignments: {},
   classTimes: {},
+  bases: {},
+  basesDenied: false,
   links: {},
   linksLoaded: false,
   linksDenied: false,
@@ -108,6 +116,14 @@ export const useComciganLinksStore = create<ComciganLinksState>((set, get) => ({
           const times = snap.exists() ? parseClassTimesDoc(snap.data()) : [];
           set((state) => ({ classTimes: { ...state.classTimes, [school]: times } }));
         }, (err) => console.warn('[Teaching] class times error:', err)),
+        // 규칙이 아직 없는 서버에서는 읽지 못한다. 그러면 담당 학급 표만으로 맞춘다
+        onSnapshot(baseDoc(school), (snap) => {
+          const base = snap.exists() ? parseBaseDoc(school, snap.data()) : null;
+          set((state) => ({ basesDenied: false, bases: { ...state.bases, [school]: base } }));
+        }, (err) => {
+          console.warn('[Teaching] base timetable error:', err);
+          set({ basesDenied: true });
+        }),
       ];
     });
     // 가입이나 이름 변경으로 명단이 바뀌면 다시 잇는다
@@ -123,6 +139,8 @@ export const useComciganLinksStore = create<ComciganLinksState>((set, get) => ({
       unsubscribers: [],
       assignments: {},
       classTimes: {},
+      bases: {},
+      basesDenied: false,
       links: {},
       linksLoaded: false,
       linksDenied: false,
@@ -132,7 +150,7 @@ export const useComciganLinksStore = create<ComciganLinksState>((set, get) => ({
   },
 
   loadGrids: async (force = false) => {
-    const { assignments, classTimes } = get();
+    const { assignments, classTimes, bases } = get();
     const targets = LINK_SCHOOLS.filter((school) => (assignments[school]?.length ?? 0) > 0);
     if (targets.length === 0) {
       set({ gridLoading: false, gridError: null, grids: {} });
@@ -143,7 +161,9 @@ export const useComciganLinksStore = create<ComciganLinksState>((set, get) => ({
       const week = await loadNeisWeek(school, force);
       return {
         school,
-        grid: buildSchoolGrid(schoolCodeOf(school), week.cells, assignments[school] ?? [], classTimes[school] ?? []),
+        grid: buildSchoolGrid(
+          schoolCodeOf(school), week.cells, assignments[school] ?? [], classTimes[school] ?? [], bases[school]?.lessons,
+        ),
       };
     }));
     const grids: SchoolGrids = {};

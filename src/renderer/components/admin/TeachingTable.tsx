@@ -1,25 +1,18 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { deleteDoc } from 'firebase/firestore';
+import { format } from 'date-fns';
 import type { School, User } from '@shared/types';
 import { SCHOOL_LABELS } from '@shared/types';
 import { useAuthStore } from '../../store/authStore';
 import { LINK_SCHOOLS, useComciganLinksStore } from '../../store/comciganLinksStore';
 import { loadNeisWeek, type NeisCell } from '../../utils/neisTimetable';
 import {
-  assignmentsFromLessons, formatClassTimes, formatItems, parseAssignmentText, parseClassTimesText, resolveItems,
-  type AssignmentRow, type BaseAssignments,
+  formatClassTimes, formatItems, parseAssignmentText, parseClassTimesText, resolveItems, type AssignmentRow,
 } from '../../utils/teachingAssignments';
-import { decodeTimetableFile, parseTimetableFile, TIMETABLE_FILE_LABEL, type TimetableFile } from '../../utils/timetableFile';
 import { saveAssignmentRows, saveClassTimes, teacherDoc } from '../../utils/teachingDocs';
 import { showToast } from '../common/Toast';
 
 const SOURCE_LABEL: Record<string, string> = { admin: '관리자 표', self: '본인 입력', timetable: '자동', file: '컴시간 파일' };
-/** 컴시간에서 저장한 시간표 CSV는 수십 KB다 */
-const MAX_FILE_BYTES = 2 * 1024 * 1024;
-/** 이번 주 나이스와 같은 칸이 이보다 적으면 다른 학교 파일로 보고 저장하지 않는다 */
-const WRONG_SCHOOL_RATE = 0.3;
-/** 이보다 적으면 시험이나 행사 주간일 수 있다고 알린다 */
-const UNUSUAL_WEEK_RATE = 0.9;
 
 interface PreviewRow extends AssignmentRow {
   /** 나이스 시간표의 그 학급에서 찾지 못한 과목 */
@@ -30,11 +23,14 @@ interface PreviewRow extends AssignmentRow {
 /**
  * 담당 학급 표. 나이스 시간표에는 교사 이름이 없어서, 이 표로 이름과 시간표를 잇는다.
  * 한 번 올리면 선생님은 로그인한 이름과 학교로 자동으로 연결된다.
+ * 컴시간 파일(학교 기초 시간표)은 도구 모음의 기초 시간표 메뉴에서 올린다.
  */
 export function TeachingTable({ users }: { users: User[] }) {
   const me = useAuthStore((s) => s.user);
   const assignments = useComciganLinksStore((s) => s.assignments);
   const classTimes = useComciganLinksStore((s) => s.classTimes);
+  const bases = useComciganLinksStore((s) => s.bases);
+  const basesDenied = useComciganLinksStore((s) => s.basesDenied);
   const linksLoaded = useComciganLinksStore((s) => s.linksLoaded);
   const linksDenied = useComciganLinksStore((s) => s.linksDenied);
 
@@ -48,12 +44,6 @@ export function TeachingTable({ users }: { users: User[] }) {
   const [replaceAuto, setReplaceAuto] = useState(false);
   const [replaceFileRows, setReplaceFileRows] = useState(false);
   const [timesText, setTimesText] = useState('');
-  const [upload, setUpload] = useState<{ fileName: string; file: TimetableFile } | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [replaceSelf, setReplaceSelf] = useState(false);
-  const [useFileTimes, setUseFileTimes] = useState(true);
-  const [dragging, setDragging] = useState(false);
-  const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -63,7 +53,6 @@ export function TeachingTable({ users }: { users: User[] }) {
     setBadLines([]);
     setReplaceAuto(false);
     setReplaceFileRows(false);
-    setReplaceSelf(false);
     loadNeisWeek(school)
       .then((week) => { if (active) setCells(week.cells); })
       .catch((err) => { if (active) setNeisError(err?.message || '나이스에서 시간표를 받지 못했습니다'); });
@@ -89,34 +78,15 @@ export function TeachingTable({ users }: { users: User[] }) {
   const autoNames = useMemo(() => namesOf('timetable'), [rows]);
   // 컴시간 파일로 만든 표는 학교 전체 시간표에서 나온 정확한 값이라 붙여 넣기로 바꿀 때 묻는다
   const fileNames = useMemo(() => namesOf('file'), [rows]);
-  const selfNames = useMemo(() => namesOf('self'), [rows]);
   const autoCount = preview?.filter((row) => autoNames.has(row.name)).length ?? 0;
   const fileRowCount = preview?.filter((row) => fileNames.has(row.name)).length ?? 0;
   const toSave = preview?.filter((row) => (
     (replaceAuto || !autoNames.has(row.name)) && (replaceFileRows || !fileNames.has(row.name))
   )) ?? [];
 
-  // ─── 컴시간 파일 ───
-  const fileResult = useMemo<BaseAssignments | null>(
-    () => (upload && cells && cells.length > 0 ? assignmentsFromLessons(upload.file.lessons, cells) : null),
-    [upload, cells],
-  );
-  const fileRows = fileResult?.rows ?? [];
-  const fileSelfCount = fileRows.filter((row) => selfNames.has(row.name)).length;
-  const fileToSave = fileRows.filter((row) => replaceSelf || !selfNames.has(row.name));
-  const fileNoAccount = fileRows.filter((row) => !accountNames.has(row.name)).length;
-  const matchRate = fileResult && fileResult.total > 0 ? fileResult.sameCells / fileResult.total : 0;
-  const wrongSchool = !!fileResult && matchRate < WRONG_SCHOOL_RATE;
-  const unusualWeek = !!fileResult && !wrongSchool && matchRate < UNUSUAL_WEEK_RATE;
-  // 시험 주간처럼 나이스가 평소와 크게 다르면 과목 이름을 못 맞춘 수업이 고정 칸으로 남는다. 그 주에는 저장하지 않는다
-  const unusualBlocked = unusualWeek && (fileResult?.unresolved.length ?? 0) > 0;
-  const fileTimes = upload?.file.classTimes ?? [];
-  const timesDiffer = fileTimes.length > 0 && formatClassTimes(fileTimes) !== formatClassTimes(savedTimes ?? []);
-  const unresolvedByName = useMemo(() => {
-    const byName = new Map<string, string[]>();
-    for (const u of fileResult?.unresolved ?? []) byName.set(u.name, [...(byName.get(u.name) ?? []), `${u.subject} ${u.grade}-${u.classNum}`]);
-    return byName;
-  }, [fileResult]);
+  // 기초 시간표는 기초 시간표 메뉴에서 올린다. 여기서는 올라 있는지만 보여 준다
+  const base = bases[school] ?? null;
+  const baseTeachers = useMemo(() => new Set(base?.lessons.map((l) => l.name) ?? []).size, [base]);
 
   function handlePreview() {
     const parsed = parseAssignmentText(text);
@@ -150,59 +120,6 @@ export function TeachingTable({ users }: { users: User[] }) {
     } finally {
       setSaving(false);
     }
-  }
-
-  async function handleFile(file: File | null | undefined) {
-    if (!file) return;
-    setUploadError(null);
-    setReplaceSelf(false);
-    setUseFileTimes(true);
-    if (file.size > MAX_FILE_BYTES) {
-      setUpload(null);
-      setUploadError('파일이 너무 큽니다. 컴시간에서 저장한 시간표 CSV 파일인지 확인해 주세요.');
-      return;
-    }
-    try {
-      const parsed = parseTimetableFile(decodeTimetableFile(await file.arrayBuffer()));
-      if (!parsed || parsed.lessons.length === 0) {
-        setUpload(null);
-        setUploadError('컴시간 시간표로 읽지 못했습니다. 컴시간 프로그램에서 주간시간표, 교사시간표, 전체시간표 중 하나를 CSV로 저장해 올려 주세요.');
-        return;
-      }
-      setUpload({ fileName: file.name, file: parsed });
-    } catch (err) {
-      console.warn('[Teaching] file read failed:', err);
-      setUpload(null);
-      setUploadError('파일을 읽지 못했습니다');
-    }
-  }
-
-  async function handleSaveFile() {
-    if (!me || !fileResult || saving || wrongSchool || unusualBlocked || fileToSave.length === 0) return;
-    setSaving(true);
-    const withTimes = useFileTimes && timesDiffer;
-    try {
-      await saveAssignmentRows(school, fileToSave.map(({ name, items, slots }) => ({ name, items, slots })), me.id, 'file');
-    } catch (err: any) {
-      console.warn('[Teaching] file save failed:', err);
-      showToast(err?.code === 'permission-denied' ? '서버 규칙이 아직 적용되지 않아 저장하지 못했습니다' : '표를 저장하지 못했습니다', 'error');
-      setSaving(false);
-      return;
-    }
-    let timesSaved = withTimes;
-    if (withTimes) {
-      try {
-        await saveClassTimes(school, fileTimes, me.id);
-      } catch (err) {
-        console.warn('[Teaching] class times save failed:', err);
-        timesSaved = false;
-      }
-    }
-    if (withTimes && !timesSaved) showToast(`${fileToSave.length}명을 저장했지만 시정표는 저장하지 못했습니다`, 'error');
-    else showToast(`${fileToSave.length}명을 저장했습니다${timesSaved ? '. 시정표도 바꿨습니다' : ''}`, 'success');
-    setUpload(null);
-    setReplaceSelf(false);
-    setSaving(false);
   }
 
   async function handleRemove(name: string) {
@@ -253,96 +170,14 @@ export function TeachingTable({ users }: { users: User[] }) {
       {linksDenied && <p style={styles.warn}>표를 읽지 못했습니다. 서버 규칙 적용 여부를 확인해 주세요.</p>}
       {neisError && <p style={styles.warn}>{neisError}. 과목 이름 확인 없이 저장됩니다.</p>}
 
-      <section
-        style={{ ...styles.card, ...(dragging ? styles.cardDrop : {}) }}
-        aria-label="컴시간 파일 올리기"
-        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(e) => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer.files?.[0]); }}
-      >
-        <h4 style={styles.h4}>컴시간 파일 올리기</h4>
+      <section style={styles.card} aria-label="기초 시간표">
+        <h4 style={styles.h4}>기초 시간표</h4>
         <p style={styles.note}>
-          학교 컴시간 프로그램에서 저장한 주간시간표, 교사시간표, 전체시간표 중 하나(CSV)를 올리면 모든 선생님의 담당 학급을 한 번에 만듭니다.
-          수업 교체는 나이스 시간표를 따라 매주 저절로 반영됩니다.
+          {base
+            ? `선생님 ${baseTeachers}명 · 수업 ${base.lessons.length}칸${base.updatedAt ? ` · ${format(base.updatedAt, 'M/d HH:mm')} 올림` : ''}. `
+            : basesDenied ? '서버 규칙이 적용되지 않아 읽지 못했습니다. ' : '아직 올리지 않았습니다. '}
+          컴시간 파일은 도구 모음의 기초 시간표 메뉴에서 올립니다. 올리면 이 표도 함께 채워집니다.
         </p>
-        <div style={styles.actions}>
-          <button type="button" onClick={() => fileInput.current?.click()} style={styles.btn}>파일 고르기</button>
-          <span style={styles.tag}>{upload ? upload.fileName : '여기에 끌어다 놓아도 됩니다'}</span>
-          <input
-            ref={fileInput}
-            type="file"
-            accept=".csv,text/csv"
-            aria-label="컴시간 시간표 파일"
-            style={{ display: 'none' }}
-            onChange={(e) => { handleFile(e.target.files?.[0]); e.target.value = ''; }}
-          />
-        </div>
-        {uploadError && <p style={styles.warn}>{uploadError}</p>}
-        {upload && !cells && !neisError && <p style={styles.note}>나이스 시간표를 받는 중입니다</p>}
-        {upload && (neisError || cells?.length === 0) && (
-          <p style={styles.warn}>나이스 시간표가 있어야 과목 이름을 맞출 수 있습니다. 수업이 있는 주에 다시 올려 주세요.</p>
-        )}
-        {upload && fileResult && (
-          <>
-            <p style={styles.note}>
-              {TIMETABLE_FILE_LABEL[upload.file.kind]} · 선생님 {fileRows.length}명 · 수업 {fileResult.total}칸 ·
-              이번 주 나이스와 같은 칸 {fileResult.sameCells}칸({Math.round(matchRate * 100)}%)
-            </p>
-            {wrongSchool && (
-              <p style={styles.warn}>이번 주 {SCHOOL_LABELS[school]} 나이스 시간표와 거의 맞지 않습니다. 학교를 바르게 골랐는지 확인해 주세요.</p>
-            )}
-            {unusualBlocked && (
-              <p style={styles.warn}>
-                이번 주 나이스 시간표가 평소와 많이 달라(시험이나 행사 주간일 수 있습니다) 과목 {fileResult.unresolved.length}개의 이름을 맞추지 못했습니다.
-                평소 수업을 하는 주에 다시 올려 주세요.
-              </p>
-            )}
-            {unusualWeek && !unusualBlocked && (
-              <p style={styles.note}>이번 주 나이스 시간표가 평소와 꽤 다르지만 과목 이름은 모두 맞췄습니다.</p>
-            )}
-            {!unusualBlocked && fileResult.unresolved.length > 0 && (
-              <p style={styles.warn}>나이스에서 찾지 못한 과목 {fileResult.unresolved.length}개는 요일과 교시를 그대로 둡니다.</p>
-            )}
-            {upload.file.warnings.map((w) => <p key={w} style={styles.warn}>{w}</p>)}
-            {fileNoAccount > 0 && <p style={styles.note}>아직 가입하지 않은 선생님 {fileNoAccount}명은 가입하면 바로 연결됩니다.</p>}
-            {fileSelfCount > 0 && (
-              <label style={styles.check}>
-                <input type="checkbox" checked={replaceSelf} onChange={(e) => setReplaceSelf(e.target.checked)} />
-                직접 고친 {fileSelfCount}명도 파일대로 바꾸기
-              </label>
-            )}
-            {timesDiffer && (
-              <label style={styles.check}>
-                <input type="checkbox" checked={useFileTimes} onChange={(e) => setUseFileTimes(e.target.checked)} />
-                시정표도 파일대로 바꾸기: {formatClassTimes(fileTimes)}
-              </label>
-            )}
-            <div style={styles.actions}>
-              <button
-                type="button"
-                onClick={handleSaveFile}
-                disabled={saving || wrongSchool || unusualBlocked || fileToSave.length === 0}
-                style={styles.primary}
-              >
-                {saving ? '저장 중...' : `${fileToSave.length}명 저장`}
-              </button>
-              <button type="button" onClick={() => setUpload(null)} style={styles.btn}>취소</button>
-            </div>
-            <ul style={styles.list} aria-label="파일에서 읽은 표">
-              {fileRows.map((row) => (
-                <li key={row.name} style={styles.item}>
-                  <b style={styles.name}>{row.name}</b>
-                  <span style={styles.items}>{formatItems(row.items, row.slots)}</span>
-                  {!accountNames.has(row.name) && <span style={styles.tag}>가입 전</span>}
-                  {selfNames.has(row.name) && !replaceSelf && <span style={styles.tag}>직접 고친 값 유지</span>}
-                  {unresolvedByName.get(row.name) && (
-                    <span style={styles.warnTag}>나이스에 없음: {unresolvedByName.get(row.name)?.join(', ')}</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
       </section>
 
       <section style={styles.card}>
@@ -456,7 +291,6 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--border-color)',
     borderRadius: 8,
   },
-  cardDrop: { borderColor: 'var(--accent)', background: 'var(--bg-secondary)' },
   h4: { margin: 0, fontSize: 'var(--fs-label)', fontWeight: 700, color: 'var(--text-primary)' },
   note: { margin: 0, fontSize: 'var(--fs-caption)', color: 'var(--text-secondary)', wordBreak: 'keep-all' },
   warn: { margin: 0, fontSize: 'var(--fs-caption)', color: 'var(--warning)', wordBreak: 'keep-all' },

@@ -6,8 +6,11 @@
  * - 관리자가 붙여 넣은 표
  * - 본인이 직접 넣은 값
  */
-import type { ComciganSchoolGrid, ComciganTeacherSlots, TeacherPeriod, TeachingItem, TeachingSlot } from '@shared/types';
+import type {
+  BaseTimetableLesson, ComciganSchoolGrid, ComciganTeacherSlots, TeacherPeriod, TeachingItem, TeachingSlot, TeachingSource,
+} from '@shared/types';
 import type { NeisCell } from './neisTimetable';
+import { applyBaseWeek, baseHasTeacher, type AppliedLesson } from './baseTimetable';
 
 const WEEKDAY_NAMES = ['월', '화', '수', '목', '금'];
 const koCompare = (a: string, b: string) => a.localeCompare(b, 'ko');
@@ -171,12 +174,20 @@ export interface BaseLesson {
 
 export interface BaseAssignments {
   rows: AssignmentRow[];
-  /** 나이스에서 이름을 찾지 못한 과목. 요일과 교시를 그대로 둔다 */
-  unresolved: Array<TeachingItem & { name: string }>;
+  /** 학교 기초 시간표. 과목은 나이스 이름이다. 매일 나이스와 칸마다 대조한다 */
+  lessons: BaseTimetableLesson[];
+  /**
+   * 나이스에서 이름을 찾지 못한 과목. 요일과 교시를 그대로 둔다.
+   * inNeis는 이번 주 학교 나이스 어딘가에 비슷한 이름이 있다는 뜻이다. 없으면 스포츠클럽(나이스는 동아리활동)처럼
+   * 나이스가 늘 다른 이름으로 적는 수업이라 어느 주에 올려도 맞추지 못한다
+   */
+  unresolved: Array<TeachingItem & { name: string; inNeis: boolean }>;
   /** 여럿이 나눠 가르쳐 요일과 교시로 둔 학급-과목 수 */
   shared: number;
   /** 기초 시간표의 칸 중 이번 주 나이스에도 같은 칸에 같은 과목이 있는 칸 */
   sameCells: number;
+  /** 나이스와 견줄 수 있는 칸. 나이스에 비슷한 이름이 없는 과목의 칸은 뺀다 */
+  comparable: number;
   total: number;
 }
 
@@ -185,6 +196,7 @@ export interface BaseAssignments {
  * 과목 줄임말은 그 수업 칸들에 나이스가 적은 과목 이름으로 바꾼다. 칸에서 찾지 못하면 그 학급에 맞는 이름이 하나뿐일 때만 쓴다.
  * 학급의 한 과목을 혼자 가르치면 담당 학급으로 둔다. 나이스를 따라가므로 수업 교체가 저절로 반영된다.
  * 여럿이 나눠 가르치거나 이름을 맞추지 못한 수업은 요일과 교시를 고정 수업 칸으로 둔다.
+ * 같은 이름으로 바꾼 학교 기초 시간표(lessons)도 돌려준다. 이 표로 연결된 앱은 담당 학급 대신 이것을 나이스와 칸마다 대조한다.
  */
 export function assignmentsFromLessons(lessons: BaseLesson[], cells: NeisCell[]): BaseAssignments {
   const at = (weekday: number, period: number, grade: number, classNum: number) => `${weekday}-${period}|${grade}-${classNum}`;
@@ -241,9 +253,12 @@ export function assignmentsFromLessons(lessons: BaseLesson[], cells: NeisCell[])
   }
 
   const byName = new Map<string, ParsedLine>();
-  const unresolved: Array<TeachingItem & { name: string }> = [];
+  const unresolved: Array<TeachingItem & { name: string; inNeis: boolean }> = [];
   const sharedPairs = new Set<string>();
+  const baseLessons: BaseTimetableLesson[] = [];
+  const neisSubjects = [...new Set(cells.map((c) => c.subject))];
   let sameCells = 0;
+  let comparable = 0;
   let total = 0;
   for (const [key, group] of groups) {
     const found = neisName.get(key) ?? null;
@@ -258,14 +273,56 @@ export function assignmentsFromLessons(lessons: BaseLesson[], cells: NeisCell[])
       row.slots.push(...group.lessons.map((l) => ({ subject, grade: l.grade, classNum: l.classNum, weekday: l.weekday, period: l.period })));
     }
     byName.set(group.name, row);
-    if (!found) unresolved.push({ name: group.name, subject: group.subject, grade: group.grade, classNum: group.classNum });
-    else sameCells += group.lessons.filter((l) => subjectsAt(l).some((s) => sameSubject(s, found))).length;
+    for (const l of group.lessons) {
+      baseLessons.push({
+        name: group.name, weekday: l.weekday, period: l.period, grade: l.grade, classNum: l.classNum, subject, ...(found ? {} : { fixed: true }),
+      });
+    }
+    if (!found) {
+      const inNeis = neisSubjects.some((s) => subjectMatches(group.subject, s));
+      unresolved.push({ name: group.name, subject: group.subject, grade: group.grade, classNum: group.classNum, inNeis });
+      if (inNeis) comparable += group.lessons.length;
+    } else {
+      sameCells += group.lessons.filter((l) => subjectsAt(l).some((s) => sameSubject(s, found))).length;
+      comparable += group.lessons.length;
+    }
     total += group.lessons.length;
   }
   const rows = [...byName.entries()]
     .map(([name, row]) => ({ name, items: dedupeItems(row.items), slots: dedupeSlots(row.slots) }))
     .sort((a, b) => koCompare(a.name, b.name));
-  return { rows, unresolved, shared: sharedPairs.size, sameCells, total };
+  baseLessons.sort((a, b) => (
+    koCompare(a.name, b.name) || a.weekday - b.weekday || a.period - b.period || a.grade - b.grade || a.classNum - b.classNum
+  ));
+  return { rows, lessons: baseLessons, unresolved, shared: sharedPairs.size, sameCells, comparable, total };
+}
+
+/** 대조한 수업을 화면에 쓰는 모양으로 바꾼다 */
+export function toTeacherPeriods(lessons: AppliedLesson[], classTimes: string[]): TeacherPeriod[] {
+  return [...lessons]
+    .sort((a, b) => a.weekday - b.weekday || a.period - b.period || a.grade - b.grade || a.classNum - b.classNum)
+    .map((lesson) => ({
+      grade: lesson.grade,
+      classNum: lesson.classNum,
+      weekday: lesson.weekday,
+      weekdayStr: WEEKDAY_NAMES[lesson.weekday - 1] ?? '',
+      period: lesson.period,
+      subject: lesson.subject,
+      startTime: startTimeOf(classTimes, lesson.period),
+      ...(lesson.moved ? { moved: true } : {}),
+    }));
+}
+
+/**
+ * 이 선생님을 학교 기초 시간표로 대조할까. 관리자가 컴시간 파일로 올린 표이고 기초 시간표에 이름이 있어야 한다.
+ * 선생님이 직접 고쳤거나 관리자가 붙여 넣은 표로 바꿨으면 그 표를 따른다.
+ */
+export function usesBaseTimetable(
+  source: TeachingSource | undefined,
+  base: BaseTimetableLesson[] | null | undefined,
+  name: string,
+): boolean {
+  return source === 'file' && baseHasTeacher(base, name);
 }
 
 /** 표로 만든 이번 주 수업이 전에 받은 시간표와 같은가. 휴일이 낀 주에는 빠진 요일을 알 수 없어 다르다고 한다 */
@@ -435,21 +492,29 @@ export function formatClassTimes(classTimes: string[]): string {
     .join(' ');
 }
 
-/** 학교 시간표와 표를 합쳐 회의 찾기에 쓰는 사람별 수업 칸을 만든다 */
+/**
+ * 학교 시간표와 표를 합쳐 회의 찾기에 쓰는 사람별 수업 칸을 만든다.
+ * 컴시간 파일로 올린 선생님은 학교 기초 시간표를 나이스와 대조한 수업을 쓴다. 내 시간표와 같은 방법이다.
+ */
 export function buildSchoolGrid(
   schoolCode: number,
   cells: NeisCell[],
-  assignments: AssignmentRow[],
+  assignments: Array<AssignmentRow & { source?: TeachingSource }>,
   classTimes: string[],
+  base?: BaseTimetableLesson[] | null,
 ): ComciganSchoolGrid {
   const teachers: Record<string, ComciganTeacherSlots> = {};
   const schoolDays = new Set(cells.map((c) => c.weekday));
-  for (const { name, items, slots } of assignments) {
+  const applied = base && base.length > 0 ? applyBaseWeek(base, cells).lessons : [];
+  for (const { name, items, slots, source } of assignments) {
     const wanted = new Set(items.map(itemKey));
-    const mine: Array<TeachingItem & { weekday: number; period: number }> = [
-      ...cells.filter((cell) => wanted.has(itemKey(cell))),
-      ...(slots ?? []).filter((slot) => schoolDays.has(slot.weekday)),
-    ];
+    const fromBase = usesBaseTimetable(source, base, name);
+    const mine: Array<TeachingItem & { weekday: number; period: number }> = fromBase
+      ? applied.filter((lesson) => lesson.name === teacherKey(name))
+      : [
+        ...cells.filter((cell) => wanted.has(itemKey(cell))),
+        ...(slots ?? []).filter((slot) => schoolDays.has(slot.weekday)),
+      ];
     if (mine.length === 0) continue;
     teachers[name] = {
       slots: [...new Set(mine.map((c) => `${c.weekday}-${c.period}`))].sort(),

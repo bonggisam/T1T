@@ -13,6 +13,7 @@ import { EventDetail } from './components/calendar/EventDetail';
 import { NotificationPanel } from './components/notifications/NotificationPanel';
 import { SettingsPanel } from './components/settings/SettingsPanel';
 import { AdminPanel } from './components/admin/AdminPanel';
+import { BaseTimetableView } from './components/admin/BaseTimetableView';
 import { PersonalEventModal } from './components/calendar/PersonalEventModal';
 import { PasteEventsModal } from './components/calendar/PasteEventsModal';
 import { PrivacyBanner, PrivateContent, PrivateNotice } from './components/common/PrivacyGuard';
@@ -66,7 +67,7 @@ export function App() {
   const { subscribeToUsers, cleanup: cleanupUsers } = useUsersStore();
   const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
   // 단일 activeTab 상태 — 한 번에 하나의 탭만 활성, race condition 제거
-  type Tab = null | 'settings' | 'admin' | 'tpass' | 'outing' | 'todos' | 'reserv' | 'meal' | 'schedule' | 'keyphone' | 'library' | 'meeting' | 'duty';
+  type Tab = null | 'settings' | 'admin' | 'base' | 'tpass' | 'outing' | 'todos' | 'reserv' | 'meal' | 'schedule' | 'keyphone' | 'library' | 'meeting' | 'duty';
   const [activeTab, setActiveTab] = useState<Tab>(null);
   const [showPersonalModal, setShowPersonalModal] = useState(false);
   // 붙여 넣기 창에 넣을 글. null이면 닫힘
@@ -76,6 +77,8 @@ export function App() {
   const tabBehindSettings = useRef<Tab>(null);
   const view: Tab = showSettings ? tabBehindSettings.current : activeTab;
   const showAdmin = view === 'admin';
+  // 기초 시간표는 관리자만 연다. 관리자가 아니면 아래에서 달력을 보여 준다
+  const showBase = view === 'base' && user?.status === 'active' && (user.role === 'admin' || user.role === 'super_admin');
   const showTodos = view === 'todos';
   const showMeal = view === 'meal';
   const showSchedule = view === 'schedule';
@@ -468,6 +471,7 @@ export function App() {
         onOpenTab={toggle}
         onOpenCalendar={() => setActiveTab(null)}
         onPasteEvents={() => openPrivateForm(() => { setActiveTab(null); setPasteText(''); })}
+        onOpenBase={isAdmin ? () => toggle('base') : undefined}
         theme={theme}
         onToggleTheme={handleToggleTheme}
         onGoHome={goHome}
@@ -494,6 +498,8 @@ export function App() {
         <ErrorBoundary key={view || 'calendar'}>
           {showAdmin ? (
             <AdminPanel onClose={() => setActiveTab(null)} />
+          ) : showBase ? (
+            <BaseTimetableView onBack={() => setActiveTab(null)} />
           ) : view && isWebTab(view) ? null : showTodos ? (
             <PrivateContent fallback={<PrivateNotice>할 일은 개인 내용이라 가렸습니다</PrivateNotice>}>
               <TodosView onBack={() => setActiveTab(null)} />

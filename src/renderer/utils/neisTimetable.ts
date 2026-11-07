@@ -38,8 +38,40 @@ const ENDPOINTS: Record<string, string> = {
 const PAGE_SIZE = 1000;
 const MAX_PAGES = 5;
 const FETCH_TIMEOUT_MS = 20 * 1000;
-/** 나이스 자료는 하루 몇 번 바뀌지 않는다. 이 PC에 두고 이 시간이 지나면 다시 받는다 */
-export const NEIS_REFRESH_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * 나이스 시간표를 다시 받는 시각. 매일 8시부터 16시까지 정각마다 받는다.
+ * 학교가 그날 바꾼 수업을 나이스에 넣으면 다음 정각에 반영된다. 그 밖의 시간에는 이 PC에 둔 값을 쓴다.
+ */
+export const NEIS_SYNC_FIRST_HOUR = 8;
+export const NEIS_SYNC_LAST_HOUR = 16;
+export const NEIS_SYNC_LABEL = `매일 ${NEIS_SYNC_FIRST_HOUR}시부터 ${NEIS_SYNC_LAST_HOUR}시까지 정각마다`;
+
+/** now 또는 그 앞의 가장 가까운 받기 시각. 8시 전이면 전날 16시다 */
+export function lastSyncSlot(now: Date = new Date()): Date {
+  const hour = now.getHours();
+  if (hour < NEIS_SYNC_FIRST_HOUR) return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, NEIS_SYNC_LAST_HOUR);
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.min(hour, NEIS_SYNC_LAST_HOUR));
+}
+
+/** now 뒤의 다음 받기 시각. 16시가 지나면 다음 날 8시다 */
+export function nextSyncSlot(now: Date = new Date()): Date {
+  const hour = now.getHours();
+  if (hour < NEIS_SYNC_FIRST_HOUR) return new Date(now.getFullYear(), now.getMonth(), now.getDate(), NEIS_SYNC_FIRST_HOUR);
+  if (hour >= NEIS_SYNC_LAST_HOUR) return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, NEIS_SYNC_FIRST_HOUR);
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour + 1);
+}
+
+/** 그 받기 시각의 바로 앞 받기 시각. 8시의 앞은 전날 16시다 */
+export function previousSyncSlot(slot: Date): Date {
+  return lastSyncSlot(new Date(slot.getTime() - 1));
+}
+
+/** 마지막 받기 시각 뒤에 받은 값인가. 시계를 되돌려 앞날에 받은 값으로 보이면 새로 받는다 */
+export function isNeisFresh(fetchedAt: string, now: Date = new Date()): boolean {
+  const at = new Date(fetchedAt).getTime();
+  return !Number.isNaN(at) && at >= lastSyncSlot(now).getTime() && at <= now.getTime() + 60 * 1000;
+}
 
 function neisKey(): string {
   return String(import.meta.env.VITE_NEIS_KEY ?? '').trim();
@@ -159,15 +191,16 @@ function writeWeekCache(week: NeisWeek): void {
 }
 
 /**
- * 이번 주 학교 시간표. 저장본이 충분히 새것이면 그것을 쓴다.
+ * 이번 주 학교 시간표. 저장본을 마지막 받기 시각(매일 8~16시 정각) 뒤에 받았으면 그것을 쓴다.
  * 받지 못하면 같은 주의 저장본을 돌려주고, 저장본도 없으면 오류를 던진다.
  * @param force 새로고침 단추처럼 사람이 눌렀을 때
  */
 export async function loadNeisWeek(school: School, force = false): Promise<NeisWeek & { error?: NeisTimetableError }> {
-  const monday = timetableWeekStart();
+  const now = new Date();
+  const monday = timetableWeekStart(now);
   const weekStart = format(monday, 'yyyy-MM-dd');
   const saved = readWeekCache(school, weekStart);
-  if (!force && saved && Date.now() - new Date(saved.fetchedAt).getTime() < NEIS_REFRESH_MS) return saved;
+  if (!force && saved && isNeisFresh(saved.fetchedAt, now)) return saved;
   try {
     const cells = await fetchNeisWeek(school, monday);
     // 사이트가 잠깐 빈 값을 주어도 같은 주에 받아 둔 시간표를 지우지 않는다

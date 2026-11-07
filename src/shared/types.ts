@@ -233,6 +233,30 @@ export interface TeachingSlot extends TeachingItem {
 
 export type TeachingSource = 'timetable' | 'admin' | 'self' | 'file';
 
+/** 학교 기초 시간표(관리자가 올린 컴시간 파일)의 수업 한 칸 */
+export interface BaseTimetableLesson {
+  /** 교사 이름 */
+  name: string;
+  /** 1=월 ~ 5=금 */
+  weekday: number;
+  period: number;
+  grade: number;
+  classNum: number;
+  /** 나이스 과목 이름. 찾지 못했으면 파일의 줄임말이다 */
+  subject: string;
+  /** 나이스에서 과목 이름을 찾지 못했다. 나이스와 칸을 대조하지 않고 그 요일과 교시에 둔다 */
+  fixed?: boolean;
+}
+
+/** 학교마다 하나. 매일 나이스 시간표와 칸마다 대조해 바뀐 수업만 그 주에 덧씌운다 */
+export interface BaseTimetable {
+  school: School;
+  lessons: BaseTimetableLesson[];
+  fileName?: string;
+  updatedBy?: string;
+  updatedAt?: Date | null;
+}
+
 /** 담당 학급 표의 한 사람. 학교와 이름으로 찾는다 */
 export interface TeachingAssignment {
   name: string;
@@ -294,6 +318,8 @@ export interface TeacherPeriod {
   period: number;
   subject: string;
   startTime?: string; // e.g. '09:10'
+  /** 기초 시간표에 없던 칸. 나이스에서 수업이 바뀌어 들어왔다 */
+  moved?: boolean;
 }
 
 export interface ComciganTimetableData {
@@ -305,6 +331,8 @@ export interface ComciganTimetableData {
   source?: 'neis';
   /** 어느 주의 자료인지. 그 주 월요일 yyyy-MM-dd */
   weekStart?: string;
+  /** base면 학교 기초 시간표를 나이스와 대조해 만들었다. 없으면 담당 학급 표로 만들었다 */
+  basis?: 'base';
 }
 
 // Weather (Open-Meteo)

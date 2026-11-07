@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { format } from 'date-fns';
 import { useComciganStore } from '../../store/comciganStore';
 import { useAuthStore } from '../../store/authStore';
 import { useComciganOutageStore } from '../../store/comciganOutageStore';
+import { formatTimetableChange, fromBaseChanges } from '../../utils/classPeriods';
+import { NEIS_SYNC_LABEL, nextSyncSlot } from '../../utils/neisTimetable';
 import { formatItems, formatOwnText } from '../../utils/teachingAssignments';
 import { ComciganCallButton } from '../common/ComciganCall';
 import { showToast } from '../common/Toast';
@@ -12,6 +15,7 @@ const SOURCE_LABEL: Record<string, string> = {
   timetable: '전에 받은 시간표',
   file: '학교 기초 시간표',
 };
+const WEEKDAY_NAMES = ['월', '화', '수', '목', '금'];
 
 /**
  * 내 시간표. 나이스 시간표를 담당 학급 표와 맞춘 값이고, 학교와 이름으로 자동으로 연결된다.
@@ -26,17 +30,29 @@ export function ComciganSettings() {
   const error = useComciganStore((s) => s.error);
   const fetchTimetable = useComciganStore((s) => s.fetchTimetable);
   const saveOwnItems = useComciganStore((s) => s.saveOwnItems);
+  const weekChanges = useComciganStore((s) => s.weekChanges);
+  const weekOffDays = useComciganStore((s) => s.weekOffDays);
   const outage = useComciganOutageStore((s) => s.outage);
 
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState('');
   const [note, setNote] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [showChanges, setShowChanges] = useState(false);
 
   const items = assignment?.items ?? [];
   const slots = assignment?.slots ?? [];
   const hasItems = items.length > 0 || slots.length > 0;
   const showForm = editing || (assignmentChecked && !hasItems);
+  const fromBase = timetableData?.basis === 'base';
+  const changeLines = useMemo(
+    () => (fromBase && timetableData?.weekStart ? fromBaseChanges(weekChanges, timetableData.weekStart).map(formatTimetableChange) : []),
+    [fromBase, timetableData?.weekStart, weekChanges],
+  );
+  const offDaysText = weekOffDays
+    .filter((d) => d.label)
+    .map((d) => `${WEEKDAY_NAMES[d.weekday - 1]}(${d.label})`)
+    .join(', ');
 
   async function handleSave() {
     if (saving) return;
@@ -96,10 +112,36 @@ export function ComciganSettings() {
         </>
       )}
 
+      {fromBase && (
+        <div style={styles.changes} aria-label="기초 시간표와 다른 수업">
+          <div style={styles.row}>
+            <span style={styles.label}>기초 시간표와 다른 수업</span>
+            {changeLines.length === 0 ? (
+              <span style={styles.value}>없음</span>
+            ) : (
+              <button type="button" onClick={() => setShowChanges((v) => !v)} style={styles.link} aria-expanded={showChanges}>
+                {changeLines.length}칸 {showChanges ? '접기' : '보기'}
+              </button>
+            )}
+          </div>
+          {showChanges && changeLines.length > 0 && (
+            <ul style={styles.list}>
+              {changeLines.map((line) => <li key={line}>{line}</li>)}
+            </ul>
+          )}
+          {offDaysText && <p style={styles.note}>쉬는 날: {offDaysText}</p>}
+        </div>
+      )}
+
       <div style={styles.row}>
         <span style={styles.label}>갱신</span>
         <span style={styles.value}>{lastUpdate}</span>
       </div>
+      {hasItems && (
+        <p style={styles.note}>
+          나이스 시간표를 {NEIS_SYNC_LABEL} 다시 받아{fromBase ? ' 기초 시간표와 대조합니다' : ' 맞춥니다'}. 다음 확인 {format(nextSyncSlot(), 'M/d HH:mm')}
+        </p>
+      )}
 
       {hasItems && timetableData && timetableData.classTimes.length === 0 && (
         <p style={styles.warn}>시정표가 아직 없어 수업 시각을 모릅니다. 관리자에게 시정표 입력을 부탁해 주세요.</p>
@@ -221,6 +263,26 @@ const styles: Record<string, React.CSSProperties> = {
     margin: 0,
     fontSize: 'var(--fs-caption)',
     color: 'var(--text-secondary)',
+    wordBreak: 'keep-all',
+  },
+  changes: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+  },
+  list: {
+    margin: 0,
+    paddingLeft: 16,
+    fontSize: 'var(--fs-caption)',
+    color: 'var(--text-secondary)',
+  },
+  link: {
+    padding: 0,
+    fontSize: 'var(--fs-label)',
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--accent)',
+    cursor: 'pointer',
   },
   warn: {
     margin: '4px 0 0',

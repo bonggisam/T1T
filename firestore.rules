@@ -130,6 +130,19 @@ service cloud.firestore {
         && data.items.size() <= 200
         && (!('slots' in data) || (data.slots is list && data.slots.size() <= 100));
     }
+    // 학교 기초 시간표 — 관리자가 컴시간 파일을 올릴 때 담당 학급 표와 함께 쓴다. 앱이 매일 나이스와 칸마다 대조한다.
+    function validBaseTimetable(school, docId) {
+      let data = request.resource.data;
+      return school in ['taeseong_middle', 'taeseong_high']
+        && docId == 'current'
+        && data.keys().hasOnly(['school', 'lessons', 'fileName', 'updatedBy', 'updatedAt'])
+        && data.school == school
+        && data.updatedBy == request.auth.uid
+        && data.lessons is list
+        && data.lessons.size() > 0
+        && data.lessons.size() <= 3000
+        && (!('fileName' in data) || (data.fileName is string && data.fileName.size() <= 200));
+    }
     match /teaching_assignments/{school} {
       allow read: if isActive();
       allow create: if isActive() && validClassTimes(school);
@@ -139,6 +152,12 @@ service cloud.firestore {
         allow read: if isActive();
         allow create, update: if validAssignment(school, teacherName)
           && (isAdmin() || (isActive() && getUserData().name == teacherName && getUserData().school == school));
+        allow delete: if isAdmin();
+      }
+
+      match /base/{docId} {
+        allow read: if isActive();
+        allow create, update: if isAdmin() && validBaseTimetable(school, docId);
         allow delete: if isAdmin();
       }
     }

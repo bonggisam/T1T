@@ -1,16 +1,16 @@
 import { addDays, format, getISOWeek, getISOWeekYear, startOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import type { ComciganTimetableData, TeacherPeriod } from '@shared/types';
+import type { BaseChange } from './baseTimetable';
 import { CLASS_DURATION_MIN } from './timetableOverlap';
 import { getHoliday } from './holidays';
+import { lastSyncSlot, previousSyncSlot } from './neisTimetable';
 
 /** 컴시간 startTime이 없을 때 쓰는 교시별 시작 시각 (캘린더 뷰들과 동일한 기본값) */
 const DEFAULT_PERIOD_START_HOURS: Record<number, number> = { 1: 9, 2: 10, 3: 11, 4: 12, 5: 13, 6: 14, 7: 15, 8: 16 };
 
 /** 수업 시작 몇 분 전부터 수업 중으로 볼지. 교실에 들어가 화면을 켜는 시간이다. */
 const CLASS_LEAD_MIN = 1;
-/** 평일 학교 시간에 이만큼 넘게 시간표를 받지 못했으면 알린다. 갱신은 3시간마다 한다 */
-const TIMETABLE_STALE_MIN = 8 * 60;
 
 export interface TimedPeriod extends TeacherPeriod {
   startMin: number; // 자정부터 분
@@ -24,10 +24,12 @@ export interface TimetableChange {
   period: number;
   before: string;
   after: string;
+  /** 왜 바뀌었는지. 보강, 단축, 그 반에 들어간 과목 */
+  note?: string;
 }
 
 export function formatClassLabel(p: TeacherPeriod): string {
-  return `${p.period}교시 ${p.subject} (${p.grade}-${p.classNum})`;
+  return `${p.period}교시 ${p.subject} (${p.grade}-${p.classNum})${p.moved ? ' · 교체' : ''}`;
 }
 
 export function formatMinutes(min: number): string {
@@ -177,17 +179,80 @@ export function mergeTimetableChanges(
   return [...map.values()].sort((x, y) => x.key.localeCompare(y.key)).slice(0, 20);
 }
 
-/** 11/6(금) 3교시: 국어(2-1) → 없음 */
+/** 11/6(금) 3교시: 국어(2-1) → 없음 (보강) */
 export function formatTimetableChange(change: TimetableChange): string {
   const day = format(new Date(`${change.date}T00:00:00`), 'M/d(EEE)', { locale: ko });
-  return `${day} ${change.period}교시: ${change.before} → ${change.after}`;
+  return `${day} ${change.period}교시: ${change.before} → ${change.after}${change.note ? ` (${change.note})` : ''}`;
 }
 
-/** 평일 학교 시간에 시간표를 오래 확인하지 못했는가. 받은 적이 없는 경우는 따로 안내하므로 여기서 다루지 않는다. */
+const lessonLabel = (l: { subject: string; grade: number; classNum: number }) => `${l.subject}(${l.grade}-${l.classNum})`;
+
+function noteOf(change: BaseChange): string | undefined {
+  switch (change.reason) {
+    case 'moved': return '교체';
+    case 'covered': return '보강';
+    case 'short': return '단축';
+    case 'no_class': return '그 반 수업 없음';
+    case 'unusual': return '평소와 다른 날';
+    case 'replaced':
+      if (change.after) return '교체';
+      return change.label ? `그 반 ${change.label}` : undefined;
+    default: return undefined;
+  }
+}
+
+/**
+ * 기초 시간표와 다른 내 수업을 칸마다 한 줄로 바꾼다. 같은 칸의 변경은 합친다.
+ * @param weekStart 그 주 월요일 yyyy-MM-dd
+ */
+export function fromBaseChanges(changes: BaseChange[], weekStart: string): TimetableChange[] {
+  const monday = new Date(`${weekStart}T00:00:00`);
+  if (Number.isNaN(monday.getTime())) return [];
+  const bySlot = new Map<string, { weekday: number; period: number; before: string[]; after: string[]; note?: string }>();
+  for (const change of changes) {
+    const key = `${change.weekday}-${change.period}`;
+    const slot = bySlot.get(key) ?? { weekday: change.weekday, period: change.period, before: [], after: [], note: noteOf(change) };
+    if (change.before) slot.before.push(lessonLabel(change.before));
+    if (change.after) slot.after.push(lessonLabel(change.after));
+    bySlot.set(key, slot);
+  }
+  return [...bySlot.values()]
+    .sort((a, b) => a.weekday - b.weekday || a.period - b.period)
+    .map((slot) => {
+      const date = format(addDays(monday, slot.weekday - 1), 'yyyy-MM-dd');
+      return {
+        key: `${date}-${slot.period}`,
+        date,
+        period: slot.period,
+        before: slot.before.length > 0 ? slot.before.sort().join(', ') : '없음',
+        after: slot.after.length > 0 ? slot.after.sort().join(', ') : '없음',
+        ...(slot.note ? { note: slot.note } : {}),
+      };
+    });
+}
+
+/** 아직 끝나지 않은 칸의 변경만 남긴다. 공휴일은 뺀다 */
+export function upcomingChanges(changes: TimetableChange[], classTimes: string[], now: Date = new Date()): TimetableChange[] {
+  const today = format(now, 'yyyy-MM-dd');
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const duration = classDurationMin(classTimes);
+  return changes.filter((change) => {
+    if (change.date < today) return false;
+    if (getHoliday(new Date(`${change.date}T00:00:00`))) return false;
+    if (change.date > today) return true;
+    const start = classTimes[change.period - 1] ? startMinutesOf(classTimes[change.period - 1]) : null;
+    return start === null || start + duration > nowMin;
+  });
+}
+
+/**
+ * 평일 학교 시간에 시간표를 오래 확인하지 못했는가. 받은 적이 없는 경우는 따로 안내하므로 여기서 다루지 않는다.
+ * 매일 8시부터 16시까지 정각마다 받으므로, 받기 시각을 두 번 넘게 놓쳤을 때만 알린다.
+ */
 export function isTimetableStale(lastUpdated: string, now: Date = new Date()): boolean {
   if (weekdayMon1(now) > 5 || getHoliday(now)) return false;
   const hour = now.getHours();
   if (hour < 7 || hour >= 18) return false;
   const at = new Date(lastUpdated).getTime();
-  return Number.isNaN(at) || now.getTime() - at > TIMETABLE_STALE_MIN * 60 * 1000;
+  return Number.isNaN(at) || at < previousSyncSlot(lastSyncSlot(now)).getTime();
 }
