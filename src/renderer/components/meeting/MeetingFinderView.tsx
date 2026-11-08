@@ -11,8 +11,9 @@ import { useAuthStore } from '../../store/authStore';
 import { useCalendarStore } from '../../store/calendarStore';
 import { LINK_SCHOOLS, useComciganLinksStore } from '../../store/comciganLinksStore';
 import { useComciganStore } from '../../store/comciganStore';
+import { useUsersStore } from '../../store/usersStore';
 import {
-  buildFinderRows, buildPeople, cellKey, computeFinderWeek, FINDER_CONDITIONS, matchesFilter, subjectOptions, suggestSlots,
+  buildFinderRows, buildPeople, cellKey, computeFinderWeek, FINDER_CONDITIONS, matchesFilter, resolvePersonKey, subjectOptions, suggestSlots,
   type FinderCell, type FinderPerson, type FinderRow,
 } from '../../utils/meetingFinder';
 
@@ -79,9 +80,10 @@ function describeCell(cell: FinderCell): string {
   return `대상 ${cell.total}명 모두 수업이 없습니다.`;
 }
 
-/** 회의 시간 찾기: 회원과 요일을 고르면 공강을 추천한다. 모든 칸은 주간 격자로도 볼 수 있다 */
+/** 회의 시간 찾기: 선생님과 요일을 고르면 공강을 추천한다. 모든 칸은 주간 격자로도 볼 수 있다 */
 export function MeetingFinderView({ onBack }: { onBack: () => void }) {
   const user = useAuthStore((s) => s.user);
+  const directory = useUsersStore((s) => s.users);
   // 공유 일정만 쓴다.
   const events = useCalendarStore((s) => s.events);
   const openEventDraft = useCalendarStore((s) => s.openEventDraft);
@@ -90,6 +92,7 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
   const linksLoaded = useComciganLinksStore((s) => s.linksLoaded);
   const linksDenied = useComciganLinksStore((s) => s.linksDenied);
   const grids = useComciganLinksStore((s) => s.grids);
+  const bases = useComciganLinksStore((s) => s.bases);
   const gridLoading = useComciganLinksStore((s) => s.gridLoading);
   const gridError = useComciganLinksStore((s) => s.gridError);
   const loadGrids = useComciganLinksStore((s) => s.loadGrids);
@@ -126,12 +129,18 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
   const availableSchools = LINK_SCHOOLS.filter((s) => grids[s]);
   // 고른 학교의 시간표를 받지 못했으면 받은 학교를 모두 보여 준다. 목록이 빈 채 멈추지 않게 한다.
   const school = pickedSchool && grids[pickedSchool] ? pickedSchool : null;
-  // 가입해 시간표가 연결된 회원만 고른다. 아직 가입한 사람이 없으면 표의 이름으로 고를 수 있게 둔다.
-  const hasMembers = useMemo(() => people.some((p) => p.userId && matchesFilter(p, { school })), [people, school]);
+  // 가입하지 않은 선생님도 담당 학급 표의 이름으로 찾고 고른다
   const filtered = useMemo(
-    () => people.filter((p) => (!hasMembers || p.userId) && matchesFilter(p, { school, grade, subject, query })),
-    [people, hasMembers, school, grade, subject, query],
+    () => people.filter((p) => matchesFilter(p, { school, grade, subject, query })),
+    [people, school, grade, subject, query],
   );
+  // 미가입 표시. 같은 이름 계정이 여럿이라 잇지 못한 선생님은 가입했으므로 붙이지 않는다
+  const unregistered = useMemo(() => {
+    const names = new Set(directory.map((u) => u.name.trim()));
+    return new Set(people.filter((p) => !p.userId && !names.has(p.name.trim())).map((p) => p.key));
+  }, [people, directory]);
+  // 컴시간 파일을 올리기 전에는 표에 가입한 선생님만 있을 수 있다
+  const noBaseSchools = LINK_SCHOOLS.filter((s) => grids[s] && bases[s] === null);
   const chosen = useMemo(() => people.filter((p) => selected.has(p.key)), [people, selected]);
   // 시정표를 받지 못한 학교의 수업은 시각을 몰라 계산에 넣을 수 없다. 모르면 공강으로 잘못 나온다
   const unknownTimes = useMemo(() => chosen
@@ -225,13 +234,14 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
   function loadGroup(name: string) {
     const group = groups.find((g) => g.name === name);
     if (!group) return;
-    // 그사이 연결표가 바뀌면 없는 사람이 남는다. 화면의 "대상 N명"과 실제 계산 인원이 어긋나지 않게 뺀다
-    const known = new Set(people.map((p) => p.key));
-    const keys = group.keys.filter((key) => known.has(key));
-    if (keys.length < group.keys.length) {
-      showToast(`묶음의 ${group.keys.length - keys.length}명을 시간표에서 찾지 못해 뺐습니다`, 'info');
+    // 그사이 연결표가 바뀌면 없는 사람이 남는다. 화면의 "대상 N명"과 실제 계산 인원이 어긋나지 않게 뺀다.
+    // 미가입일 때 저장한 선생님이 그 뒤 가입했으면 표의 이름으로 찾아 넣는다
+    const resolved = group.keys.map((key) => resolvePersonKey(key, people));
+    const missing = resolved.filter((key) => !key).length;
+    if (missing > 0) {
+      showToast(`묶음의 ${missing}명을 시간표에서 찾지 못해 뺐습니다`, 'info');
     }
-    setSelected(new Set(keys));
+    setSelected(new Set(resolved.filter((key): key is string => !!key)));
     setPickedCell(null);
   }
 
@@ -313,7 +323,13 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
       <div style={wide ? styles.listWide : styles.list}>
         {filtered.length === 0 && <p style={styles.note}>맞는 교사가 없습니다.</p>}
         {filtered.map((person) => (
-          <PersonRow key={person.key} person={person} checked={selected.has(person.key)} onToggle={togglePerson} />
+          <PersonRow
+            key={person.key}
+            person={person}
+            unregistered={unregistered.has(person.key)}
+            checked={selected.has(person.key)}
+            onToggle={togglePerson}
+          />
         ))}
       </div>
       {!wide && (
@@ -441,7 +457,7 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
             {!rows ? (
               <p style={styles.note}>시정표를 받지 못해 칸을 만들 수 없습니다. 시간표를 다시 받아 주세요.</p>
             ) : chosen.length === 0 ? (
-              <p style={styles.hint}>회원을 고르면 공강을 찾아 드립니다.</p>
+              <p style={styles.hint}>선생님을 고르면 공강을 찾아 드립니다.</p>
             ) : week && (
               <>
                 <div style={styles.suggestHead}>
@@ -555,9 +571,17 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
 
             <div style={styles.notes}>
               {linksDenied && <p style={styles.warn}>표를 읽지 못했습니다. 서버 규칙 적용 여부를 관리자에게 확인해 주세요.</p>}
-              {!linksDenied && (hasMembers
-                ? <p style={styles.note}>담당 학급이 연결된 회원만 보입니다.</p>
-                : <p style={styles.note}>아직 가입한 선생님과 연결되지 않아 표의 이름으로 보입니다.</p>)}
+              {!linksDenied && unregistered.size > 0 && (
+                <p style={styles.note}>미가입 선생님도 담당 학급 표의 이름으로 고를 수 있습니다. 공유 일정을 볼 수 없으니 회의는 따로 알려 주세요.</p>
+              )}
+              {!linksDenied && noBaseSchools.length > 0 && (
+                <p style={styles.note}>
+                  {noBaseSchools.map((s) => SCHOOL_LABELS[s]).join(', ')} 기초 시간표가 아직 없어 일부 선생님이 빠졌을 수 있습니다.{' '}
+                  {user?.role === 'admin' || user?.role === 'super_admin'
+                    ? '관리자 > 기초 시간표 탭에서 컴시간 파일을 올리면 모든 선생님이 나옵니다.'
+                    : '관리자가 컴시간 파일을 올리면 모든 선생님이 나옵니다.'}
+                </p>
+              )}
               {gridError && people.length > 0 && (
                 <p style={styles.warn}>{gridError} <ComciganCallButton style={{ marginLeft: 4 }} /></p>
               )}
@@ -572,13 +596,19 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
   );
 }
 
-function PersonRow({ person, checked, onToggle }: { person: FinderPerson; checked: boolean; onToggle: (key: string) => void }) {
+function PersonRow({ person, unregistered, checked, onToggle }: {
+  person: FinderPerson;
+  unregistered: boolean;
+  checked: boolean;
+  onToggle: (key: string) => void;
+}) {
   const subjects = [...new Set(person.labels.flatMap((l) => l.subjects))].slice(0, 3).join(', ');
   const schools = person.labels.map((l) => SCHOOL_SHORT[l.school]).join('·');
   return (
     <label style={checked ? styles.personOn : styles.person}>
       <input type="checkbox" checked={checked} onChange={() => onToggle(person.key)} />
       <span style={styles.personName}>{person.name}</span>
+      {unregistered && <small style={styles.personTag} title="앱에 가입하지 않은 선생님">미가입</small>}
       <small style={styles.personMeta}>{schools}{subjects ? ` · ${subjects}` : ''}</small>
     </label>
   );
@@ -768,6 +798,16 @@ const styles: Record<string, React.CSSProperties> = {
   personName: {
     fontWeight: 600,
     color: 'var(--text-primary)',
+    whiteSpace: 'nowrap',
+  },
+  personTag: {
+    flexShrink: 0,
+    padding: '0 4px',
+    border: '1px solid var(--border-color)',
+    borderRadius: 4,
+    fontSize: 'var(--fs-caption)',
+    lineHeight: 1.4,
+    color: 'var(--text-muted)',
     whiteSpace: 'nowrap',
   },
   personMeta: {

@@ -26,7 +26,7 @@ export interface FinderLabel {
 export interface FinderPerson {
   /** 연결된 교사는 u:계정, 아니면 l:학교:표기 */
   key: string;
-  /** 연결 전에는 컴시간 표기 */
+  /** 계정 이름. 계정과 연결되지 않은 선생님은 담당 학급 표의 이름 */
   name: string;
   userId: string | null;
   labels: FinderLabel[];
@@ -111,7 +111,10 @@ export function cellKey(dateStr: string, rowKey: string): string {
   return `${dateStr}|${rowKey}`;
 }
 
-/** 시간표에 있는 표기와 연결표를 합쳐 고를 수 있는 교사 목록을 만든다. 겸임 교사는 한 사람으로 합친다. */
+/**
+ * 시간표에 있는 표기와 연결표를 합쳐 고를 수 있는 교사 목록을 만든다. 겸임 교사는 한 사람으로 합친다.
+ * 가입하지 않은 선생님도 표의 이름으로 넣고, 가입 여부와 상관없이 가나다순으로 둔다.
+ */
 export function buildPeople(grids: SchoolGrids, links: SchoolLinks): FinderPerson[] {
   const people = new Map<string, FinderPerson>();
   for (const school of Object.keys(grids) as School[]) {
@@ -126,9 +129,19 @@ export function buildPeople(grids: SchoolGrids, links: SchoolLinks): FinderPerso
       people.set(key, person);
     }
   }
-  return [...people.values()].sort((a, b) => (
-    Number(!a.userId) - Number(!b.userId) || koCompare(a.name, b.name)
-  ));
+  return [...people.values()].sort((a, b) => koCompare(a.name, b.name) || a.key.localeCompare(b.key));
+}
+
+/**
+ * 저장해 둔 사람 키를 지금 목록의 키로 바꾼다. 없으면 null.
+ * 미가입일 때 l:학교:이름으로 저장한 선생님이 그 뒤 가입해 u:계정이 되었으면 그 학교의 같은 표기로 찾는다.
+ */
+export function resolvePersonKey(key: string, people: FinderPerson[]): string | null {
+  if (people.some((p) => p.key === key)) return key;
+  const match = /^l:([^:]+):(.+)$/.exec(key);
+  if (!match) return null;
+  const [, school, label] = match;
+  return people.find((p) => p.labels.some((l) => l.school === school && l.label === label))?.key ?? null;
 }
 
 export function matchesFilter(person: FinderPerson, filter: FinderFilter): boolean {
