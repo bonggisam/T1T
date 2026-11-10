@@ -121,7 +121,7 @@
 <div class="cover">
   <h1>T1T 교사 사용 안내서</h1>
   <div class="tag">학교 일정 공유 시스템 · 태성중·고</div>
-  <div class="ver">v2.6.15 기준 · 2026.11</div>
+  <div class="ver">v2.6.16 기준 · 2026.11</div>
 </div>
 
 <div class="toc">
@@ -336,7 +336,7 @@
 <p>제목 줄에는 날짜 이동, 개인 일정 가리기(눈 아이콘), 알림(종 아이콘), 도구 모음(격자 아이콘)이 있습니다. 그 아래 가운데 아이콘 줄에 할 일, 내 시간표, 회의실, 회의 찾기, 시험감독, 급식, 학사일정, 키폰, 도서관, 외출시스템, 외출상황이 늘 보입니다. 아이콘에 마우스를 가까이 대면 커지면서 위쪽에 이름이 나오고 색이 바뀝니다. 창이 넓으면 제목 줄에 검색과 설정도 함께 보입니다.</p>
 <div class="toolbar">
   <div class="ic-card"><div class="nm">할 일</div><div class="ds">내 작업 관리</div></div>
-  <div class="ic-card"><div class="nm">내 시간표</div><div class="ds">내 수업을 한 주 표로</div></div>
+  <div class="ic-card"><div class="nm">내 시간표</div><div class="ds">내 수업과 다른 선생님 수업을 한 주 표로</div></div>
   <div class="ic-card"><div class="nm">회의실</div><div class="ds">회의실 예약</div></div>
   <div class="ic-card"><div class="nm">회의 찾기</div><div class="ds">모두 비는 교시</div></div>
   <div class="ic-card"><div class="nm">시험감독</div><div class="ds">부서·교과별 표 사진</div></div>
@@ -442,14 +442,15 @@
   <div style="flex:1 1 0; min-width:0;">
     <h3 style="margin-top:0;">한 주 시간표 보기</h3>
     <ul>
-      <li>아이콘 줄의 <b>내 시간표</b>(또는 <b>설정 &gt; 내 시간표</b>의 <b>한 주 시간표 보기</b>)를 누르면 내 수업만 요일과 교시 표로 한 주씩 봅니다. 칸마다 학급과 과목이 나오고, 오늘은 색이 다릅니다.</li>
+      <li>아이콘 줄의 <b>내 시간표</b>(또는 <b>설정 &gt; 내 시간표</b>의 <b>한 주 시간표 보기</b>)를 누르면 내 수업을 요일과 교시 표로 한 주씩 봅니다. 칸마다 학급과 과목이 나오고, 같은 반 수업은 같은 색입니다. 오늘 요일과 지금 교시는 따로 표시됩니다.</li>
+      <li><b>다른 선생님 시간표</b>: 왼쪽 메뉴에서 <b>태성중</b>이나 <b>태성고</b>를 고르고 이름을 누르면 그 선생님의 한 주 시간표가 나옵니다. 이름이나 과목으로 찾을 수 있고, <b>내 시간표</b>를 누르면 돌아옵니다. 메뉴는 제목 옆 단추로 접습니다.</li>
       <li>화살표로 앞뒤 주를 넘깁니다. 넘긴 주는 그 주 나이스 시간표로 만들고, 학교가 나중에 나이스를 바꾸면 달라질 수 있습니다. 처음 주로 돌아오려면 날짜 옆 단추를 누릅니다.</li>
       <li>기초 시간표로 연결된 선생님은 교체로 들어온 수업에 <b>교체</b>가 붙고, 그 주에 빠진 수업은 줄을 그어 까닭(보강, 단축, 그 반 행사 등)과 함께 보여 줍니다. 쉬는 날은 요일 아래에 이름이 나옵니다.</li>
       <li>주말에는 다음 주 시간표를 먼저 보여 줍니다.</li>
       <li>담당 학급 표에서 이름을 찾지 못하면 까닭과 <b>설정 &gt; 내 시간표 열기</b> 단추가 나옵니다.</li>
     </ul>
   </div>
-  <figure class="shot" style="flex:0 0 40%;"><img src="guide-img/my-timetable.png" alt="내 시간표 화면"><figcaption>내 수업을 한 주 표로 봅니다. 수 1교시는 교체로 들어온 수업, 화 4교시는 빠진 수업 (예시)</figcaption></figure>
+  <figure class="shot" style="flex:0 0 40%;"><img src="guide-img/my-timetable.png" alt="내 시간표 화면"><figcaption>왼쪽에서 선생님을 고릅니다. 수 3교시는 교체로 들어온 수업, 월 5교시는 빠진 수업 (예시)</figcaption></figure>
 </div>
 <h3>확인과 갱신</h3>
 <ul>
@@ -598,8 +599,8 @@
 </div>
 
 <div class="footer" style="margin-top:4pt;padding-top:4pt;">
-  T1T v2.6.15 · 2026.11 · 태성중·고 학교 일정 공유 시스템<br>
-  본 안내서는 v2.6.15 기준이며, 자동 업데이트로 일부 화면이 다를 수 있습니다. 그림의 이름은 예시입니다.
+  T1T v2.6.16 · 2026.11 · 태성중·고 학교 일정 공유 시스템<br>
+  본 안내서는 v2.6.16 기준이며, 자동 업데이트로 일부 화면이 다를 수 있습니다. 그림의 이름은 예시입니다.
 </div>
 
 </body>
