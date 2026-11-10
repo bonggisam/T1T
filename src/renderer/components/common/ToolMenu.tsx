@@ -2,7 +2,7 @@ import React from 'react';
 import {
   BookMarked, BookOpen, Building2, CalendarDays, CalendarSearch, CheckSquare, ClipboardCheck, ClipboardPaste, DoorOpen,
   FileSpreadsheet, ListChecks, Moon, Phone,
-  Printer, Search, Settings, Share, Sun, Users, UtensilsCrossed,
+  Printer, Search, Settings, Share, Sun, Table2, Users, UtensilsCrossed,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useCalendarStore } from '../../store/calendarStore';
@@ -14,7 +14,7 @@ import { downloadICS } from '../../utils/icsExport';
 import { SCHOOL_LABELS } from '@shared/types';
 import { showToast } from './Toast';
 
-export type ToolTab = 'todos' | 'reserv' | 'meeting' | 'duty' | 'meal' | 'schedule' | 'keyphone' | 'library' | 'tpass' | 'outing';
+export type ToolTab = 'todos' | 'timetable' | 'reserv' | 'meeting' | 'duty' | 'meal' | 'schedule' | 'keyphone' | 'library' | 'tpass' | 'outing';
 
 interface ToolMenuProps {
   style: React.CSSProperties;
@@ -36,6 +36,7 @@ interface ToolMenuProps {
 /** 도구 모음과 제목 줄 아이콘이 함께 쓰는 목록 */
 export const TOOL_TABS: Array<{ tab: ToolTab; label: string; Icon: React.ComponentType<any> }> = [
   { tab: 'todos', label: '할 일', Icon: CheckSquare },
+  { tab: 'timetable', label: '내 시간표', Icon: Table2 },
   { tab: 'reserv', label: '회의실', Icon: Building2 },
   { tab: 'meeting', label: '회의 찾기', Icon: CalendarSearch },
   { tab: 'duty', label: '시험감독', Icon: ClipboardCheck },

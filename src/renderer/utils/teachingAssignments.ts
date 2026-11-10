@@ -10,7 +10,9 @@ import type {
   BaseTimetableLesson, ComciganSchoolGrid, ComciganTeacherSlots, TeacherPeriod, TeachingItem, TeachingSlot, TeachingSource,
 } from '@shared/types';
 import type { NeisCell } from './neisTimetable';
-import { applyBaseWeek, baseHasTeacher, type AppliedLesson } from './baseTimetable';
+import {
+  applyBaseWeek, baseHasTeacher, type AppliedLesson, type BaseChange, type BaseOffDay,
+} from './baseTimetable';
 
 const WEEKDAY_NAMES = ['월', '화', '수', '목', '금'];
 const koCompare = (a: string, b: string) => a.localeCompare(b, 'ko');
@@ -323,6 +325,44 @@ export function usesBaseTimetable(
   name: string,
 ): boolean {
   return source === 'file' && baseHasTeacher(base, name);
+}
+
+export interface WeekLessons {
+  lessons: TeacherPeriod[];
+  /** 기초 시간표와 다른 내 수업. 기초 시간표로 대조할 때만 있다 */
+  changes: BaseChange[];
+  /** 학교가 쉬는 요일. 기초 시간표로 대조할 때만 있다 */
+  offDays: BaseOffDay[];
+  basis?: 'base';
+}
+
+/**
+ * 그 주 나이스 칸으로 한 선생님의 수업을 만든다. 정각 받기(comciganStore의 applyWeek)와 같은 방법이라 어느 주에나 쓴다.
+ * 관리자가 컴시간 파일로 올린 선생님은 학교 기초 시간표를 대조하고, 아니면 담당 학급 표와 맞춘다.
+ * @returns 표에도 기초 시간표에도 없으면 null
+ */
+export function lessonsOfWeek(
+  name: string,
+  cells: NeisCell[],
+  classTimes: string[],
+  assignment: { source?: TeachingSource; items: TeachingItem[]; slots?: TeachingSlot[] } | null | undefined,
+  base: BaseTimetableLesson[] | null | undefined,
+): WeekLessons | null {
+  const key = teacherKey(name);
+  if (!key) return null;
+  if (base && usesBaseTimetable(assignment?.source, base, key)) {
+    const applied = applyBaseWeek(base, cells, key);
+    return {
+      lessons: toTeacherPeriods(applied.lessons, classTimes),
+      changes: applied.changes,
+      offDays: applied.stats.offDays,
+      basis: 'base',
+    };
+  }
+  const items = assignment?.items ?? [];
+  const slots = assignment?.slots ?? [];
+  if (items.length === 0 && slots.length === 0) return null;
+  return { lessons: buildTeacherSchedule(cells, items, classTimes, slots), changes: [], offDays: [] };
 }
 
 /** 표로 만든 이번 주 수업이 전에 받은 시간표와 같은가. 휴일이 낀 주에는 빠진 요일을 알 수 없어 다르다고 한다 */

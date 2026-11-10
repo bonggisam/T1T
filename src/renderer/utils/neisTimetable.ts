@@ -217,3 +217,51 @@ export async function loadNeisWeek(school: School, force = false): Promise<NeisW
     throw err;
   }
 }
+
+/** 다른 주는 이 실행 동안만 둔다. 앞뒤 주를 넘겨 볼 때 같은 주를 다시 묻지 않는다 */
+const otherWeeks = new Map<string, NeisWeek>();
+const otherWeeksLoading = new Map<string, Promise<NeisWeek & { error?: NeisTimetableError }>>();
+const OTHER_WEEKS_MAX = 24;
+
+/** 받아 둔 그 주 학교 시간표. 마지막 받기 시각 뒤에 받은 것만 돌려준다. 넘겨 볼 때 받는 동안 비어 보이지 않게 쓴다 */
+export function peekNeisWeekAt(school: School, monday: Date): NeisWeek | null {
+  const weekStart = format(monday, 'yyyy-MM-dd');
+  const saved = weekStart === format(timetableWeekStart(), 'yyyy-MM-dd')
+    ? readWeekCache(school, weekStart)
+    : otherWeeks.get(`${school}|${weekStart}`) ?? null;
+  return saved && isNeisFresh(saved.fetchedAt) ? saved : null;
+}
+
+/**
+ * 아무 주의 학교 시간표. 정각마다 받는 주(이번 주, 주말에는 다음 주)는 그 저장본을 함께 쓴다.
+ * 다른 주는 화면에서 넘겨 볼 때만 받는다. 마지막 받기 시각(매일 8~16시 정각) 뒤에 받았으면 다시 묻지 않는다.
+ * @param monday 그 주 월요일
+ * @param force 새로고침 단추처럼 사람이 눌렀을 때
+ * @throws 받지 못하면
+ */
+export async function loadNeisWeekAt(school: School, monday: Date, force = false): Promise<NeisWeek & { error?: NeisTimetableError }> {
+  const weekStart = format(monday, 'yyyy-MM-dd');
+  if (weekStart === format(timetableWeekStart(), 'yyyy-MM-dd')) return loadNeisWeek(school, force);
+  const key = `${school}|${weekStart}`;
+  const saved = otherWeeks.get(key);
+  if (!force && saved && isNeisFresh(saved.fetchedAt)) return saved;
+  const loading = otherWeeksLoading.get(key);
+  if (loading) return loading;
+  const request = fetchNeisWeek(school, startOfWeek(monday, { weekStartsOn: 1 }))
+    .then((cells) => {
+      const week: NeisWeek = { school, weekStart, fetchedAt: new Date().toISOString(), cells };
+      otherWeeks.delete(key);
+      otherWeeks.set(key, week);
+      // 오래 켜 두고 여러 주를 넘겨 보아도 쌓이지 않게 오래된 것부터 지운다
+      while (otherWeeks.size > OTHER_WEEKS_MAX) otherWeeks.delete(otherWeeks.keys().next().value as string);
+      return week;
+    })
+    .catch((err): NeisWeek & { error?: NeisTimetableError } => {
+      // 전에 받아 둔 같은 주가 있으면 그것을 보여 주고 받지 못했다고 알린다
+      if (saved && err instanceof NeisTimetableError) return { ...saved, error: err };
+      throw err;
+    })
+    .finally(() => otherWeeksLoading.delete(key));
+  otherWeeksLoading.set(key, request);
+  return request;
+}

@@ -264,8 +264,9 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: '0 clamp(2px, calc((100vw - 300px) / 14), 10px)',
-    padding: '0 8px 3px',
+    // 아이콘 11개(27px)가 가장 좁은 창(320px)에서도 한 줄에 들어가게 사이를 줄인다
+    gap: '0 clamp(1px, calc((100vw - 310px) / 12), 10px)',
+    padding: '0 4px 3px',
     flexShrink: 0,
   },
   systemDock: {

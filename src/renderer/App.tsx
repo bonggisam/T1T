@@ -45,6 +45,7 @@ import { ScheduleView } from './components/schedule/ScheduleView';
 import { KeyphoneView } from './components/keyphone/KeyphoneView';
 import { LibraryView } from './components/library/LibraryView';
 import { MeetingFinderView } from './components/meeting/MeetingFinderView';
+import { MyTimetableView } from './components/timetable/MyTimetableView';
 import { BoardView } from './components/board/BoardView';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ResizeHandles } from './components/common/ResizeHandles';
@@ -67,7 +68,7 @@ export function App() {
   const { subscribeToUsers, cleanup: cleanupUsers } = useUsersStore();
   const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
   // 단일 activeTab 상태 — 한 번에 하나의 탭만 활성, race condition 제거
-  type Tab = null | 'settings' | 'admin' | 'base' | 'tpass' | 'outing' | 'todos' | 'reserv' | 'meal' | 'schedule' | 'keyphone' | 'library' | 'meeting' | 'duty';
+  type Tab = null | 'settings' | 'admin' | 'base' | 'tpass' | 'outing' | 'todos' | 'timetable' | 'reserv' | 'meal' | 'schedule' | 'keyphone' | 'library' | 'meeting' | 'duty';
   const [activeTab, setActiveTab] = useState<Tab>(null);
   const [showPersonalModal, setShowPersonalModal] = useState(false);
   // 붙여 넣기 창에 넣을 글. null이면 닫힘
@@ -81,6 +82,7 @@ export function App() {
   const showAdmin = view === 'admin' && adminRole;
   const showBase = view === 'base' && user?.status === 'active' && adminRole;
   const showTodos = view === 'todos';
+  const showMyTimetable = view === 'timetable';
   const showMeal = view === 'meal';
   const showSchedule = view === 'schedule';
   const showKeyphone = view === 'keyphone';
@@ -511,6 +513,8 @@ export function App() {
             <PrivateContent fallback={<PrivateNotice>할 일은 개인 내용이라 가렸습니다</PrivateNotice>}>
               <TodosView onBack={() => setActiveTab(null)} />
             </PrivateContent>
+          ) : showMyTimetable ? (
+            <MyTimetableView onBack={() => setActiveTab(null)} onOpenSettings={() => toggle('settings')} />
           ) : showMeal ? (
             <MealView onBack={() => setActiveTab(null)} />
           ) : showSchedule ? (
@@ -540,7 +544,10 @@ export function App() {
         ))}
         {/* 설정은 모달 오버레이로 표시 — 메인 콘텐츠를 가리지 않음 */}
         {showSettings && (
-          <SettingsPanel onClose={() => setActiveTab(tabBehindSettings.current)} />
+          <SettingsPanel
+            onClose={() => setActiveTab(tabBehindSettings.current)}
+            onOpenTimetable={() => { tabBehindSettings.current = null; setActiveTab('timetable'); }}
+          />
         )}
 
         {showEventModal && <EventModal />}

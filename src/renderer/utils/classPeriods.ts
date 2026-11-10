@@ -1,4 +1,4 @@
-import { addDays, format, getISOWeek, getISOWeekYear, startOfWeek } from 'date-fns';
+import { addDays, format, getISOWeek, getISOWeekYear, isSameDay, startOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import type { ComciganTimetableData, TeacherPeriod } from '@shared/types';
 import type { BaseChange } from './baseTimetable';
@@ -42,6 +42,22 @@ export function formatMinutes(min: number): string {
 export function weekdayMon1(date: Date): number {
   const d = date.getDay();
   return d === 0 ? 7 : d;
+}
+
+/**
+ * 받아 둔 시간표가 어느 주의 수업인지, 그 주 월요일. 나이스 자료는 받은 주이고, 주말에는 다음 주를 받는다.
+ * 지난 주에 받은 값(이번 주를 아직 받지 못함)과 주를 모르는 값(전에 컴시간에서 받음)은 이번 주로 본다.
+ * 받지 못해도 마지막 시간표로 수업을 보여 주기 위해서다.
+ */
+export function timetableMonday(data: ComciganTimetableData | null | undefined, now: Date = new Date()): Date {
+  const thisMonday = startOfWeek(now, { weekStartsOn: 1 });
+  const at = data?.weekStart ? new Date(`${data.weekStart}T00:00:00`) : null;
+  return at && !Number.isNaN(at.getTime()) && at.getTime() > thisMonday.getTime() ? at : thisMonday;
+}
+
+/** date가 받아 둔 시간표의 주에 드는가 */
+export function isTimetableWeek(data: ComciganTimetableData | null | undefined, date: Date, now: Date = new Date()): boolean {
+  return isSameDay(startOfWeek(date, { weekStartsOn: 1 }), timetableMonday(data, now));
 }
 
 function startMinutesOf(entry: string): number | null {
@@ -187,7 +203,8 @@ export function formatTimetableChange(change: TimetableChange): string {
 
 const lessonLabel = (l: { subject: string; grade: number; classNum: number }) => `${l.subject}(${l.grade}-${l.classNum})`;
 
-function noteOf(change: BaseChange): string | undefined {
+/** 기초 시간표와 달라진 이유. 교체, 보강, 단축처럼 짧게 */
+export function baseChangeNote(change: BaseChange): string | undefined {
   switch (change.reason) {
     case 'moved': return '교체';
     case 'covered': return '보강';
@@ -211,7 +228,7 @@ export function fromBaseChanges(changes: BaseChange[], weekStart: string): Timet
   const bySlot = new Map<string, { weekday: number; period: number; before: string[]; after: string[]; note?: string }>();
   for (const change of changes) {
     const key = `${change.weekday}-${change.period}`;
-    const slot = bySlot.get(key) ?? { weekday: change.weekday, period: change.period, before: [], after: [], note: noteOf(change) };
+    const slot = bySlot.get(key) ?? { weekday: change.weekday, period: change.period, before: [], after: [], note: baseChangeNote(change) };
     if (change.before) slot.before.push(lessonLabel(change.before));
     if (change.after) slot.after.push(lessonLabel(change.after));
     bySlot.set(key, slot);

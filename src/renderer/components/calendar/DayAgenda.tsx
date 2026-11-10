@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { format, isSameDay, isSameWeek } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { AlertTriangle, Lock } from 'lucide-react';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
@@ -9,7 +9,7 @@ import { useComciganStore } from '../../store/comciganStore';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { useVisiblePersonalEvents } from '../../hooks/useVisiblePersonalEvents';
 import { CATEGORY_LABELS, getSchoolTag, isEventOnDate } from '../../utils/calendarHelpers';
-import { formatMinutes, getTimedPeriods } from '../../utils/classPeriods';
+import { formatMinutes, getTimedPeriods, isTimetableWeek } from '../../utils/classPeriods';
 import { personalChipVars, sharedChipVars } from '../../utils/eventColors';
 import { getHoliday } from '../../utils/holidays';
 import { hasTimetableOverlap } from '../../utils/timetableOverlap';
@@ -53,9 +53,9 @@ export function DayAgenda({ date, onPersonalClick, showClasses = true, hideEmpty
   const hasConfig = useComciganStore((s) => !!s.config);
   const showTimetable = useComciganStore((s) => s.showTimetable);
 
-  // 컴시간은 이번 주 시간표만 알려 준다. 다른 주는 달라질 수 있어 보여 주지 않는다.
+  // 받아 둔 주의 수업만 보여 준다. 주말에는 다음 주를 받는다. 다른 주는 달라질 수 있다.
   const periods = useMemo(() => (
-    showClasses && hasConfig && showTimetable && isSameWeek(date, new Date(), { weekStartsOn: 1 })
+    showClasses && hasConfig && showTimetable && isTimetableWeek(timetableData, date)
       ? getTimedPeriods(timetableData, date)
       : []
   ), [showClasses, hasConfig, showTimetable, date, timetableData]);

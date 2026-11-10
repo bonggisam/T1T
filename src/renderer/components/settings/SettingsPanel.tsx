@@ -10,6 +10,8 @@ import type { ReminderTime, UpdateState, UserSettings } from '@shared/types';
 
 interface SettingsPanelProps {
   onClose: () => void;
+  /** 설정을 닫고 도구 모음의 내 시간표(한 주 표)를 연다 */
+  onOpenTimetable?: () => void;
 }
 
 const COLOR_PRESETS = [
@@ -38,7 +40,7 @@ function describeUpdateState(state: UpdateState): string {
   return '';
 }
 
-export function SettingsPanel({ onClose }: SettingsPanelProps) {
+export function SettingsPanel({ onClose, onOpenTimetable }: SettingsPanelProps) {
   const { user, logout, saveSettings } = useAuthStore();
   const widget = useWidgetStore();
   const [alwaysOnTop, setAlwaysOnTop] = useState(user?.settings.alwaysOnTop ?? true);
@@ -260,7 +262,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
         {/* 나이스 시간표와 담당 학급 */}
         <Section icon="school" title="내 시간표">
-          <ComciganSettings />
+          <ComciganSettings onOpenTimetable={onOpenTimetable} />
         </Section>
 
         {/* Info */}

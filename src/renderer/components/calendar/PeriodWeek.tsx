@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  addDays, differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, isSameDay, isSameWeek, isToday, startOfWeek,
+  addDays, differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, isSameDay, isToday, startOfWeek,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import type { CalendarEvent, PersonalEvent } from '@shared/types';
@@ -10,6 +10,7 @@ import { useComciganStore } from '../../store/comciganStore';
 import { usePersonalEventStore } from '../../store/personalEventStore';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { useVisiblePersonalEvents } from '../../hooks/useVisiblePersonalEvents';
+import { useWeekLessons } from '../../hooks/useWeekLessons';
 import { canManageEvent, isEventOnDate } from '../../utils/calendarHelpers';
 import { getHoliday } from '../../utils/holidays';
 import { buildPeriodRows, rowIndexForMinute } from '../../utils/periodRows';
@@ -60,10 +61,13 @@ export function PeriodWeek({ onAddPersonalEvent, onPersonalClick }: PeriodWeekPr
   const [inline, setInline] = useState<{ day: Date; startMin?: number; endMin?: number; anchor: { left: number; top: number; bottom: number } } | null>(null);
 
   const rows = useMemo(() => buildPeriodRows(timetableData?.classTimes) ?? [], [timetableData?.classTimes]);
+  const monday = useMemo(() => startOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
   const weekDays = useMemo(() => eachDayOfInterval({
-    start: startOfWeek(selectedDate, { weekStartsOn: 1 }),
-    end: endOfWeek(selectedDate, { weekStartsOn: 1 }),
-  }), [selectedDate]);
+    start: monday,
+    end: endOfWeek(monday, { weekStartsOn: 1 }),
+  }), [monday]);
+  // 넘긴 주의 수업. 정각마다 받는 주가 아니면 그 주 나이스 시간표로 만든다
+  const week = useWeekLessons(monday, showTimetable);
 
   const allItems = useMemo<Item[]>(() => [
     ...events.map((event): Item => ({ kind: 'shared', event })),
@@ -74,9 +78,6 @@ export function PeriodWeek({ onAddPersonalEvent, onPersonalClick }: PeriodWeekPr
   const days = useMemo(() => weekDays.filter((d, i) => (
     i < 5 || (!hideWeekend && allItems.some((item) => isEventOnDate(item.event, d)))
   )), [weekDays, allItems, hideWeekend]);
-
-  // 컴시간은 이번 주 시간표만 알려 준다
-  const isCurrentWeek = isSameWeek(selectedDate, new Date(), { weekStartsOn: 1 });
 
   const cells = useMemo(() => {
     const map = new Map<string, Item[]>();
@@ -97,9 +98,9 @@ export function PeriodWeek({ onAddPersonalEvent, onPersonalClick }: PeriodWeekPr
   }, [days, allItems, rows]);
 
   const classesAt = (day: Date, period: number) => {
-    if (!showTimetable || !isCurrentWeek || !timetableData || getHoliday(day)) return [];
+    if (!showTimetable || getHoliday(day)) return [];
     const weekday = day.getDay() === 0 ? 7 : day.getDay();
-    return timetableData.teacherSchedule.filter((p) => p.weekday === weekday && p.period === period);
+    return week.lessons.filter((p) => p.weekday === weekday && p.period === period);
   };
 
   function slotFromPoint(x: number, y: number): string | null {

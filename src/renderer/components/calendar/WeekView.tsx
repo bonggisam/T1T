@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
-  startOfWeek, endOfWeek, eachDayOfInterval, format, isSameDay, isToday, isSameWeek,
+  startOfWeek, endOfWeek, eachDayOfInterval, format, isSameDay, isToday,
   addHours, differenceInHours, differenceInCalendarDays, addDays,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -18,6 +18,7 @@ import { showToast } from '../common/Toast';
 import { formatEventTooltip, formatPersonalTooltip, getCreatorTag, canManageEvent, PERSONAL_SUFFIX, getPersonalEventDisplayColor } from '../../utils/calendarHelpers';
 import { useVisibleEvents } from '../../hooks/useVisibleEvents';
 import { useTimelineScroll } from '../../hooks/useTimelineScroll';
+import { useWeekLessons } from '../../hooks/useWeekLessons';
 import { SchoolBadge } from '../common/SchoolBadge';
 import { Ic } from '../common/Ic';
 
@@ -113,7 +114,12 @@ function HourWeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps) {
     setTimeout(() => { if (onAddPersonalEvent) onAddPersonalEvent(); }, 0);
   }
 
-  const isCurrentWeek = isSameWeek(selectedDate, new Date(), { weekStartsOn: 0 });
+  // 이 화면은 일요일부터 그린다. 그 주 월~금 수업은 다음 날 월요일의 주다
+  const sunday = startOfWeek(selectedDate, { weekStartsOn: 0 });
+  const monday = React.useMemo(() => addDays(sunday, 1), [sunday.getTime()]); // eslint-disable-line react-hooks/exhaustive-deps
+  const showTimetable = useComciganStore((s) => s.showTimetable);
+  // 넘긴 주의 수업. 정각마다 받는 주가 아니면 그 주 나이스 시간표로 만든다
+  const week = useWeekLessons(monday, showTimetable && !!comciganConfig);
 
   // 한국 중·고등학교 기본 교시 시간 (fallback)
   const DEFAULT_PERIOD_START_HOURS: Record<number, number> = {
@@ -121,12 +127,11 @@ function HourWeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps) {
   };
 
   const comciganByDayHour = React.useMemo(() => {
-    if (!isCurrentWeek || !comciganConfig || !timetableData) return new Map<string, TeacherPeriod[]>();
+    if (!comciganConfig) return new Map<string, TeacherPeriod[]>();
     const map = new Map<string, TeacherPeriod[]>();
-    const sunday = startOfWeek(new Date(), { weekStartsOn: 0 });
-    for (const period of timetableData.teacherSchedule) {
-      // 공휴일에는 수업이 없다. weekday는 1=월이므로 일요일에서 그만큼 더하면 그 날짜다.
-      if (getHoliday(new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + period.weekday))) continue;
+    for (const period of week.lessons) {
+      // 공휴일에는 수업이 없다. weekday는 1=월이므로 월요일에서 하나 적게 더하면 그 날짜다.
+      if (getHoliday(addDays(monday, period.weekday - 1))) continue;
       const hour = period.startTime
         ? parseInt(period.startTime.split(':')[0], 10)
         : DEFAULT_PERIOD_START_HOURS[period.period] ?? -1;
@@ -136,7 +141,7 @@ function HourWeekView({ onAddPersonalEvent, onPersonalClick }: WeekViewProps) {
       map.get(key)!.push(period);
     }
     return map;
-  }, [isCurrentWeek, comciganConfig, timetableData]);
+  }, [comciganConfig, week.lessons, monday]);
 
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 0 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 0 });

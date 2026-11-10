@@ -20,8 +20,9 @@ const WEEKDAY_NAMES = ['월', '화', '수', '목', '금'];
 /**
  * 내 시간표. 나이스 시간표를 담당 학급 표와 맞춘 값이고, 학교와 이름으로 자동으로 연결된다.
  * 표에 없을 때만 직접 넣는다.
+ * @param onOpenTimetable 도구 모음의 내 시간표(한 주 표)를 연다
  */
-export function ComciganSettings() {
+export function ComciganSettings({ onOpenTimetable }: { onOpenTimetable?: () => void } = {}) {
   const user = useAuthStore((s) => s.user);
   const timetableData = useComciganStore((s) => s.timetableData);
   const assignment = useComciganStore((s) => s.assignment);
@@ -149,6 +150,9 @@ export function ComciganSettings() {
 
       {!showForm && (
         <div style={styles.buttons}>
+          {onOpenTimetable && (hasItems || !!timetableData) && (
+            <button onClick={onOpenTimetable} style={styles.primary}>한 주 시간표 보기</button>
+          )}
           <button onClick={() => fetchTimetable()} disabled={loading} style={styles.btn}>
             {loading ? '갱신 중...' : '새로고침'}
           </button>
