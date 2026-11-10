@@ -1,48 +1,34 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { format, parseISO, isSameDay, isValid } from 'date-fns';
-import { ko } from 'date-fns/locale';
+import { format } from 'date-fns';
 import { useAuthStore } from '../../store/authStore';
-import { useDarkMode } from '../../hooks/useDarkMode';
 import type { School } from '@shared/types';
-import { Ic, type IconName } from '../common/Ic';
+import { Ic } from '../common/Ic';
+import { cls, Emo, DesignState } from '../common/designKit';
+import { mergeRuns, planMonth, monthWeeks, rangeLabel, seasonEmoji, type SchItem, type SchSource } from '../../utils/scheduleEmoji';
+import '../common/designs.css';
+import './ScheduleView.css';
 
-const SCHOOL_OPTIONS_LIGHT: { key: School; label: string; icon: IconName; color: string }[] = [
-  { key: 'taeseong_middle', label: '태성중', icon: 'school', color: 'var(--school-middle)' },
-  { key: 'taeseong_high', label: '태성고', icon: 'graduation', color: 'var(--school-high)' },
-];
-const SCHOOL_OPTIONS_DARK: { key: School; label: string; icon: IconName; color: string }[] = [
-  { key: 'taeseong_middle', label: '태성중', icon: 'school', color: 'var(--school-middle-bright)' },
-  { key: 'taeseong_high', label: '태성고', icon: 'graduation', color: 'var(--school-high-bright)' },
-];
-
-interface SchoolScheduleItem {
-  startDate: string; // YYYY-MM-DD
-  endDate: string;
-  title: string;
-  seq: string;
-}
+const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
 interface ScheduleViewProps {
   onBack: () => void;
 }
 
 /**
- * 학사일정 — 학교 홈페이지를 스크래핑해서 캘린더 형식으로 표시.
- * 양교 토글, 월별 분류, 날짜순 정렬.
+ * 학사일정 — 학교 홈페이지에서 한 해 일정을 받아, 고른 학교와 달을 칠판에 주마다 한 줄씩 적어 보여 준다.
+ * 일정마다 그림(이모지)을 붙이고, 날짜는 종류별 분필 색, 이번 주는 점선 동그라미다.
  */
 export function ScheduleView({ onBack }: ScheduleViewProps) {
   const { user } = useAuthStore();
   const defaultSchool: School = (user?.school === 'taeseong_middle' || user?.school === 'taeseong_high')
     ? user.school : 'taeseong_middle';
   const [selectedSchool, setSelectedSchool] = useState<School>(defaultSchool);
-  const [events, setEvents] = useState<SchoolScheduleItem[]>([]);
+  const [events, setEvents] = useState<SchSource[]>([]);
   const [loading, setLoading] = useState(false);
-  const requestRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
-
-  const isDark = useDarkMode();
-  const SCHOOL_OPTIONS = isDark ? SCHOOL_OPTIONS_DARK : SCHOOL_OPTIONS_LIGHT;
-  const palette = SCHOOL_OPTIONS.find((s) => s.key === selectedSchool)!;
+  const requestRef = useRef(0);
+  const now = new Date();
+  const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() + 1 });
 
   async function load() {
     // 학교를 빨리 바꾸면 늦게 온 앞 요청이 지금 화면을 덮는다
@@ -68,193 +54,103 @@ export function ScheduleView({ onBack }: ScheduleViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSchool]);
 
-  // 월별 그룹화
-  const grouped = useMemo(() => {
-    const map = new Map<string, SchoolScheduleItem[]>();
-    for (const ev of events) {
-      const month = ev.startDate.slice(0, 7); // YYYY-MM
-      if (!map.has(month)) map.set(month, []);
-      map.get(month)!.push(ev);
-    }
-    // 각 월 내부 정렬
-    for (const arr of map.values()) {
-      arr.sort((a, b) => a.startDate.localeCompare(b.startDate));
-    }
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [events]);
+  const all = useMemo(() => mergeRuns(events), [events]);
+  const plan = useMemo(() => planMonth(all, ym.y, ym.m), [all, ym]);
+  const today = format(now, 'yyyy-MM-dd');
+  const isThisMonth = ym.y === now.getFullYear() && ym.m === now.getMonth() + 1;
 
-  // 오늘 기준 가까운 일정만 강조
-  const today = format(new Date(), 'yyyy-MM-dd');
+  function shift(delta: number) {
+    setYm(({ y, m }) => {
+      const idx = y * 12 + (m - 1) + delta;
+      return { y: Math.floor(idx / 12), m: (idx % 12) + 1 };
+    });
+  }
+
+  // 주마다 한 줄: 그 주에 시작하는 일정 (지난달부터 이어진 일정은 첫 주)
+  const rows = useMemo(() => {
+    const firstOfMonth = format(new Date(ym.y, ym.m - 1, 1), 'yyyy-MM-dd');
+    const regular = plan.items.filter((it) => !it.weekly);
+    return monthWeeks(ym.y, ym.m).map((week, i) => {
+      const days = week.filter((d) => d.getMonth() + 1 === ym.m);
+      const from = format(days[0], 'yyyy-MM-dd');
+      const to = format(days[days.length - 1], 'yyyy-MM-dd');
+      const items = regular.filter((it) => (it.start >= from && it.start <= to) || (i === 0 && it.start < firstOfMonth));
+      const isNow = today >= format(week[0], 'yyyy-MM-dd') && today <= format(week[6], 'yyyy-MM-dd');
+      const range = days.length === 1
+        ? `${days[0].getDate()}일`
+        : `${days[0].getDate()}–${days[days.length - 1].getDate()}일`;
+      return { label: `${i + 1}주`, range, items, isNow };
+    });
+  }, [ym, plan.items, today]);
+  const weekly = plan.items.filter((it) => it.weekly);
+
+  const dayText = (it: SchItem) => {
+    const label = rangeLabel(it, ym.y, ym.m);
+    if (it.start !== it.end) return label;
+    return `${label}(${DOW[new Date(`${it.start}T00:00:00`).getDay()]})`;
+  };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.toolbar}>
-        <button onClick={onBack} style={styles.backBtn} title="캘린더로 돌아가기">
-          <Ic name="calendar" />캘린더
-        </button>
-        <span style={styles.label}><Ic name="book" />학사일정</span>
-        <button onClick={load} style={styles.iconBtn} title="새로고침" aria-label="새로고침" disabled={loading}>
-          <Ic name="refresh" gap={false} />
-        </button>
-      </div>
-
-      <div style={styles.schoolToggle}>
-        {SCHOOL_OPTIONS.map((s) => (
-          <button
-            key={s.key}
-            onClick={() => setSelectedSchool(s.key)}
-            style={{
-              ...styles.schoolBtn,
-              ...(selectedSchool === s.key
-                ? { background: s.color, color: 'var(--on-accent)', border: '1px solid transparent', fontWeight: 700 }
-                : {}),
-            }}
-          >
-            <Ic name={s.icon} />{s.label}
-          </button>
-        ))}
-      </div>
-
-      <div style={styles.content}>
-        {loading && (
-          <div style={styles.empty}>
-            <div className="spinner" />
-            <p style={{ marginTop: 8, color: 'var(--text-muted)' }}>학사일정 불러오는 중...</p>
-          </div>
-        )}
-        {!loading && error && (
-          <div style={styles.error}>
-            <Ic name="alert" />{error}
-          </div>
-        )}
-        {!loading && !error && events.length === 0 && (
-          <div style={styles.empty}><Ic name="inbox" />학사일정이 없습니다</div>
-        )}
-        {!loading && !error && grouped.map(([month, items]) => {
-          const [year, monthNum] = month.split('-');
-          return (
-            <div key={month} style={styles.monthSection}>
-              <div style={{ ...styles.monthHeader, color: palette.color }}>
-                {year}년 {parseInt(monthNum)}월
-                <span style={styles.monthCount}>{items.length}개</span>
-              </div>
-              <div style={styles.eventList}>
-                {items.map((ev) => {
-                  const isToday = ev.startDate === today;
-                  const start = parseISO(ev.startDate);
-                  const end = parseISO(ev.endDate);
-                  // 학교 사이트가 비정상 날짜를 줄 가능성 → 흰 화면 방지
-                  let dateLabel: string;
-                  try {
-                    if (!isValid(start) || !isValid(end)) {
-                      dateLabel = `${ev.startDate}${ev.endDate && ev.endDate !== ev.startDate ? ' ~ ' + ev.endDate : ''}`;
-                    } else {
-                      const sameDay = isSameDay(start, end);
-                      dateLabel = sameDay
-                        ? format(start, 'M/d (EEE)', { locale: ko })
-                        : `${format(start, 'M/d (EEE)', { locale: ko })} ~ ${format(end, 'M/d (EEE)', { locale: ko })}`;
-                    }
-                  } catch {
-                    dateLabel = ev.startDate || '';
-                  }
-                  return (
-                    <div
-                      key={ev.seq}
-                      style={{
-                        ...styles.eventRow,
-                        borderLeft: `4px solid ${palette.color}`,
-                        background: isToday ? `color-mix(in srgb, ${palette.color} 8%, transparent)` : 'var(--bg-secondary)',
-                      }}
-                    >
-                      <div style={styles.eventDate}>
-                        {isToday && <span style={{ ...styles.todayBadge, background: palette.color }}>오늘</span>}
-                        {dateLabel}
-                      </div>
-                      <div style={styles.eventTitle}>{ev.title}</div>
-                    </div>
-                  );
-                })}
-              </div>
+    <div className="md-root sch-root">
+      <div className="sch-frame">
+        <div className="sch-board">
+          <div className="sch-head">
+            <button className="sch-back" onClick={onBack} title="캘린더로 돌아가기">‹ 캘린더</button>
+            <div className="sch-seg" role="group" aria-label="학교">
+              <button aria-pressed={selectedSchool === 'taeseong_middle'} onClick={() => setSelectedSchool('taeseong_middle')}>태성중</button>
+              <button aria-pressed={selectedSchool === 'taeseong_high'} onClick={() => setSelectedSchool('taeseong_high')}>태성고</button>
             </div>
-          );
-        })}
+            <button className="sch-icon" onClick={load} disabled={loading} title="새로고침" aria-label="새로고침">
+              <Ic name="refresh" gap={false} />
+            </button>
+          </div>
+
+          <div className="sch-titleRow">
+            <button className="sch-arrow" onClick={() => shift(-1)} title="지난 달" aria-label="지난 달">‹</button>
+            <div className="sch-title">
+              <b><Emo e={seasonEmoji(ym.m)} /> {ym.m}월 학사일정</b>
+              <small>{ym.y}년{!loading && !error && ` · 일정 ${plan.items.length}개`}</small>
+              {!isThisMonth && <> <button className="sch-now" onClick={() => setYm({ y: now.getFullYear(), m: now.getMonth() + 1 })}>이번 달로</button></>}
+            </div>
+            <button className="sch-arrow" onClick={() => shift(1)} title="다음 달" aria-label="다음 달">›</button>
+          </div>
+          <div className="sch-dots" role="group" aria-label="달 고르기">
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+              <button key={m} className={cls(m === ym.m && 'is-sel')} aria-pressed={m === ym.m} onClick={() => setYm({ y: ym.y, m })} title={`${m}월`}>{m}</button>
+            ))}
+          </div>
+
+          <div className="sch-weeks">
+            {loading && <DesignState emoji="📅" text="학사일정을 불러오는 중…" />}
+            {!loading && error && <DesignState emoji="😥" text={error} error />}
+            {!loading && !error && plan.items.length === 0 && <DesignState emoji="🗓️" text="이 달에는 올라온 일정이 없어요" />}
+            {!loading && !error && plan.items.length > 0 && rows.map((r) => (
+              <div key={r.label} className={cls('sch-week', r.isNow && 'is-now')}>
+                {r.isNow && <span className="sch-tag">이번 주</span>}
+                <div className="sch-wk"><b>{r.label}</b><span>{r.range}</span></div>
+                <div className="sch-evs">
+                  {r.items.length === 0 && <span className="sch-none">조용한 한 주</span>}
+                  {r.items.map((it) => (
+                    <div key={it.key} className={cls('sch-ev', `cat-${it.cat}`)} title={it.title}>
+                      <span className="sch-d">{dayText(it)}</span>
+                      <Emo e={it.emoji} />
+                      <span className="sch-t">{it.title}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          {!loading && !error && weekly.length > 0 && (
+            <div className="sch-foot">
+              {weekly.map((it) => (
+                <span key={it.key}><Emo e={it.emoji} /> 매주 {DOW[new Date(`${it.start}T00:00:00`).getDay()]}요일 {it.title} · {rangeLabel(it, ym.y, ym.m)}</span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="sch-ledge" aria-hidden="true"><i /><i /><i /><i /></div>
       </div>
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  container: { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' },
-  toolbar: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    padding: '6px 12px', borderBottom: '1px solid var(--border-subtle)',
-    flexShrink: 0, background: 'var(--tint-neutral)',
-  },
-  backBtn: {
-    background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
-    border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
-    cursor: 'pointer', padding: '4px 10px', borderRadius: 6,
-    fontSize: 'var(--fs-body)', fontWeight: 600, color: 'var(--accent)',
-  },
-  label: { flex: 1, fontSize: 'var(--fs-control)', fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center' },
-  iconBtn: {
-    background: 'none', border: 'none', cursor: 'pointer',
-    fontSize: 'var(--fs-lead)', padding: '4px 6px', borderRadius: 6,
-  },
-  schoolToggle: {
-    display: 'flex', gap: 6,
-    padding: '6px 12px',
-    borderBottom: '1px solid var(--border-subtle)',
-    flexShrink: 0,
-  },
-  schoolBtn: {
-    flex: 1,
-    padding: '6px 10px',
-    fontSize: 'var(--fs-body)',
-    fontWeight: 600,
-    border: '1px solid var(--border-color)',
-    borderRadius: 8,
-    background: 'var(--bg-secondary)',
-    color: 'var(--text-secondary)',
-    cursor: 'pointer',
-    transition: 'all 0.15s',
-  },
-  content: { flex: 1, overflow: 'auto', padding: '8px 12px' },
-  empty: { textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontSize: 'var(--fs-control)' },
-  error: {
-    margin: 8, padding: 12, borderRadius: 8,
-    background: 'var(--danger-soft)', color: 'var(--danger)',
-    fontSize: 'var(--fs-body)', textAlign: 'center',
-  },
-  monthSection: { marginBottom: 16 },
-  monthHeader: {
-    fontSize: 'var(--fs-lead)', fontWeight: 700,
-    padding: '6px 4px',
-    borderBottom: '2px solid currentColor',
-    marginBottom: 6,
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-  },
-  monthCount: { fontSize: 'var(--fs-label)', fontWeight: 500, opacity: 0.7 },
-  eventList: { display: 'flex', flexDirection: 'column', gap: 4 },
-  eventRow: {
-    display: 'flex', alignItems: 'center', gap: 12,
-    padding: '8px 10px', borderRadius: 6,
-    fontSize: 'var(--fs-body)',
-  },
-  eventDate: {
-    fontSize: 'var(--fs-label)', fontWeight: 600,
-    color: 'var(--text-secondary)',
-    minWidth: 130,
-    fontVariantNumeric: 'tabular-nums' as any,
-    display: 'flex', alignItems: 'center', gap: 6,
-  },
-  todayBadge: {
-    fontSize: 'var(--fs-tiny)', fontWeight: 800,
-    padding: '1px 6px', borderRadius: 8,
-    color: 'var(--on-accent)',
-  },
-  eventTitle: {
-    flex: 1, fontSize: 'var(--fs-control)', fontWeight: 600,
-    color: 'var(--text-primary)',
-  },
-};

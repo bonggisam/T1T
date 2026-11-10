@@ -1,41 +1,70 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { format, parseISO, addDays, isSameDay, isWithinInterval, isValid } from 'date-fns';
-import { ko } from 'date-fns/locale';
+import { format, parseISO, addDays, isValid, startOfWeek } from 'date-fns';
 import { useAuthStore } from '../../store/authStore';
-import { useDarkMode } from '../../hooks/useDarkMode';
 import type { School } from '@shared/types';
-import { Ic, type IconName } from '../common/Ic';
-
-interface MealDay {
-  date: string; // YYYY-MM-DD
-  weekday: string; // 일~토
-  menu: string[];
-  calorie: string;
-}
+import { Ic } from '../common/Ic';
+import { cls, Emo, DesignState } from '../common/designKit';
+import { parseMenu, mainDish, parseKcal, type MealItem } from '../../utils/mealEmoji';
+import '../common/designs.css';
+import './MealView.css';
 
 interface MealData {
   weekStart: string;
   weekEnd: string;
-  days: MealDay[];
+  days: Array<{ date: string; weekday: string; menu: string[]; calorie: string }>;
 }
 
-// 학교 색상 — 라이트/다크 분리 (다크는 더 밝은 톤)
-const SCHOOL_OPTIONS_LIGHT: { key: School; label: string; icon: IconName; color: string }[] = [
-  { key: 'taeseong_middle', label: '태성중', icon: 'school', color: 'var(--school-middle)' },
-  { key: 'taeseong_high', label: '태성고', icon: 'graduation', color: 'var(--school-high)' },
-];
-const SCHOOL_OPTIONS_DARK: { key: School; label: string; icon: IconName; color: string }[] = [
-  { key: 'taeseong_middle', label: '태성중', icon: 'school', color: 'var(--school-middle-bright)' },
-  { key: 'taeseong_high', label: '태성고', icon: 'graduation', color: 'var(--school-high-bright)' },
-];
+interface MealDay {
+  date: string; // YYYY-MM-DD
+  weekday: string; // 일~토
+  month: number;
+  day: number;
+  items: MealItem[];
+  kcal: number | null;
+  main?: MealItem;
+  isToday: boolean;
+}
+
+const ORDINAL = ['첫째', '둘째', '셋째', '넷째', '다섯째', '여섯째'];
+const TONE: Record<string, string> = { 월: 'mon', 화: 'tue', 수: 'wed', 목: 'thu', 금: 'fri', 토: 'sat', 일: 'sun' };
+/** 칼로리 막대의 가득 찬 기준 */
+const KCAL_FULL = 1300;
+
+function safeDate(s: string | undefined): Date | null {
+  if (!s) return null;
+  try {
+    const d = parseISO(s);
+    return isValid(d) ? d : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 메뉴 한 줄: 그림, 이름, 곁들임·괄호 설명·고르는 맛, 특식 표시 */
+function MenuLine({ item, isMain }: { item: MealItem; isMain: boolean }) {
+  return (
+    <li className={cls(item.special && 'is-special', isMain && 'is-main')}>
+      <Emo e={item.emoji} />
+      <span>
+        {item.name}
+        {item.extra && <small> + {item.extra}</small>}
+        {item.note && <small> ({item.note})</small>}
+        {item.options
+          ? <small> ({item.options.join('/')} 중 선택)</small>
+          : item.optional && <small> (선택)</small>}
+        {item.special && <em>특식</em>}
+      </span>
+    </li>
+  );
+}
 
 interface MealViewProps {
   onBack: () => void;
 }
 
 /**
- * 급식 메뉴 — 학교 홈페이지를 스크래핑해서 주별로 정리된 UI로 표시.
- * 양교 토글 + 주간 네비 + 카드 형식.
+ * 급식 메뉴 — 학교 홈페이지에서 한 주 식단을 받아 요일마다 색이 다른 카드로 보여 준다.
+ * 메뉴마다 그림(이모지)을 붙이고, 오늘은 TODAY 스티커, 마지막 카드에 이번 주 특식과 후식을 모은다.
  */
 export function MealView({ onBack }: MealViewProps) {
   const { user } = useAuthStore();
@@ -47,10 +76,6 @@ export function MealView({ onBack }: MealViewProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestRef = useRef(0);
-
-  const isDark = useDarkMode();
-  const SCHOOL_OPTIONS = isDark ? SCHOOL_OPTIONS_DARK : SCHOOL_OPTIONS_LIGHT;
-  const palette = SCHOOL_OPTIONS.find((s) => s.key === selectedSchool)!;
 
   async function load() {
     // 학교나 주를 빨리 바꾸면 늦게 온 앞 요청이 지금 화면을 덮는다
@@ -77,235 +102,122 @@ export function MealView({ onBack }: MealViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSchool, weekDate]);
 
-  function changeWeek(delta: number) {
-    setWeekDate((d) => addDays(d, delta * 7));
-  }
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-  function goToday() {
-    setWeekDate(new Date());
-  }
+  // 평일은 메뉴가 없어도 넣고(급식 없음), 주말은 메뉴가 있을 때만
+  const days = useMemo<MealDay[]>(() => {
+    if (!data?.days) return [];
+    return data.days
+      .filter((d) => (d.weekday !== '토' && d.weekday !== '일') || (d.menu && d.menu.length > 0))
+      .map((d) => {
+        const items = parseMenu(d.menu || []);
+        const dt = safeDate(d.date);
+        return {
+          date: d.date,
+          weekday: d.weekday,
+          month: dt ? dt.getMonth() + 1 : 0,
+          day: dt ? dt.getDate() : 0,
+          items,
+          kcal: parseKcal(d.calorie),
+          main: mainDish(items),
+          isToday: d.date === todayStr,
+        };
+      });
+  }, [data, todayStr]);
 
-  const today = new Date();
-  const todayStr = format(today, 'yyyy-MM-dd');
+  const first = safeDate(days[0]?.date) ?? startOfWeek(weekDate, { weekStartsOn: 1 });
+  const last = safeDate(days[days.length - 1]?.date) ?? addDays(first, 4);
+  const weekTitle = `${first.getMonth() + 1}월 ${ORDINAL[Math.ceil(first.getDate() / 7) - 1] ?? ''} 주`;
+  const weekRange = first.getMonth() === last.getMonth()
+    ? `${first.getMonth() + 1}월 ${first.getDate()}일 ~ ${last.getDate()}일`
+    : `${first.getMonth() + 1}월 ${first.getDate()}일 ~ ${last.getMonth() + 1}월 ${last.getDate()}일`;
+  const isThisWeek = !!data && data.weekStart <= todayStr && todayStr <= data.weekEnd;
 
-  /** date-fns가 throw하지 않도록 안전한 포매터 */
-  function safeFormat(dateStr: string | undefined, fmt: string): string {
-    if (!dateStr) return '';
-    try {
-      const d = parseISO(dateStr);
-      if (!isValid(d)) return '';
-      return format(d, fmt, { locale: ko });
-    } catch {
-      return '';
-    }
-  }
-
-  const weekLabel = data && data.weekStart && data.weekEnd
-    ? `${safeFormat(data.weekStart, 'M월 d일')} ~ ${safeFormat(data.weekEnd, 'M월 d일')}`
-    : '';
+  const withMenu = days.filter((d) => d.items.length > 0);
+  const specials = withMenu.flatMap((d) => d.items.filter((i) => i.special).map((i) => ({ d, i })));
+  const desserts = withMenu.flatMap((d) => d.items.filter((i) => i.kind === 'dessert').map((i) => ({ d, i })));
+  const top = withMenu.reduce<MealDay | null>((m, d) => (d.kcal && (!m || (m.kcal ?? 0) < d.kcal) ? d : m), null);
 
   return (
-    <div style={styles.container}>
-      <div style={styles.toolbar}>
-        <button onClick={onBack} style={styles.backBtn} title="캘린더로 돌아가기">
-          <Ic name="calendar" />캘린더
-        </button>
-        <span style={styles.label}><Ic name="meal" />급식 메뉴</span>
-        <button onClick={load} style={styles.iconBtn} title="새로고침" aria-label="새로고침" disabled={loading}>
+    <div className="md-root meal-root">
+      <div className="meal-head">
+        <button className="meal-back" onClick={onBack} title="캘린더로 돌아가기" aria-label="캘린더로 돌아가기">‹</button>
+        <div className="meal-title">급식 <Emo e="🍽️" /></div>
+        <div className="meal-seg" role="group" aria-label="학교">
+          <button aria-pressed={selectedSchool === 'taeseong_middle'} onClick={() => setSelectedSchool('taeseong_middle')}>태성중</button>
+          <button aria-pressed={selectedSchool === 'taeseong_high'} onClick={() => setSelectedSchool('taeseong_high')}>태성고</button>
+        </div>
+        <button className="meal-icon" onClick={load} disabled={loading} title="새로고침" aria-label="새로고침">
           <Ic name="refresh" gap={false} />
         </button>
       </div>
 
-      {/* 학교 토글 */}
-      <div style={styles.schoolToggle}>
-        {SCHOOL_OPTIONS.map((s) => (
-          <button
-            key={s.key}
-            onClick={() => setSelectedSchool(s.key)}
-            style={{
-              ...styles.schoolBtn,
-              ...(selectedSchool === s.key
-                ? { background: s.color, color: 'var(--on-accent)', border: '1px solid transparent', fontWeight: 700 }
-                : {}),
-            }}
-          >
-            <Ic name={s.icon} />{s.label}
-          </button>
-        ))}
+      <div className="meal-weekbar">
+        <button className="meal-nav" onClick={() => setWeekDate((d) => addDays(d, -7))} title="지난 주" aria-label="지난 주">‹</button>
+        <div className="meal-week"><b>{weekTitle}</b><small>{weekRange}</small></div>
+        <button className="meal-nav" onClick={() => setWeekDate((d) => addDays(d, 7))} title="다음 주" aria-label="다음 주">›</button>
+        {!isThisWeek && <button className="meal-now" onClick={() => setWeekDate(new Date())}>이번 주</button>}
       </div>
 
-      {/* 주간 네비 */}
-      <div style={styles.weekNav}>
-        <button onClick={() => changeWeek(-1)} style={styles.navBtn} title="이전 주">◀ 이전 주</button>
-        <div style={styles.weekInfo}>
-          <div style={styles.weekRange}>{weekLabel || '—'}</div>
-          <button onClick={goToday} style={styles.todayLink} title="이번 주로">오늘</button>
-        </div>
-        <button onClick={() => changeWeek(1)} style={styles.navBtn} title="다음 주">다음 주 ▶</button>
-      </div>
-
-      <div style={styles.content}>
-        {loading && (
-          <div style={styles.empty}>
-            <div className="spinner" />
-            <p style={{ marginTop: 8, color: 'var(--text-muted)' }}>급식 메뉴 불러오는 중...</p>
-          </div>
-        )}
-        {!loading && error && (
-          <div style={styles.error}><Ic name="alert" />{error}</div>
-        )}
-        {!loading && !error && data && (!data.days || data.days.length === 0) && (
-          <div style={styles.empty}><Ic name="inbox" />이번 주 급식 정보가 없습니다</div>
-        )}
-        {!loading && !error && data && data.days && data.days.map((day) => {
-          const isToday = day.date === todayStr;
-          const hasMenu = day.menu && day.menu.length > 0;
-          const dayLabel = safeFormat(day.date, 'M/d');
-          return (
-            <div
-              key={day.date}
-              style={{
-                ...styles.dayCard,
-                borderLeft: `4px solid ${isToday ? palette.color : 'var(--border-subtle)'}`,
-                background: isToday ? `color-mix(in srgb, ${palette.color} 6%, transparent)` : 'var(--bg-secondary)',
-              }}
-            >
-              <div style={styles.dayHeader}>
-                <div style={styles.dayDate}>
-                  {isToday && <span style={{ ...styles.todayBadge, background: palette.color }}>오늘</span>}
-                  <span style={{ ...styles.dayLabel, color: day.weekday === '일' ? 'var(--weekend-text)' : day.weekday === '토' ? 'var(--saturday-text)' : 'var(--text-primary)' }}>
-                    {dayLabel || day.date} ({day.weekday})
-                  </span>
-                </div>
-                {day.calorie && (
-                  <span style={styles.calorie}><Ic name="flame" />{day.calorie}</span>
+      <div className="meal-grid">
+        {loading && <DesignState emoji="🍳" text="급식을 불러오는 중…" />}
+        {!loading && error && <DesignState emoji="😥" text={error} error />}
+        {!loading && !error && withMenu.length === 0 && <DesignState emoji="🍽️" text="이번 주 급식 정보가 없어요" />}
+        {!loading && !error && withMenu.length > 0 && (
+          <>
+            {days.map((d) => (
+              <article
+                key={d.date}
+                className={cls('meal-card', `tone-${TONE[d.weekday] ?? 'sun'}`, d.isToday && 'is-today', d.items.length === 0 && 'is-off')}
+                aria-label={`${d.month}월 ${d.day}일 ${d.weekday}요일 급식`}
+              >
+                {d.isToday && <span className="meal-sticker">TODAY</span>}
+                <header className="meal-cardHead">
+                  <div>
+                    <div className="meal-wd">{d.weekday}</div>
+                    <div className="meal-date">{d.month}/{d.day}</div>
+                  </div>
+                  <span className="meal-hero" title={d.main?.name}><Emo e={d.main?.emoji ?? '🍽️'} /></span>
+                </header>
+                {d.items.length === 0 ? (
+                  <p className="meal-none">급식 없음</p>
+                ) : (
+                  <ul className="meal-list">
+                    {d.items.map((it, i) => <MenuLine key={i} item={it} isMain={it === d.main} />)}
+                  </ul>
                 )}
-              </div>
-              {hasMenu ? (
-                <ul style={styles.menuList}>
-                  {day.menu.map((item, i) => (
-                    <li key={i} style={styles.menuItem}>{item}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p style={styles.noMeal}>—</p>
+                {d.kcal && (
+                  <footer className="meal-foot">
+                    <span className="meal-bar"><i style={{ width: `${Math.min(100, Math.round((d.kcal / KCAL_FULL) * 100))}%` }} /></span>
+                    <span>{d.kcal.toLocaleString()}kcal</span>
+                  </footer>
+                )}
+              </article>
+            ))}
+            <article className="meal-card meal-high" aria-label="이번 주 하이라이트">
+              <header className="meal-highHead"><Emo e="✨" /> 이번 주 하이라이트</header>
+              {specials.length > 0 && (
+                <div className="meal-hl">
+                  <span className="meal-hlTitle">⭐ 특식</span>
+                  {specials.map(({ d, i }, k) => <span key={k} className="meal-hlItem"><Emo e={i.emoji} />{i.name}<small>{d.weekday}</small></span>)}
+                </div>
               )}
-            </div>
-          );
-        })}
+              {desserts.length > 0 && (
+                <div className="meal-hl">
+                  <span className="meal-hlTitle">🍰 후식</span>
+                  {desserts.map(({ d, i }, k) => <span key={k} className="meal-hlItem"><Emo e={i.emoji} />{i.name}<small>{d.weekday}</small></span>)}
+                </div>
+              )}
+              {top && (
+                <div className="meal-hl">
+                  <span className="meal-hlTitle">🔥 든든한 날</span>
+                  <span className="meal-hlItem">{top.weekday}요일 · {top.kcal?.toLocaleString()}kcal</span>
+                </div>
+              )}
+            </article>
+          </>
+        )}
       </div>
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  container: { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' },
-  toolbar: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    padding: '6px 12px', borderBottom: '1px solid var(--border-subtle)',
-    flexShrink: 0, background: 'var(--tint-neutral)',
-  },
-  backBtn: {
-    background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
-    border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
-    cursor: 'pointer', padding: '4px 10px', borderRadius: 6,
-    fontSize: 'var(--fs-body)', fontWeight: 600, color: 'var(--accent)',
-  },
-  label: { flex: 1, fontSize: 'var(--fs-control)', fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center' },
-  iconBtn: {
-    background: 'none', border: 'none', cursor: 'pointer',
-    fontSize: 'var(--fs-lead)', padding: '4px 6px', borderRadius: 6,
-  },
-  schoolToggle: {
-    display: 'flex', gap: 6,
-    padding: '6px 12px',
-    borderBottom: '1px solid var(--border-subtle)',
-    flexShrink: 0,
-  },
-  schoolBtn: {
-    flex: 1,
-    padding: '6px 10px',
-    fontSize: 'var(--fs-body)',
-    fontWeight: 600,
-    border: '1px solid var(--border-color)',
-    borderRadius: 8,
-    background: 'var(--bg-secondary)',
-    color: 'var(--text-secondary)',
-    cursor: 'pointer',
-    transition: 'all 0.15s',
-  },
-  weekNav: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '8px 12px', gap: 8,
-    borderBottom: '1px solid var(--border-subtle)',
-    flexShrink: 0,
-  },
-  navBtn: {
-    padding: '5px 10px',
-    fontSize: 'var(--fs-label)',
-    fontWeight: 600,
-    border: '1px solid var(--border-color)',
-    borderRadius: 6,
-    background: 'var(--bg-secondary)',
-    color: 'var(--text-primary)',
-    cursor: 'pointer',
-  },
-  weekInfo: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 },
-  weekRange: { fontSize: 'var(--fs-control)', fontWeight: 700, color: 'var(--text-primary)' },
-  todayLink: {
-    fontSize: 'var(--fs-caption)', fontWeight: 500,
-    border: 'none', background: 'transparent',
-    color: 'var(--accent)', cursor: 'pointer',
-    padding: 0,
-  },
-  content: { flex: 1, overflow: 'auto', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 6 },
-  empty: { textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontSize: 'var(--fs-control)' },
-  error: {
-    margin: 8, padding: 12, borderRadius: 8,
-    background: 'var(--danger-soft)', color: 'var(--danger)',
-    fontSize: 'var(--fs-body)', textAlign: 'center',
-  },
-  dayCard: {
-    padding: '10px 12px',
-    borderRadius: 8,
-    border: '1px solid var(--border-subtle)',
-  },
-  dayHeader: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: 6,
-  },
-  dayDate: { display: 'flex', alignItems: 'center', gap: 6 },
-  dayLabel: { fontSize: 'var(--fs-subtitle)', fontWeight: 700 },
-  todayBadge: {
-    fontSize: 'var(--fs-caption)', fontWeight: 800,
-    padding: '2px 7px', borderRadius: 8,
-    color: 'var(--on-accent)',
-  },
-  calorie: {
-    fontSize: 'var(--fs-body)', fontWeight: 600,
-    color: 'var(--text-muted)',
-    background: 'var(--warning-soft)',
-    padding: '3px 9px',
-    borderRadius: 12,
-  },
-  menuList: {
-    margin: 0,
-    padding: 0,
-    listStyle: 'none',
-    display: 'flex',
-    flexWrap: 'wrap' as const,
-    gap: 5,
-  },
-  menuItem: {
-    fontSize: 'var(--fs-control)', // 사용자 요청 — 급식 메뉴 글자 크게
-    fontWeight: 500,
-    color: 'var(--text-primary)',
-    background: 'var(--bg-primary)',
-    padding: '4px 10px',
-    borderRadius: 6,
-    border: '1px solid var(--border-subtle)',
-  },
-  noMeal: {
-    margin: 0, fontSize: 'var(--fs-control)', color: 'var(--text-muted)', fontStyle: 'italic' as const,
-  },
-};

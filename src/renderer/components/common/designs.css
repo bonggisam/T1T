@@ -1,0 +1,45 @@
+/* 급식판과 학사일정이 함께 쓰는 바탕. 두 화면은 .md-root 안에서만 꾸민다 */
+
+.md-root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  container-type: inline-size;
+  font-family: var(--font-sans);
+  word-break: keep-all;
+}
+/* :where로 우선순위를 0으로 둬서 각 화면의 단추 꾸밈이 이긴다 */
+:where(.md-root) :where(button) {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.md-root button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+.md-emoji {
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  line-height: 1;
+  font-style: normal;
+  text-shadow: none;
+}
+.md-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 36px 16px;
+  text-align: center;
+  font-size: var(--fs-control);
+  font-weight: 600;
+  opacity: 0.8;
+}
+.md-stateEmoji { font-size: 34px; }
+.md-state.is-error { opacity: 1; }
