@@ -1,23 +1,22 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { ArrowLeft, Search, Plus, Pencil, Trash2, Check, X, Copy, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Search, Plus, Pencil, Trash2, Check, X, RefreshCw } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useKeyphoneStore, type KeyphoneEntry } from '../../store/keyphoneStore';
 import { showToast } from '../common/Toast';
 import type { School } from '@shared/types';
 import { Ic, type IconName } from '../common/Ic';
+import { Emo } from '../common/designKit';
+import '../common/designs.css';
+import './KeyphoneView.css';
+
+const SCHOOLS: { key: School; label: string; icon: IconName }[] = [
+  { key: 'taeseong_middle', label: '태성중학교', icon: 'school' },
+  { key: 'taeseong_high', label: '태성고등학교', icon: 'graduation' },
+];
 
 interface KeyphoneViewProps {
   onBack: () => void;
 }
-
-/**
- * 학교별 색상 — 라이트/다크 모드 분리.
- * 다크 모드에서 보라가 너무 어두워 안 보이는 문제 해결을 위해 밝은 색조 사용.
- */
-const SCHOOL_COLORS = {
-  taeseong_middle: { light: 'var(--school-middle)', dark: 'var(--school-middle-bright)' }, // 그린(light) → 그린-400(dark)
-  taeseong_high:   { light: 'var(--school-high)', dark: 'var(--school-high-bright)' }, // 바이올렛-500 → 바이올렛-300 (훨씬 밝게)
-};
 
 /** 키폰 번호부 — 양교 전화번호 조회 + 관리자 편집. */
 export function KeyphoneView({ onBack }: KeyphoneViewProps) {
@@ -28,23 +27,6 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
   const canEdit = user?.role === 'super_admin' || user?.role === 'admin';
   const isSuperAdmin = user?.role === 'super_admin';
   const autoSeedAttempted = React.useRef(false);
-
-  // 다크모드 감지 — data-theme 속성 변경 추적 (실시간 반영)
-  const [isDark, setIsDark] = useState<boolean>(
-    () => document.documentElement.getAttribute('data-theme') === 'dark'
-  );
-  useEffect(() => {
-    const obs = new MutationObserver(() => {
-      setIsDark(document.documentElement.getAttribute('data-theme') === 'dark');
-    });
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => obs.disconnect();
-  }, []);
-
-  const SCHOOLS = useMemo<{ key: School; label: string; icon: IconName; color: string }[]>(() => [
-    { key: 'taeseong_middle', label: '태성중학교', icon: 'school', color: isDark ? SCHOOL_COLORS.taeseong_middle.dark : SCHOOL_COLORS.taeseong_middle.light },
-    { key: 'taeseong_high',   label: '태성고등학교', icon: 'graduation', color: isDark ? SCHOOL_COLORS.taeseong_high.dark : SCHOOL_COLORS.taeseong_high.light },
-  ], [isDark]);
 
   const defaultSchool: School = (user?.school === 'taeseong_middle' || user?.school === 'taeseong_high')
     ? user.school : 'taeseong_middle';
@@ -84,8 +66,6 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
       }
     })();
   }, [canEdit, loading, isEmpty, seedIfEmpty]);
-
-  const palette = SCHOOLS.find((s) => s.key === selectedSchool)!;
 
   const filtered = useMemo(() => {
     const list = entries.filter((e) => e.school === selectedSchool);
@@ -223,449 +203,139 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
     setSeeding(false);
   }
 
+
+  const editFields = (draft: Partial<KeyphoneEntry>, set: (next: Partial<KeyphoneEntry>) => void) => (
+    <>
+      <input className="kp-input" placeholder="부서" value={draft.department || ''} onChange={(e) => set({ ...draft, department: e.target.value })} />
+      <input className="kp-input" placeholder="이름" value={draft.name || ''} onChange={(e) => set({ ...draft, name: e.target.value })} />
+      <input className="kp-input" placeholder="직책" value={draft.role || ''} onChange={(e) => set({ ...draft, role: e.target.value })} />
+      <input className="kp-input" placeholder="키폰" value={draft.keyphone || ''} onChange={(e) => set({ ...draft, keyphone: e.target.value })} />
+      <input className="kp-input" placeholder="외부전화" value={draft.phone || ''} onChange={(e) => set({ ...draft, phone: e.target.value })} />
+    </>
+  );
+
   return (
-    <div style={styles.wrap}>
-      {/* 헤더 */}
-      <div style={styles.header}>
-        <button onClick={onBack} style={styles.backBtn} title="돌아가기" aria-label="뒤로">
+    <div className="md-root kp-root" data-school={selectedSchool}>
+      <div className="kp-head">
+        <button onClick={onBack} className="kp-back" title="돌아가기" aria-label="뒤로">
           <ArrowLeft size={18} />
         </button>
-        <span style={styles.headerTitle}><Ic name="phone" />키폰 번호부</span>
-        <span style={{ flex: 1 }} />
+        <span className="kp-title"><Ic name="phone" />키폰 번호부</span>
+        <span className="kp-space" />
         {isSuperAdmin && !isEmpty && (
-          <button onClick={handleReset} disabled={seeding} style={styles.resetBtn} title="기존 데이터 삭제 후 초기 데이터로 재등록">
+          <button onClick={handleReset} disabled={seeding} className="kp-reset" title="기존 데이터 삭제 후 초기 데이터로 재등록">
             <RefreshCw size={13} /> 재시드
           </button>
         )}
       </div>
 
-      {/* 학교 탭 */}
-      <div style={styles.tabRow}>
-        {SCHOOLS.map((s) => {
-          const active = selectedSchool === s.key;
-          const count = entries.filter((e) => e.school === s.key).length;
-          return (
-            <button
-              key={s.key}
-              onClick={() => setSelectedSchool(s.key)}
-              style={{
-                ...styles.tab,
-                background: active ? `color-mix(in srgb, ${s.color} 13%, transparent)` : 'transparent',
-                color: active ? s.color : 'var(--text-secondary)',
-                borderColor: active ? s.color : 'var(--border-subtle)',
-              }}
-            >
-              <Ic name={s.icon} />{s.label}
-              <span style={{
-                ...styles.countPill,
-                background: active ? `color-mix(in srgb, ${s.color} 20%, transparent)` : 'var(--bg-hover)',
-                color: active ? s.color : 'var(--text-muted)',
-              }}>{count}</span>
-            </button>
-          );
-        })}
+      <div className="kp-tabs" role="group" aria-label="학교">
+        {SCHOOLS.map((s) => (
+          <button
+            key={s.key}
+            className="kp-tab"
+            data-school={s.key}
+            aria-pressed={selectedSchool === s.key}
+            onClick={() => setSelectedSchool(s.key)}
+          >
+            <Ic name={s.icon} />{s.label}
+            <span className="kp-count">{entries.filter((e) => e.school === s.key).length}</span>
+          </button>
+        ))}
       </div>
 
-      {/* 검색 + 추가 */}
-      <div style={styles.toolbar}>
-        <div style={styles.searchBox}>
-          <Search size={14} color="var(--text-muted)" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="부서·이름·직책·번호 검색"
-            style={styles.searchInput}
-          />
-        </div>
+      <div className="kp-tip" role="note">
+        <Emo e="☎️" className="kp-tipEmoji" />
+        <span className="kp-tipText">중 ↔ 고 전화 연결</span>
+        <span className="kp-keys">
+          <kbd>*</kbd><kbd>2</kbd>
+          <span className="kp-then">누르고</span>
+          <kbd className="kp-ext">내선번호</kbd>
+        </span>
+      </div>
+
+      <div className="kp-tools">
+        <label className="kp-search">
+          <Search size={14} />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="부서·이름·직책·번호 검색" />
+        </label>
         {canEdit && (
-          <button onClick={() => startAdd(selectedSchool)} style={{ ...styles.addBtn, background: `${palette.color}22`, color: palette.color }}>
+          <button onClick={() => startAdd(selectedSchool)} className="kp-add">
             <Plus size={14} /> 추가
           </button>
         )}
       </div>
 
-      {/* 본문 */}
-      <div style={styles.body}>
+      <div className="kp-body">
         {loading ? (
-          <div style={styles.placeholder}>로딩 중…</div>
+          <div className="kp-empty">로딩 중…</div>
         ) : isEmpty ? (
-          <div style={styles.placeholder}>
-            <div style={{ fontSize: 'var(--fs-hero)', marginBottom: 8 }}><Ic name="phone" gap={false} /></div>
-            <div style={{ fontSize: 'var(--fs-lead)', fontWeight: 600, marginBottom: 4 }}>키폰 번호부 준비 중…</div>
-            <div style={{ fontSize: 'var(--fs-body)', color: 'var(--text-muted)' }}>
-              {canEdit ? '잠시 후 초기 데이터가 자동 등록됩니다.' : '관리자가 처음 접속하면 초기 데이터가 자동 등록됩니다.'}
-            </div>
+          <div className="kp-empty">
+            <Emo e="☎️" className="kp-emptyEmoji" />
+            <b>키폰 번호부 준비 중…</b>
+            <span>{canEdit ? '잠시 후 초기 데이터가 자동 등록됩니다.' : '관리자가 처음 접속하면 초기 데이터가 자동 등록됩니다.'}</span>
           </div>
         ) : filtered.length === 0 ? (
-          <div style={styles.placeholder}>
-            <div style={{ fontSize: 'var(--fs-lead)', color: 'var(--text-muted)' }}>검색 결과가 없습니다</div>
-          </div>
+          <div className="kp-empty"><span>검색 결과가 없습니다</span></div>
         ) : (
           <>
-            {/* 추가 폼 — 전체 폭 */}
             {addingForSchool === selectedSchool && (
-              <div style={{ ...styles.editRow, background: 'var(--bg-hover)', borderLeft: `3px solid ${palette.color}`, margin: '0 8px 8px' }}>
-                <input style={styles.editInput} placeholder="부서명" value={addDraft.department || ''} onChange={(e) => setAddDraft({ ...addDraft, department: e.target.value })} />
-                <input style={styles.editInput} placeholder="이름" value={addDraft.name || ''} onChange={(e) => setAddDraft({ ...addDraft, name: e.target.value })} />
-                <input style={styles.editInput} placeholder="직책" value={addDraft.role || ''} onChange={(e) => setAddDraft({ ...addDraft, role: e.target.value })} />
-                <input style={styles.editInput} placeholder="키폰" value={addDraft.keyphone || ''} onChange={(e) => setAddDraft({ ...addDraft, keyphone: e.target.value })} />
-                <input style={styles.editInput} placeholder="외부전화" value={addDraft.phone || ''} onChange={(e) => setAddDraft({ ...addDraft, phone: e.target.value })} />
-                <div style={styles.actionGroup}>
-                  <button onClick={saveAdd} style={styles.iconBtnSuccess} title="저장"><Check size={14} /></button>
-                  <button onClick={cancelAdd} style={styles.iconBtnGhost} title="취소"><X size={14} /></button>
+              <div className="kp-edit is-add">
+                {editFields(addDraft, setAddDraft)}
+                <div className="kp-acts">
+                  <button onClick={saveAdd} className="kp-ok" title="저장"><Check size={14} /></button>
+                  <button onClick={cancelAdd} className="kp-ghost" title="취소"><X size={14} /></button>
                 </div>
               </div>
             )}
 
-            {/* 2-컬럼 흐름 — 부서 단위로 컬럼 사이 끊김 방지 */}
-            <div style={styles.columnsWrap}>
-              {grouped.map(([dept, list]) => (
-                <div key={dept} style={styles.group}>
-                  <div
-                    style={{
-                      ...styles.groupHeader,
-                      color: palette.color,
-                      borderBottomColor: `color-mix(in srgb, ${palette.color} 33%, transparent)`,
-                      background: `color-mix(in srgb, ${palette.color} 8%, transparent)`,
-                    }}
-                  >
-                    {dept}
-                    <span style={styles.groupCount}>· {list.length}</span>
-                  </div>
-                  {list.map((e) => {
-                    const isEditing = editingId === e.id;
-                    if (isEditing) {
-                      return (
-                        <div key={e.id} style={{ ...styles.editRow, background: 'var(--bg-hover)' }}>
-                          <input style={styles.editInput} value={editDraft.department || ''} onChange={(ev) => setEditDraft({ ...editDraft, department: ev.target.value })} placeholder="부서" />
-                          <input style={styles.editInput} value={editDraft.name || ''} onChange={(ev) => setEditDraft({ ...editDraft, name: ev.target.value })} placeholder="이름" />
-                          <input style={styles.editInput} value={editDraft.role || ''} onChange={(ev) => setEditDraft({ ...editDraft, role: ev.target.value })} placeholder="직책" />
-                          <input style={styles.editInput} value={editDraft.keyphone || ''} onChange={(ev) => setEditDraft({ ...editDraft, keyphone: ev.target.value })} placeholder="키폰" />
-                          <input style={styles.editInput} value={editDraft.phone || ''} onChange={(ev) => setEditDraft({ ...editDraft, phone: ev.target.value })} placeholder="전화" />
-                          <div style={styles.actionGroup}>
-                            <button onClick={saveEdit} style={styles.iconBtnSuccess} title="저장"><Check size={14} /></button>
-                            <button onClick={cancelEdit} style={styles.iconBtnGhost} title="취소"><X size={14} /></button>
-                          </div>
-                        </div>
-                      );
-                    }
-                    return (
-                      <div key={e.id} style={styles.row}>
-                        {/* 좌측정렬 단일 라인: 이름(직책) · 키폰 · 전화 */}
-                        <span style={styles.nameText}>
-                          {e.name || <span style={{ color: 'var(--text-muted)' }}>—</span>}
-                          {e.role && <span style={styles.roleInline}>({e.role})</span>}
-                        </span>
-                        {e.keyphone ? (
-                          <button
-                            onClick={() => copy(e.keyphone)}
-                            style={{
-                              ...styles.copyBtn,
-                              color: palette.color,
-                              borderColor: `color-mix(in srgb, ${palette.color} 40%, transparent)`,
-                              background: `color-mix(in srgb, ${palette.color} 9%, transparent)`,
-                            }}
-                            title={`복사: ${e.keyphone}`}
-                          >
-                            {e.keyphone}
-                          </button>
-                        ) : null}
-                        {e.phone ? (
-                          <button onClick={() => copy(e.phone)} style={styles.phoneBtn} title={`복사: ${e.phone}`}>
-                            {e.phone}
-                          </button>
-                        ) : null}
-                        {canEdit && (
-                          <div style={styles.actionGroup}>
-                            <button onClick={() => startEdit(e)} style={styles.iconBtnGhost} title="수정"><Pencil size={11} /></button>
-                            <button onClick={() => remove(e)} style={{ ...styles.iconBtnGhost, color: 'var(--danger)' }} title="삭제"><Trash2 size={11} /></button>
-                          </div>
-                        )}
+            <div className="kp-cols">
+              {grouped.map(([name, list]) => (
+                <section key={name} className="kp-group">
+                  <h4 className="kp-dept">
+                    <span>{name}</span>
+                    <span className="kp-deptCount">{list.length}</span>
+                  </h4>
+                  {list.map((e) => (editingId === e.id ? (
+                    <div key={e.id} className="kp-edit">
+                      {editFields(editDraft, setEditDraft)}
+                      <div className="kp-acts">
+                        <button onClick={saveEdit} className="kp-ok" title="저장"><Check size={14} /></button>
+                        <button onClick={cancelEdit} className="kp-ghost" title="취소"><X size={14} /></button>
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  ) : (
+                    <div key={e.id} className="kp-row">
+                      <span className="kp-name">
+                        {e.name || <span className="kp-noname">—</span>}
+                        {e.role && <span className="kp-role">{e.role}</span>}
+                      </span>
+                      {e.keyphone && (
+                        <button onClick={() => copy(e.keyphone)} className="kp-num" title={`복사: ${e.keyphone}`}>{e.keyphone}</button>
+                      )}
+                      {e.phone && (
+                        <button onClick={() => copy(e.phone)} className="kp-tel" title={`복사: ${e.phone}`}>{e.phone}</button>
+                      )}
+                      {canEdit && (
+                        <div className="kp-acts">
+                          <button onClick={() => startEdit(e)} className="kp-ghost" title="수정"><Pencil size={11} /></button>
+                          <button onClick={() => remove(e)} className="kp-ghost is-danger" title="삭제"><Trash2 size={11} /></button>
+                        </div>
+                      )}
+                    </div>
+                  )))}
+                </section>
               ))}
             </div>
           </>
         )}
       </div>
 
-      <div style={styles.footnote}>
+      <div className="kp-foot">
         {canEdit
-          ? '관리자 모드: 항목을 추가·수정·삭제할 수 있습니다.'
-          : '조회 전용 모드 — 관리자만 수정 가능합니다.'}
+          ? '번호를 누르면 복사됩니다 · 관리자는 항목을 추가·수정·삭제할 수 있습니다.'
+          : '번호를 누르면 복사됩니다.'}
       </div>
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  wrap: {
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100%',
-    // 다크모드에서 글래스 배경 대비 강화 — 살짝 어둡게 깔아 텍스트 가독성 확보
-    background: 'var(--bg-secondary)',
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '10px 14px',
-    borderBottom: '1px solid var(--border-subtle)',
-  },
-  headerTitle: {
-    fontSize: 'var(--fs-subtitle)',
-    fontWeight: 700,
-    color: 'var(--text-primary)',
-  },
-  backBtn: {
-    background: 'transparent',
-    border: 'none',
-    cursor: 'pointer',
-    color: 'var(--text-secondary)',
-    padding: 4,
-    borderRadius: 6,
-    display: 'inline-flex',
-    alignItems: 'center',
-  },
-  seedBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 4,
-    padding: '5px 10px',
-    fontSize: 'var(--fs-label)',
-    fontWeight: 600,
-    background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
-    color: 'var(--accent)',
-    border: '1px solid color-mix(in srgb, var(--accent) 40%, transparent)',
-    borderRadius: 6,
-    cursor: 'pointer',
-  },
-  resetBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 4,
-    padding: '4px 8px',
-    fontSize: 'var(--fs-caption)',
-    fontWeight: 600,
-    background: 'var(--warning-soft)',
-    color: 'var(--warning)',
-    border: '1px solid var(--warning-edge)',
-    borderRadius: 6,
-    cursor: 'pointer',
-  },
-  tabRow: {
-    display: 'flex',
-    gap: 6,
-    padding: '8px 14px',
-    borderBottom: '1px solid var(--border-color)', // 다크에서도 보이게
-  },
-  tab: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-    padding: '6px 12px',
-    fontSize: 'var(--fs-body)',
-    fontWeight: 700, // 다크모드 가독성
-    border: '1px solid',
-    borderRadius: 8,
-    cursor: 'pointer',
-    transition: 'all 0.15s',
-  },
-  countPill: {
-    fontSize: 'var(--fs-caption)',
-    fontWeight: 700,
-    padding: '1px 6px',
-    borderRadius: 8,
-    minWidth: 16,
-    textAlign: 'center',
-  },
-  toolbar: {
-    display: 'flex',
-    gap: 8,
-    padding: '8px 14px',
-    borderBottom: '1px solid var(--border-subtle)',
-  },
-  searchBox: {
-    flex: 1,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    padding: '6px 10px',
-    border: '1px solid var(--border-color)', // 더 진한 테두리
-    borderRadius: 8,
-    background: 'var(--bg-hover)', // 약간 밝게 → 다크모드에서 검색박스 윤곽 명확
-  },
-  searchInput: {
-    flex: 1,
-    border: 'none',
-    outline: 'none',
-    background: 'transparent',
-    color: 'var(--text-primary)',
-    fontSize: 'var(--fs-body)',
-  },
-  addBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 4,
-    padding: '6px 12px',
-    fontSize: 'var(--fs-label)',
-    fontWeight: 600,
-    border: 'none',
-    borderRadius: 8,
-    cursor: 'pointer',
-  },
-  body: {
-    flex: 1,
-    overflowY: 'auto',
-    padding: '6px 0 12px',
-  },
-  // 2-컬럼 흐름 — 좁은 창에서는 1컬럼으로 자동 떨어짐 (column-width 사용)
-  columnsWrap: {
-    columnCount: 2,
-    columnGap: 6,
-    padding: '0 6px',
-  } as React.CSSProperties,
-  group: {
-    breakInside: 'avoid' as any,
-    pageBreakInside: 'avoid', // 부서 블록이 컬럼 사이로 끊기지 않게
-    marginBottom: 6,
-    display: 'inline-block', // column-count + breakInside 신뢰성
-    width: '100%',
-  },
-  groupHeader: {
-    fontSize: 'var(--fs-label)',
-    fontWeight: 700,
-    padding: '4px 8px 3px',
-    borderBottom: '1px solid',
-    letterSpacing: 0.2,
-    display: 'flex',
-    alignItems: 'center',
-  },
-  groupCount: {
-    fontSize: 'var(--fs-tiny)',
-    color: 'var(--text-secondary)',
-    marginLeft: 6,
-    fontWeight: 500,
-  },
-  // 단일 라인 좌측정렬 행
-  row: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '5px 8px',
-    fontSize: 'var(--fs-control)',
-    lineHeight: 1.4,
-    borderBottom: '1px solid var(--border-subtle)',
-  },
-  nameText: {
-    fontWeight: 500, // 사용자 요청 — 진하게 X (700 → 500)
-    fontSize: 'var(--fs-lead)',    // 사용자 요청 — 이름 크게 (12 → 14)
-    color: 'var(--text-primary)',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    minWidth: 0,
-    flexShrink: 0,
-  },
-  roleInline: {
-    fontSize: 'var(--fs-label)',
-    fontWeight: 500,
-    color: 'var(--text-secondary)',
-    marginLeft: 4,
-  },
-  // 편집/추가용 grid (admin 폼 전용) — 좁은 창에서 자동 wrap
-  editRow: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 4,
-    padding: '6px 8px',
-    fontSize: 'var(--fs-label)',
-    borderRadius: 6,
-  },
-  copyBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    padding: '3px 9px',
-    fontSize: 'var(--fs-control)', // 사용자 요청 — 키폰 번호 조금 더 크게 (11.5 → 13)
-    fontWeight: 800,
-    background: 'transparent',
-    border: '1px solid',
-    borderRadius: 5,
-    cursor: 'pointer',
-    fontFamily: '"SF Mono", "Consolas", "Menlo", monospace',
-    flexShrink: 0,
-    letterSpacing: 0.3,
-  },
-  phoneBtn: {
-    background: 'transparent',
-    border: 'none',
-    cursor: 'pointer',
-    color: 'var(--text-primary)',
-    padding: '2px 5px',
-    fontSize: 'var(--fs-body)', // 전화번호 (11.5 → 12)
-    fontFamily: '"SF Mono", "Consolas", "Menlo", monospace',
-    fontWeight: 600,
-    textAlign: 'left',
-    flexShrink: 1,
-    minWidth: 0,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    letterSpacing: 0.2,
-  },
-  actionGroup: {
-    display: 'flex',
-    gap: 2,
-  },
-  iconBtnGhost: {
-    background: 'transparent',
-    border: 'none',
-    cursor: 'pointer',
-    color: 'var(--text-secondary)', // muted → secondary
-    padding: 4,
-    borderRadius: 4,
-    display: 'inline-flex',
-    alignItems: 'center',
-  },
-  iconBtnSuccess: {
-    background: 'var(--success-soft)',
-    border: 'none',
-    cursor: 'pointer',
-    color: 'var(--success)',
-    padding: 4,
-    borderRadius: 4,
-    display: 'inline-flex',
-    alignItems: 'center',
-  },
-  editInput: {
-    padding: '3px 5px',
-    fontSize: 'var(--fs-caption)',
-    border: '1px solid var(--border-color)',
-    borderRadius: 3,
-    background: 'var(--bg-hover)',
-    color: 'var(--text-primary)',
-    minWidth: 60,
-    flex: '1 1 90px', // 좁은 창에서 자동 wrap
-  },
-  placeholder: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-    color: 'var(--text-secondary)',
-    fontSize: 'var(--fs-control)',
-  },
-  footnote: {
-    padding: '8px 14px',
-    fontSize: 'var(--fs-caption)',
-    color: 'var(--text-muted)',
-    borderTop: '1px solid var(--border-subtle)',
-    textAlign: 'center',
-  },
-};

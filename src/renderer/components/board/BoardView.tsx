@@ -19,6 +19,9 @@ const SCHOOLS: Array<{ value: School | 'all'; label: string }> = [
 ];
 const SCHOOL_NAMES: Record<string, string> = { taeseong_middle: '태성중', taeseong_high: '태성고', all: '양교' };
 
+/** 글 제목 줄과 위아래 여백. 사진 높이를 창에 맞출 때 뺀다 */
+const FIT_MARGIN = 72;
+
 const tabKey = (group: BoardGroup, tab: string) => `${group}:${tab}`;
 
 function countImages(posts: BoardPost[]): number {
@@ -247,16 +250,18 @@ function BoardImage({ image, alt, onOpen }: { image: BoardImageRef; alt: string;
   }, [load]);
 
   const ratio = image.width && image.height ? `${image.width} / ${image.height}` : '4 / 3';
+  // 사진 한 장이 창 안에 다 보이게, 보이는 높이에 맞춰 너비를 줄인다 (세로로 긴 사진)
+  const fitWidth = `min(100%, calc((100cqh - ${FIT_MARGIN}px) * ${image.width && image.height ? image.width / image.height : 4 / 3}))`;
   if (failed) {
     return (
-      <div style={{ ...styles.imageBox, ...styles.imageFailed, aspectRatio: ratio }}>
+      <div style={{ ...styles.imageBox, ...styles.imageFailed, aspectRatio: ratio, width: fitWidth }}>
         <span>사진을 불러오지 못했습니다.</span>
         <button type="button" onClick={load} style={styles.retry}>다시 시도</button>
       </div>
     );
   }
   return (
-    <button ref={box} type="button" onClick={onOpen} disabled={!url} style={{ ...styles.imageBox, aspectRatio: ratio, cursor: url ? 'zoom-in' : 'default' }} aria-label={`${alt} 크게 보기`}>
+    <button ref={box} type="button" onClick={onOpen} disabled={!url} style={{ ...styles.imageBox, aspectRatio: ratio, width: fitWidth, cursor: url ? 'zoom-in' : 'default' }} aria-label={`${alt} 크게 보기`}>
       {url && <img src={url} alt={alt} style={styles.image} />}
     </button>
   );
@@ -356,6 +361,8 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     minHeight: 0,
     overflowY: 'auto',
+    // 사진이 이 칸의 높이(100cqh)를 기준으로 크기를 맞춘다
+    containerType: 'size',
     padding: '10px 12px 14px',
     display: 'flex',
     flexDirection: 'column',
@@ -429,6 +436,8 @@ const styles: Record<string, React.CSSProperties> = {
   imageBox: {
     display: 'block',
     width: '100%',
+    minWidth: 'min(100%, 160px)',
+    alignSelf: 'center',
     padding: 0,
     border: '1px solid var(--border-subtle)',
     borderRadius: 6,

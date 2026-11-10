@@ -194,11 +194,13 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '0 8px 8px',
     touchAction: 'none',
   },
+  // 창 크기에 맞춘다. 작은 사진은 키우고 큰 사진은 줄이며, 창 크기를 바꾸면 따라 바뀐다
   fit: {
     display: 'block',
-    margin: 'auto',
-    maxWidth: '100%',
-    maxHeight: '100%',
+    flex: 1,
+    minWidth: 0,
+    width: '100%',
+    height: '100%',
     objectFit: 'contain',
     userSelect: 'none',
   },
