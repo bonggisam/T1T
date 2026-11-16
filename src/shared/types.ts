@@ -393,8 +393,14 @@ export interface ElectronAPI {
   // Auto-updater
   updaterDownload: () => Promise<void>;
   updaterInstall: () => Promise<void>;
-  /** version은 받을 새 버전이 있을 때만 있다. latest는 GitHub에 올라온 최신 버전이다. */
-  updaterCheck: () => Promise<{ ok: true; version?: string; latest?: string } | { ok: false; error: string }>;
+  /**
+   * version은 받을 새 버전이 있을 때만 있다. latest는 GitHub에 올라온 최신 버전이다. ready는 그 버전을 이미 받아 두었다는 뜻이다.
+   * 실패했을 때 blocked는 연결 점검에서 막힌 곳이다 (github: github.com, files: GitHub 파일 서버).
+   */
+  updaterCheck: () => Promise<
+    | { ok: true; version?: string; latest?: string; ready?: boolean }
+    | { ok: false; error: string; blocked?: 'github' | 'files' }
+  >;
   updaterOpenDownloadPage: () => Promise<{ ok: boolean; reason?: string }>;
   updaterGetState: () => Promise<UpdateState>;
   /** update.log 끝부분을 클립보드에 넣는다 */

@@ -301,13 +301,25 @@ export function SettingsPanel({ onClose, onOpenTimetable }: SettingsPanelProps) 
                 };
                 setCheckingUpdate(true);
                 report('업데이트 확인 중…', 'info');
+                // 학교망에서는 답이 늦거나 오지 않는다. 기다린 시간을 보여 주고, 최대 30초 뒤 이유를 알린다
+                const startedAt = Date.now();
+                const tick = setInterval(() => {
+                  setUpdateNote(`업데이트 확인 중… ${Math.round((Date.now() - startedAt) / 1000)}초 (최대 30초)`);
+                }, 1000);
                 try {
                   const result = await window.electronAPI?.updaterCheck();
                   if (!result) {
                     report('업데이트 응답 없음 — 수동 다운로드를 시도하세요', 'error');
                   } else if (!result.ok) {
-                    report(`${result.error} — 수동 다운로드 페이지를 엽니다`, 'error');
-                    setTimeout(() => window.electronAPI?.updaterOpenDownloadPage(), 3000);
+                    if (result.blocked) {
+                      // GitHub가 막힌 곳에서는 다운로드 페이지를 열어도 받을 수 없다. 안내서의 설치 주소로 보낸다
+                      report(`${result.error} — 학교 밖 인터넷에서 다시 확인하거나, 설치 주소 shor.kr/25m 에서 새 버전을 받아 설치해 주세요`, 'error');
+                    } else {
+                      report(`${result.error} — 수동 다운로드 페이지를 엽니다`, 'error');
+                      setTimeout(() => window.electronAPI?.updaterOpenDownloadPage(), 3000);
+                    }
+                  } else if (result.version && result.ready) {
+                    report(`새 버전 v${result.version} 설치 준비 완료 — 상단 배너의 '지금 설치'를 누르거나 ${updateState?.idleMinutes ?? 10}분간 자리를 비우면 설치됩니다`, 'success');
                   } else if (result.version) {
                     report(`새 버전 v${result.version} — 상단 배너에서 진행 상황 확인`, 'success');
                   } else {
@@ -316,8 +328,10 @@ export function SettingsPanel({ onClose, onOpenTimetable }: SettingsPanelProps) 
                 } catch (e: any) {
                   report(`업데이트 확인 실패: ${e?.message || '알 수 없는 오류'} — 수동 다운로드 페이지를 엽니다`, 'error');
                   setTimeout(() => window.electronAPI?.updaterOpenDownloadPage(), 3000);
+                } finally {
+                  clearInterval(tick);
+                  setCheckingUpdate(false);
                 }
-                setCheckingUpdate(false);
               }}
               style={{
                 padding: '3px 10px',
@@ -330,7 +344,7 @@ export function SettingsPanel({ onClose, onOpenTimetable }: SettingsPanelProps) 
                 opacity: checkingUpdate ? 0.5 : 1,
               }}
             >
-              확인
+              {checkingUpdate ? '확인 중…' : '확인'}
             </button>
           </div>
           {updateNote && <p role="status" style={styles.privacyNote}>{updateNote}</p>}

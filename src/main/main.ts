@@ -1,10 +1,10 @@
-import { app, BrowserWindow, clipboard, Tray, Menu, globalShortcut, ipcMain, nativeImage, powerMonitor, screen, session, shell, webContents as electronWebContents, type NativeImage } from 'electron';
+import { app, BrowserWindow, clipboard, Tray, Menu, globalShortcut, ipcMain, nativeImage, net, powerMonitor, screen, session, shell, webContents as electronWebContents, type NativeImage } from 'electron';
 import * as http from 'http';
 import * as crypto from 'crypto';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as dotenv from 'dotenv';
-import { autoUpdater, CancellationToken } from 'electron-updater';
+import { autoUpdater, CancellationToken, type UpdateCheckResult } from 'electron-updater';
 import type { UpdateState } from '../shared/types';
 import { defaultBounds, isReachable, parseSavedState, resolveBounds } from './windowPlacement';
 import type { DisplayArea, Rect, SavedWindowState } from './windowPlacement';
@@ -622,32 +622,32 @@ function setupIPC(): void {
     installDownloadedUpdate('user');
   });
 
-  // 메뉴에서 수동 호출 — 사용자에게 명확한 피드백
+  // 설정에서 직접 누른 확인 — 결과와 실패 이유를 설정 창이 보여 준다
   ipcMain.handle('updater:check', async () => {
-    let timer: NodeJS.Timeout | undefined;
+    manualCheckInProgress = true;
+    stallNotified = false; // 직접 눌렀으면 다시 멈춰도 알린다
+    sendUpdate('updater:checking');
+    // 실패하면 어디가 막혔는지 바로 말할 수 있게 연결 점검을 함께 시작해 둔다
+    const probe = probeGitHub();
     try {
-      manualCheckInProgress = true;
-      stallNotified = false; // 직접 눌렀으면 다시 멈춰도 알린다
-      // 학교망에서 응답이 오지 않으면 끝없이 기다리게 되므로 시간을 정해 둔다
-      const result = await Promise.race([
-        runUpdateCheck(),
-        new Promise<never>((_resolve, reject) => {
-          timer = setTimeout(() => reject(new Error('GitHub 응답이 없습니다. 네트워크를 확인해 주세요')), UPDATE_CHECK_TIMEOUT_MS);
-        }),
-      ]);
+      // 시간 제한은 runUpdateCheck 안에 있다. 답이 없으면 UPDATE_CHECK_TIMEOUT_MS 뒤 실패로 돌아온다
+      const result = await runUpdateCheck(true);
       // 개발 실행처럼 업데이트 기능이 꺼져 있으면 결과가 없다
       if (!result) return { ok: false, error: '이 실행 환경에서는 업데이트를 확인할 수 없습니다' };
       // version은 받을 새 버전이 있을 때만 준다. 이미 최신이어도 updateInfo에는 최신 버전이 들어 있다.
+      const version = result.isUpdateAvailable ? result.updateInfo.version : undefined;
       return {
         ok: true,
         latest: result.updateInfo.version,
-        version: result.isUpdateAvailable ? result.updateInfo.version : undefined,
+        version,
+        ready: !!version && downloadedVersion === version,
       };
     } catch (err: any) {
-      console.warn('[Updater] Manual check failed:', err);
-      return { ok: false, error: firstLine(err?.message) || '업데이트 확인 실패 (네트워크 확인)' };
+      const checked = await probe;
+      const failure = explainCheckFailure(err, checked);
+      logUpdate('warn', `수동 확인 실패: ${failure.error} · 연결 점검: ${checked.summary}`);
+      return { ok: false, ...failure };
     } finally {
-      if (timer) clearTimeout(timer);
       manualCheckInProgress = false;
     }
   });
@@ -702,8 +702,14 @@ let manualCheckInProgress = false;
 // 다운로드 실패 자동 재시도 카운터 (update-available 시 리셋)
 let downloadRetries = 0;
 const MAX_DOWNLOAD_RETRIES = 3;
-/** 수동 확인에서 응답을 기다리는 시간 */
+/** 확인 한 번에 응답을 기다리는 시간. 넘으면 그 확인을 버리고 다음 확인은 새로 묻는다 */
 const UPDATE_CHECK_TIMEOUT_MS = 30 * 1000;
+/** 직접 누른 확인은 이보다 오래 걸리고 있는 확인을 기다리지 않고 새로 묻는다 */
+const STALE_CHECK_MS = 5 * 1000;
+/** 켤 때 확인이 실패하면 30분을 기다리지 않고 이만큼 뒤 한 번 더 확인한다. 로그인 직후에는 인터넷이 아직 안 붙은 경우가 많다 */
+const STARTUP_RETRY_MS = 3 * 60 * 1000;
+/** 연결 점검에서 한 곳의 답을 기다리는 시간 */
+const PROBE_TIMEOUT_MS = 6 * 1000;
 const UPDATE_LOG_COPY_LINES = 60;
 // macOS: 앱이 코드 서명되어 있지 않음(package.json build.mac.identity = "-").
 // Squirrel.Mac 자동 업데이트는 서명이 필수라 미서명 앱은 다운로드 단계에서 항상 실패한다.
@@ -788,13 +794,140 @@ function armStallWatch(): void {
   }, DOWNLOAD_STALL_MS);
 }
 
-/** 업데이트 확인. 자동 다운로드를 끊을 수 있도록 취소 토큰을 받아 둔다 */
-async function runUpdateCheck() {
-  const result = await autoUpdater.checkForUpdates();
-  if (result?.isUpdateAvailable && result.cancellationToken && !downloadCancel) {
-    downloadCancel = result.cancellationToken;
+/** 확인이 정해 둔 시간 안에 답을 받지 못했다 */
+class UpdateCheckTimeout extends Error {}
+
+interface CheckRun {
+  /** electron-updater가 돌려준 약속. 진행 중인 확인에 다시 물으면 같은 약속이 온다 */
+  raw: Promise<UpdateCheckResult | null>;
+  /** 시간 제한을 건 약속. 확인을 기다리는 쪽은 모두 이것을 기다린다 */
+  bounded: Promise<UpdateCheckResult | null>;
+  startedAt: number;
+  abandoned: boolean;
+}
+let currentCheck: CheckRun | null = null;
+
+/**
+ * 답이 없는 확인을 버린다. electron-updater는 진행 중인 확인이 있으면 새로 묻지 않고 그 약속을 돌려준다.
+ * 학교망에서 그 요청이 끝나지 않으면 이후 자동 확인과 수동 확인이 모두 거기에 묶여, 앱을 다시 켜기 전에는
+ * 새 버전을 찾지도 받지도 못했다. 붙잡고 있는 약속을 놓아 주면 다음 확인은 새 요청으로 시작한다.
+ * (checkForUpdatesPromise는 electron-updater 6.8의 내부 필드다. 판을 올리면 이름이 그대로인지 확인할 것)
+ */
+function abandonCheck(run: CheckRun, reason: string): void {
+  if (run.abandoned) return;
+  run.abandoned = true;
+  const internals = autoUpdater as unknown as { checkForUpdatesPromise?: Promise<unknown> | null };
+  if (internals.checkForUpdatesPromise === run.raw) internals.checkForUpdatesPromise = null;
+  if (currentCheck === run) currentCheck = null;
+  logUpdate('warn', reason);
+}
+
+/** 확인을 시작하거나 진행 중인 확인에 합류한다 */
+function startCheck(): CheckRun {
+  const raw = autoUpdater.checkForUpdates();
+  if (currentCheck && currentCheck.raw === raw) return currentCheck;
+  const run = { raw, startedAt: Date.now(), abandoned: false } as CheckRun;
+  // 버린 뒤 늦게 온 결과라도 다운로드를 끊을 수 있게 취소 토큰을 받아 둔다
+  raw.then((result) => {
+    if (result?.isUpdateAvailable && result.cancellationToken && !downloadCancel) {
+      downloadCancel = result.cancellationToken;
+    }
+  }, () => {});
+  let timer: NodeJS.Timeout | undefined;
+  run.bounded = Promise.race([
+    raw,
+    new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => {
+        abandonCheck(run, `업데이트 확인이 ${UPDATE_CHECK_TIMEOUT_MS / 1000}초 동안 답이 없어 버립니다. 다음 확인은 새로 묻습니다`);
+        updateState = { ...updateState, checkedAt: new Date().toISOString(), checkError: `GitHub 응답 없음 (${UPDATE_CHECK_TIMEOUT_MS / 1000}초)` };
+        reject(new UpdateCheckTimeout('GitHub 응답이 없습니다'));
+      }, UPDATE_CHECK_TIMEOUT_MS);
+    }),
+  ]).finally(() => {
+    if (timer) clearTimeout(timer);
+    if (currentCheck === run) currentCheck = null;
+  });
+  currentCheck = run;
+  return run;
+}
+
+/**
+ * 업데이트 확인. 결과나 오류가 UPDATE_CHECK_TIMEOUT_MS 안에 온다.
+ * 직접 누른 확인(manual)은 오래 걸리고 있는 확인을 기다리지 않고 새로 묻는다.
+ */
+function runUpdateCheck(manual = false): Promise<UpdateCheckResult | null> {
+  if (manual && currentCheck && Date.now() - currentCheck.startedAt >= STALE_CHECK_MS) {
+    abandonCheck(currentCheck, `이전 확인이 ${Math.round((Date.now() - currentCheck.startedAt) / 1000)}초째 답이 없어 버리고 새로 확인합니다`);
   }
-  return result;
+  return startCheck().bounded;
+}
+
+const NETWORK_ERROR = /net::|ENOTFOUND|ETIMEDOUT|ECONNRESET|ENETUNREACH|EAI_AGAIN/i;
+
+/** 자동 확인. 연결 문제로 실패하면 어디가 막혔는지 기록에 남긴다 */
+async function runAutoCheck(): Promise<void> {
+  try {
+    await runUpdateCheck();
+  } catch (err: any) {
+    if (err instanceof UpdateCheckTimeout || NETWORK_ERROR.test(err?.message ?? '')) {
+      const checked = await probeGitHub();
+      logUpdate('warn', `자동 확인 실패 · 연결 점검: ${checked.summary}`);
+    }
+    throw err;
+  }
+}
+
+interface ProbeResult {
+  /** github.com 접속 오류. 연결되면 null */
+  github: string | null;
+  /** GitHub 파일 서버 접속 오류. latest.yml과 설치 파일이 여기서 내려온다. 연결되면 null */
+  files: string | null;
+  summary: string;
+}
+
+/** 한 곳에 짧게 접속해 본다. 상태 번호와 상관없이 답이 오면 연결된 것으로 본다 */
+async function probeHost(url: string): Promise<string | null> {
+  const controller = new AbortController();
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    await Promise.race([
+      net.fetch(url, { method: 'HEAD', signal: controller.signal }),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error(`${PROBE_TIMEOUT_MS / 1000}초 응답 없음`));
+          controller.abort();
+        }, PROBE_TIMEOUT_MS);
+      }),
+    ]);
+    return null;
+  } catch (err: any) {
+    return firstLine(err?.message) || '연결 실패';
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/** 업데이트가 안 될 때 github.com과 GitHub 파일 서버 중 어디가 막혔는지 알아본다 */
+async function probeGitHub(): Promise<ProbeResult> {
+  const [github, files] = await Promise.all([
+    probeHost('https://github.com/'),
+    probeHost('https://release-assets.githubusercontent.com/'),
+  ]);
+  const part = (name: string, error: string | null) => `${name} ${error ? `실패(${error})` : '연결됨'}`;
+  return { github, files, summary: `${part('github.com', github)} · ${part('파일 서버', files)}` };
+}
+
+/** 직접 누른 확인이 실패한 이유를 선생님이 알아들을 말로 바꾼다 */
+function explainCheckFailure(err: any, checked: ProbeResult): { error: string; blocked?: 'github' | 'files' } {
+  if (checked.github) {
+    return { error: `GitHub에 연결되지 않습니다 (${checked.github}). 학교망에서 막혔거나 인터넷이 끊겼을 수 있습니다`, blocked: 'github' };
+  }
+  if (checked.files) {
+    return { error: `GitHub 파일 서버에 연결되지 않습니다 (${checked.files}). 학교망에서 막혔을 수 있습니다`, blocked: 'files' };
+  }
+  if (err instanceof UpdateCheckTimeout) return { error: `GitHub가 ${UPDATE_CHECK_TIMEOUT_MS / 1000}초 동안 답하지 않습니다. 잠시 뒤 다시 확인해 주세요` };
+  if (NETWORK_ERROR.test(err?.message ?? '')) return { error: `네트워크 오류 (${firstLine(err?.message)})` };
+  return { error: firstLine(err?.message) || '업데이트 확인 실패' };
 }
 
 /**
@@ -906,9 +1039,7 @@ function setupAutoUpdater(): void {
   // 다운로드 실패 시 자동 재시도 비활성 (직접 제어)
   autoUpdater.disableWebInstaller = true;
 
-  autoUpdater.on('checking-for-update', () => {
-    if (manualCheckInProgress) sendUpdate('updater:checking');
-  });
+  // 'updater:checking'은 수동 확인 IPC가 직접 보낸다. 진행 중인 확인에 합류하면 이 신호가 오지 않기 때문이다.
 
   autoUpdater.on('update-available', (info) => {
     updateState = { ...updateState, checkedAt: new Date().toISOString(), latest: info.version, checkError: undefined };
@@ -979,14 +1110,25 @@ function setupAutoUpdater(): void {
     scheduleAutoInstall();
   });
 
-  autoUpdater.on('error', (err) => {
+  autoUpdater.on('error', (err, message) => {
     const msg = err?.message || '';
-    disarmStallWatch();
-    downloadCancel = null;
+    // 확인 단계의 실패는 electron-updater가 'Cannot check for updates'를 붙여 알린다. 이것을 다운로드 실패로 다루면
+    // 받을 정보도 없이 다운로드를 다시 시도해 'Please check update first' 오류가 배너에 떴다.
+    const duringCheck = typeof message === 'string' && message.startsWith('Cannot check for updates');
     updateState = { ...updateState, checkedAt: new Date().toISOString(), checkError: firstLine(msg) };
-    logUpdate('error', `updater error: ${msg.slice(0, 300)}`);
+    logUpdate('error', `updater error${duringCheck ? ' (확인 단계)' : ''}: ${msg.slice(0, 300)}`);
     // 진단용 — 업데이트 실패 원인 추적 (crash.log에 기록)
     logCrash('updater-error', err);
+    // 잘 알려진 무해한 에러는 자동 확인 중엔 조용히 무시 (배너 깜빡임 방지)
+    const benign = /ENOTFOUND|ETIMEDOUT|ECONNRESET|ENETUNREACH|net::ERR/i.test(msg);
+    if (duringCheck) {
+      // 받고 있던 다운로드는 건드리지 않고, 배너도 띄우지 않는다. v2.6.17까지는 이미 최신인 PC에도
+      // 학교망에서 확인이 끊길 때마다 빨간 "자동 업데이트 실패" 배너가 떴다. 확인 실패는 다음 확인에서
+      // 저절로 풀리므로 설정 > 정보의 마지막 확인 결과로만 남긴다. 직접 누른 확인은 설정 창이 이유를 보여 준다.
+      return;
+    }
+    disarmStallWatch();
+    downloadCancel = null;
     // 다운로드/체크섬 관련 에러면 자동 재시도 (지수 백오프).
     // 학교망 불안정으로 100MB 다운로드가 중단되는 케이스를 자동 회복.
     const isDownloadErr = /download|net::|ETIMEDOUT|ECONNRESET|ENETUNREACH|EPIPE|sha512|checksum|EAI_AGAIN/i.test(msg);
@@ -1001,20 +1143,17 @@ function setupAutoUpdater(): void {
       }, delaySec * 1000);
       return;
     }
-    // 잘 알려진 무해한 에러는 자동 확인 중엔 조용히 무시 (배너 깜빡임 방지)
-    const benign = /ENOTFOUND|ETIMEDOUT|ECONNRESET|ENETUNREACH|net::ERR/i.test(msg);
     if (manualCheckInProgress) {
-      sendUpdate('updater:error', benign ? '네트워크에 연결되지 않았습니다' : msg);
+      sendUpdate('updater:error', benign ? '네트워크에 연결되지 않았습니다' : firstLine(msg));
     } else if (downloadRetries >= MAX_DOWNLOAD_RETRIES) {
       // 재시도 모두 소진 — 사용자에게 수동 다운로드 유도
-      sendUpdate('updater:error', `자동 업데이트 실패 — 설정에서 수동 다운로드를 이용해주세요. (${msg.slice(0, 80)})`);
+      sendUpdate('updater:error', `자동 업데이트 실패 — 설정에서 수동 다운로드를 이용해주세요. (${firstLine(msg).slice(0, 80)})`);
     } else if (!benign && !autoErrorNotified) {
-      // latest.yml 404, provider 오류 등 "다운로드가 아닌" 실패는 지금까지 완전 무음이었음
-      // (프로덕션 콘솔은 아무도 안 봄) → 왜 안 되는지 알 길이 없었다. 세션당 1회는 배너로 알린다.
+      // 재시도하지 않는 다운로드·설치 오류. 콘솔은 아무도 보지 않으므로 세션당 1회는 배너로 알린다.
       autoErrorNotified = true;
-      sendUpdate('updater:error', `업데이트 확인 실패: ${msg.slice(0, 100)} — 설정 > 수동 다운로드 (update.log 참조)`);
+      sendUpdate('updater:error', `업데이트 받기 실패: ${firstLine(msg).slice(0, 100)} — 설정 > 수동 다운로드 (update.log 참조)`);
     } else {
-      console.warn('[Updater] Silent auto-check error:', msg);
+      console.warn('[Updater] Silent auto-update error:', msg);
     }
   });
 
@@ -1022,10 +1161,13 @@ function setupAutoUpdater(): void {
   powerMonitor.on('lock-screen', () => installDownloadedUpdate('lock'));
 
   // 시작 시 한 번 + 30분 주기 자동 확인 (조용히)
-  runUpdateCheck().catch(() => {});
+  // 켤 때 확인이 실패하면(로그인 직후 인터넷이 아직 안 붙은 경우가 많다) 30분을 기다리지 않고 한 번 더 확인한다
+  runAutoCheck().catch(() => {
+    setTimeout(() => { runAutoCheck().catch(() => {}); }, STARTUP_RETRY_MS);
+  });
   if (updaterInterval) clearInterval(updaterInterval);
   updaterInterval = setInterval(() => {
-    runUpdateCheck().catch(() => {});
+    runAutoCheck().catch(() => {});
   }, 30 * 60 * 1000);
 }
 

@@ -30,6 +30,8 @@ export function UpdateBanner() {
     const cleanup = window.electronAPI?.onUpdaterEvent((channel, data) => {
       switch (channel) {
         case 'updater:checking':
+          // 받는 중이거나 받아 둔 배너는 그대로 둔다. 다시 확인했다고 진행률이나 설치 단추가 사라지면 안 된다
+          if (statusRef.current === 'downloading' || statusRef.current === 'downloaded' || statusRef.current === 'available') break;
           setStatus('checking');
           break;
         case 'updater:available':
