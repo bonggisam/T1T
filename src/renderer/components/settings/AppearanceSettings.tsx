@@ -3,11 +3,9 @@ import { Check, Lock } from 'lucide-react';
 import { EVENT_FONT_SIZES, useAppearanceStore, type ColorBasis, type EventFontPx } from '../../store/appearanceStore';
 import { getPlateAlpha, getPlateMin, getZoom, PLATE_ALPHA_MAX, setPlateAlpha, setZoom, ZOOM_CHOICES } from '../../utils/displayPrefs';
 import {
-  ACCENTS, THEME_PRESETS, themeTokens, worstContrast,
+  ACCENTS, BASE_THEME_ORDER, CONCEPT_GROUPS, THEME_PRESETS, themeTokens, worstContrast,
   type AccentKey, type ThemeChoice, type ThemePresetKey,
 } from '../../utils/themes';
-
-const THEME_ORDER: ThemePresetKey[] = ['clear', 'grid', 'chalk', 'night', 'blossom', 'contrast'];
 const BIG_KEY = 't1t-big-view';
 const BIG_VIEW = { eventFontPx: 15 as EventFontPx, zoom: 125, plate: 95 };
 
@@ -47,6 +45,7 @@ function ThemeTile({ choice, selected, onSelect }: { choice: ThemeChoice; select
       type="button"
       onClick={onSelect}
       aria-pressed={selected}
+      title={preset?.blurb ? `${name} · ${preset.blurb}` : name}
       style={{ ...styles.tile, ...(selected ? styles.tileOn : {}) }}
     >
       <span
@@ -55,7 +54,7 @@ function ThemeTile({ choice, selected, onSelect }: { choice: ThemeChoice; select
           ...styles.tilePaper,
           // undefined를 넘기면 앞서 준 배경까지 지워지므로 경우를 나눈다
           ...(preset
-            ? { backgroundColor: paper, backgroundImage: preset.texture ?? 'none', backgroundSize: preset.textureSize ?? 'auto' }
+            ? { backgroundColor: paper, backgroundImage: preset.texture ?? 'none', backgroundSize: preset.textureSize ?? 'auto', borderRadius: Math.min(preset.radius?.[2] ?? 6, 10) }
             : { background: paper }),
           color: preset?.ink ?? '#7C87A0',
         }}
@@ -100,7 +99,7 @@ function Preview() {
 
 /** 화면 설정. 누르는 즉시 적용되고 따로 저장하지 않아도 된다. */
 export function AppearanceSettings() {
-  const { theme, accent, eventFontPx, colorBy, colorAssist, hideWeekend, preset, update } = useAppearanceStore();
+  const { theme, accent, eventFontPx, colorBy, colorAssist, hideWeekend, emoji, preset, update } = useAppearanceStore();
   const [plate, setPlateState] = useState(getPlateAlpha);
   const [zoom, setZoomState] = useState(getZoom);
   const [bigBackup, setBigBackup] = useState(readBigBackup);
@@ -147,12 +146,33 @@ export function AppearanceSettings() {
       <div>
         <span style={styles.label}>테마</span>
         <div style={styles.tiles}>
-          {THEME_ORDER.map((key) => (
+          {BASE_THEME_ORDER.map((key) => (
             <ThemeTile key={key} choice={key} selected={theme === key} onSelect={() => chooseTheme(key)} />
           ))}
           <ThemeTile choice="system" selected={theme === 'system'} onSelect={() => chooseTheme('system')} />
         </div>
       </div>
+
+      <div>
+        <span style={styles.label}>컨셉 테마</span>
+        <p style={{ ...styles.note, margin: '2px 0 0' }}>색, 무늬, 글꼴, 모서리가 함께 바뀝니다. 계정에 저장해 어느 PC에서나 같게 보입니다.</p>
+        {CONCEPT_GROUPS.map((group) => (
+          <div key={group.title} style={{ marginTop: 8 }}>
+            <span style={styles.groupTitle}>{group.title}</span>
+            <div style={styles.tiles}>
+              {group.keys.map((key) => (
+                <ThemeTile key={key} choice={key} selected={theme === key} onSelect={() => chooseTheme(key)} />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <label style={styles.row}>
+        <span style={styles.label}>이모지 보기</span>
+        <input type="checkbox" checked={emoji} onChange={(e) => update({ emoji: e.target.checked })} />
+      </label>
+      <p style={styles.note}>메뉴 이름, 급식 메뉴, 학사일정 앞에 그림을 붙입니다. 끄면 선 아이콘만 보입니다.</p>
 
       <Preview />
 
@@ -272,6 +292,11 @@ const styles: Record<string, React.CSSProperties> = {
     margin: '-6px 0 0',
     fontSize: 'var(--fs-label)',
     lineHeight: 1.45,
+    color: 'var(--text-muted)',
+  },
+  groupTitle: {
+    fontSize: 'var(--fs-label)',
+    fontWeight: 700,
     color: 'var(--text-muted)',
   },
   tiles: {

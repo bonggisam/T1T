@@ -392,7 +392,7 @@ html[data-chip='solid'] .ev:hover { background: var(--c-solid); filter: brightne
 .today-num { position: relative; display: inline-grid; place-items: center; min-width: 20px; height: 20px; font-weight: 700; }
 .today-num svg { display: none; }
 html[data-today='fill'] .today-num { border-radius: 50%; background: var(--accent); color: var(--on-accent); }
-html[data-today='ring'] .today-num { border-radius: 50%; box-shadow: inset 0 0 0 2px var(--accent); color: var(--text-primary); font-weight: 800; }
+html[data-today='ring'] .today-num { border-radius: 50%; box-shadow: inset 0 0 0 2px var(--accent), var(--accent-glow, 0 0 0 transparent); color: var(--text-primary); font-weight: 800; }
 html[data-today='pen'] .today-num { color: var(--text-primary); font-weight: 800; }
 html[data-today='pen'] .today-num svg {
   display: block; position: absolute; left: 50%; top: 50%; width: 170%; height: 170%;

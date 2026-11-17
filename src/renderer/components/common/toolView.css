@@ -1,0 +1,368 @@
+/*
+ * 메뉴 화면 공통 꾸밈.
+ * 모든 메뉴가 같은 머리줄, 이동 줄, 카드, 목록 줄, 안내 줄, 빈 화면을 쓴다.
+ * 색과 크기는 global.css의 변수만 써서 테마(밝음, 어두움, 숲, 벚꽃, 고대비)를 그대로 따른다.
+ * 이모지와 화면마다 다른 색 꾸밈은 쓰지 않는다. 그림은 lucide 선 아이콘만 쓴다.
+ */
+
+.tv-root {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  container-type: inline-size;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  word-break: keep-all;
+}
+
+/* ── 머리줄: 뒤로 · 아이콘과 이름 · 오른쪽 단추 ── */
+.tv-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 6px 10px 6px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+.tv-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--fs-subtitle);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.tv-title > svg { color: var(--accent); flex-shrink: 0; }
+.tv-title > span { overflow: hidden; text-overflow: ellipsis; }
+.tv-titleSub {
+  font-size: var(--fs-label);
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.tv-spacer { flex: 1; min-width: 4px; }
+
+/* ── 단추 ── */
+.tv-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out);
+}
+.tv-iconbtn:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
+.tv-iconbtn:disabled { opacity: 0.4; cursor: default; }
+.tv-iconbtn[aria-pressed='true'] { background: var(--accent-soft); color: var(--accent); }
+.tv-iconbtn.is-danger:hover:not(:disabled) { background: var(--danger-soft); color: var(--danger); }
+
+.tv-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 10px;
+  flex-shrink: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out);
+}
+.tv-btn:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
+.tv-btn:disabled { opacity: 0.5; cursor: default; }
+.tv-btn.is-primary { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.tv-btn.is-primary:hover:not(:disabled) { background: var(--accent-hover); color: var(--on-accent); }
+
+/* ── 학교 고르기, 탭: 같은 두 칸 단추 ── */
+.tv-seg {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--tint-neutral-strong);
+}
+.tv-seg > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tv-seg > button:hover { color: var(--text-primary); }
+.tv-seg > button[aria-pressed='true'] {
+  background: var(--bg-modal);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+.tv-seg.is-wide { display: flex; }
+.tv-seg.is-wide > button { flex: 1; min-width: 0; padding: 0 4px; }
+.tv-segCount {
+  font-size: var(--fs-caption);
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 주·달 이동 줄 ── */
+.tv-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 4px 10px 4px 8px;
+  flex-shrink: 0;
+}
+.tv-period {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 2px;
+}
+.tv-period b {
+  font-size: var(--fs-control);
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.tv-period small {
+  font-size: var(--fs-label);
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.tv-barEnd {
+  margin-left: auto;
+  font-size: var(--fs-label);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── 내용 ── */
+.tv-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 12px 12px;
+}
+
+/* ── 카드 ── */
+.tv-card {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+.tv-card.is-today {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.tv-cardHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-bottom: 6px;
+}
+.tv-cardTitle {
+  font-size: var(--fs-control);
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.tv-cardMeta {
+  font-size: var(--fs-label);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tv-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-caption);
+  font-weight: 700;
+  font-style: normal;
+  white-space: nowrap;
+}
+.tv-badge.is-muted { background: var(--tint-neutral-strong); color: var(--text-secondary); }
+
+/* ── 목록 ── */
+.tv-section + .tv-section { margin-top: 10px; }
+.tv-sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px;
+  padding: 0 2px;
+  font-size: var(--fs-label);
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.tv-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 4px 2px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--fs-body);
+}
+.tv-row:first-child { border-top: none; }
+
+/* ── 안내 줄 ── */
+.tv-note {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--tint-neutral);
+  font-size: var(--fs-label);
+  color: var(--text-secondary);
+}
+.tv-note > svg { color: var(--accent); flex-shrink: 0; }
+.tv-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 1px solid var(--border-color);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--bg-active);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--fs-label);
+  font-weight: 700;
+}
+
+/* ── 검색 칸 ── */
+.tv-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  min-width: 0;
+  padding: 0 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+}
+.tv-search:focus-within { border-color: var(--accent); box-shadow: var(--focus-ring); }
+.tv-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--fs-body);
+}
+
+/* ── 불러오는 중, 오류, 빈 화면 ── */
+.tv-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 16px;
+  text-align: center;
+  font-size: var(--fs-control);
+  color: var(--text-muted);
+}
+.tv-state > svg { opacity: 0.8; }
+.tv-state.is-error { color: var(--danger); }
+.tv-stateSub { font-size: var(--fs-label); color: var(--text-muted); }
+.tv-spin { animation: tv-spin 0.9s linear infinite; }
+@keyframes tv-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .tv-spin { animation: none; }
+}
+
+/* ── 바닥 설명 ── */
+.tv-foot {
+  flex-shrink: 0;
+  padding: 6px 12px 8px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.tv-root :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ── 이모지: 설정의 "이모지 보기"를 켜면(기본) 아이콘 자리에 이모지가 나온다 ── */
+.tv-emoji {
+  flex-shrink: 0;
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1;
+}
+html[data-emoji='off'] .tv-emoji { display: none; }
+html:not([data-emoji='off']) .tv-ico.has-emoji { display: none; }
+.tv-stateEmoji { font-size: 30px; }
+
+/* ── 컨셉 테마: 제목 글꼴과 빛 번짐 ── */
+.tv-title,
+.tv-cardTitle,
+.tv-period b,
+.tv-sectionTitle { font-family: var(--font-display, var(--font-sans)); }
+.tv-card.is-today { box-shadow: inset 0 0 0 1px var(--accent), var(--accent-glow, 0 0 0 transparent); }
+.tv-seg > button[aria-pressed='true'] { box-shadow: var(--shadow-sm), var(--accent-glow, 0 0 0 transparent); }
+.tv-btn.is-primary { box-shadow: var(--accent-glow, 0 0 0 transparent); }
+
+/* ── 컨셉 테마: 입체 테두리(90년대)와 점선 테두리(2000년대) ── */
+.tv-card {
+  border-style: var(--card-border-style, solid);
+  box-shadow: var(--surface-bevel, 0 0 0 transparent);
+}
+.tv-card.is-today {
+  box-shadow: inset 0 0 0 1px var(--accent), var(--accent-glow, 0 0 0 transparent), var(--surface-bevel, 0 0 0 transparent);
+}
+.tv-btn { box-shadow: var(--surface-bevel, 0 0 0 transparent); }
+.tv-btn.is-primary { box-shadow: var(--accent-glow, 0 0 0 transparent), var(--surface-bevel, 0 0 0 transparent); }

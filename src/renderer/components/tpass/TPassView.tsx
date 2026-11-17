@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { isPageLoadFailure, WebFailNotice } from '../common/WebFailNotice';
-import { Ic } from '../common/Ic';
+import { RefreshButton, ToolHeader } from '../common/ToolView';
 
 // 주소는 빌드 시 .env의 VITE_TPASS_URL에서 주입한다. 저장소에는 값을 두지 않는다.
 // 주입된 값은 설치 파일에서 꺼낼 수 있으므로, 실제 접근 통제는 Apps Script 쪽 권한으로 한다.
@@ -91,19 +91,9 @@ export function TPassView({ onBack }: TPassViewProps) {
 
   return (
     <div style={styles.container}>
-      <div style={styles.toolbar}>
-        <button onClick={onBack} style={styles.backBtn} title="캘린더로 돌아가기">
-          <Ic name="calendar" />캘린더
-        </button>
-        <span style={styles.label}><Ic name="door" />외출시스템</span>
-        <button
-          onClick={handleRefresh}
-          style={styles.refreshBtn}
-          title="새로고침"
-        >
-          <Ic name="refresh" gap={false} />
-        </button>
-      </div>
+      <ToolHeader tab="tpass" onBack={onBack}>
+        <RefreshButton onClick={handleRefresh} />
+      </ToolHeader>
       {TPASS_URL && loading && (
         <div style={styles.loadingBar}>
           <div style={styles.loadingProgress} />
@@ -130,40 +120,6 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     height: '100%',
     overflow: 'hidden',
-  },
-  toolbar: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '6px 12px',
-    borderBottom: '1px solid var(--border-subtle)',
-    flexShrink: 0,
-    background: 'var(--tint-neutral)',
-  },
-  backBtn: {
-    background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
-    border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
-    cursor: 'pointer',
-    padding: '4px 10px',
-    borderRadius: 6,
-    fontSize: 'var(--fs-body)',
-    fontWeight: 600,
-    color: 'var(--accent)',
-  },
-  label: {
-    flex: 1,
-    fontSize: 'var(--fs-control)',
-    fontWeight: 700,
-    color: 'var(--text-primary)',
-    textAlign: 'center',
-  },
-  refreshBtn: {
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: 'var(--fs-lead)',
-    padding: '4px 6px',
-    borderRadius: 6,
   },
   loadingBar: {
     height: 2,

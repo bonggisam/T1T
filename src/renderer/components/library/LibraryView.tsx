@@ -3,7 +3,9 @@ import { isPageLoadFailure, WebFailNotice } from '../common/WebFailNotice';
 import { useUIStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
 import type { School } from '@shared/types';
-import { Ic, type IconName } from '../common/Ic';
+import { type IconName } from '../common/Ic';
+import { ExternalLink } from 'lucide-react';
+import { RefreshButton, SchoolSeg, ToolHeader } from '../common/ToolView';
 
 const LIBRARY_URLS: Record<School, { url: string; label: string; icon: IconName }> = {
   taeseong_middle: {
@@ -112,35 +114,13 @@ export function LibraryView({ onBack }: LibraryViewProps) {
   return (
     <div style={styles.container}>
       {/* 툴바: 뒤로 + 학교 선택 + 새로고침 + 외부 열기 */}
-      <div style={styles.toolbar}>
-        <button onClick={onBack} style={styles.backBtn} title="캘린더로 돌아가기">
-          <Ic name="calendar" />캘린더
+      <ToolHeader tab="library" onBack={onBack}>
+        <SchoolSeg value={selectedSchool} onChange={handleSchoolChange} />
+        <RefreshButton onClick={handleRefresh} />
+        <button type="button" onClick={handleOpenExternal} className="tv-iconbtn" title="외부 브라우저로 열기" aria-label="외부 열기">
+          <ExternalLink size={14} />
         </button>
-        <div style={styles.schoolToggle}>
-          {(['taeseong_middle', 'taeseong_high'] as School[]).map((sk) => {
-            const info = LIBRARY_URLS[sk];
-            const active = selectedSchool === sk;
-            return (
-              <button
-                key={sk}
-                onClick={() => handleSchoolChange(sk)}
-                style={{
-                  ...styles.schoolBtn,
-                  ...(active ? styles.schoolBtnActive : {}),
-                }}
-              >
-                <Ic name={info.icon} />{info.label}
-              </button>
-            );
-          })}
-        </div>
-        <button onClick={handleRefresh} style={styles.iconBtn} title="새로고침" aria-label="새로고침">
-          <Ic name="refresh" gap={false} />
-        </button>
-        <button onClick={handleOpenExternal} style={styles.iconBtn} title="외부 브라우저로 열기" aria-label="외부 열기">
-          ↗
-        </button>
-      </div>
+      </ToolHeader>
       {loading && (
         <div style={styles.loadingBar}>
           <div style={styles.loadingProgress} />
@@ -158,56 +138,6 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     height: '100%',
     overflow: 'hidden',
-  },
-  toolbar: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    padding: '6px 10px',
-    borderBottom: '1px solid var(--border-subtle)',
-    flexShrink: 0,
-    background: 'var(--tint-neutral)',
-  },
-  backBtn: {
-    background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
-    border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
-    cursor: 'pointer',
-    padding: '4px 10px',
-    borderRadius: 6,
-    fontSize: 'var(--fs-body)',
-    fontWeight: 600,
-    color: 'var(--accent)',
-    flexShrink: 0,
-  },
-  schoolToggle: {
-    display: 'flex',
-    gap: 4,
-    flex: 1,
-    justifyContent: 'center',
-  },
-  schoolBtn: {
-    background: 'transparent',
-    border: '1px solid var(--border-color)',
-    cursor: 'pointer',
-    padding: '4px 10px',
-    borderRadius: 6,
-    fontSize: 'var(--fs-label)',
-    fontWeight: 600,
-    color: 'var(--text-secondary)',
-  },
-  schoolBtnActive: {
-    background: 'var(--library-soft)',
-    borderColor: 'var(--library-edge)',
-    color: 'var(--library)',
-  },
-  iconBtn: {
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: 'var(--fs-lead)',
-    padding: '4px 8px',
-    borderRadius: 6,
-    color: 'var(--text-secondary)',
   },
   loadingBar: {
     height: 2,

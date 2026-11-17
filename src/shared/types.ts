@@ -26,12 +26,20 @@ export interface User {
 }
 
 export interface AppearanceChoices {
-  theme: 'clear' | 'grid' | 'chalk' | 'night' | 'blossom' | 'contrast' | 'system';
+  theme:
+    | 'clear' | 'grid' | 'chalk' | 'night' | 'blossom' | 'contrast'
+    | 'mist' | 'cyber' | 'blueprint' | 'watercolor'
+    | 'bamti' | 'nineties' | 'y2k' | 'future'
+    | 'spring' | 'summer' | 'maple' | 'winter'
+    | 'korean' | 'english' | 'music'
+    | 'system';
   accent: 'theme' | 'blue' | 'indigo' | 'teal' | 'orange' | 'pink';
   eventFontPx: 13 | 15 | 18;
   colorBy: 'school' | 'category' | 'author';
   colorAssist: boolean;
   hideWeekend: boolean;
+  /** 메뉴와 급식·학사일정에 이모지를 붙인다. 옛 값에는 없어서 읽을 때 켜 둔다 */
+  emoji: boolean;
 }
 
 export interface UserSettings {

@@ -2,10 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { format } from 'date-fns';
 import { useAuthStore } from '../../store/authStore';
 import type { School } from '@shared/types';
-import { Ic } from '../common/Ic';
-import { cls, Emo, DesignState } from '../common/designKit';
-import { mergeRuns, planMonth, monthWeeks, rangeLabel, seasonEmoji, type SchItem, type SchSource } from '../../utils/scheduleEmoji';
-import '../common/designs.css';
+import { cls, Emoji, PeriodNav, RefreshButton, SchoolSeg, ToolHeader, ToolState } from '../common/ToolView';
+import { mergeRuns, planMonth, monthWeeks, rangeLabel, seasonEmoji, type SchCat, type SchItem, type SchSource } from '../../utils/scheduleEmoji';
 import './ScheduleView.css';
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
@@ -14,10 +12,10 @@ interface ScheduleViewProps {
   onBack: () => void;
 }
 
-/**
- * 학사일정 — 학교 홈페이지에서 한 해 일정을 받아, 고른 학교와 달을 칠판에 주마다 한 줄씩 적어 보여 준다.
- * 일정마다 그림(이모지)을 붙이고, 날짜는 종류별 분필 색, 이번 주는 점선 동그라미다.
- */
+/** 쉬는 날. 달력의 공휴일처럼 빨간 글자로 적는다 */
+const REST: ReadonlySet<SchCat> = new Set<SchCat>(['holiday', 'off', 'vacation']);
+
+/** 학사일정 — 학교 홈페이지에서 한 해 일정을 받아, 고른 달을 주마다 같은 모양의 카드로 보여 준다 */
 export function ScheduleView({ onBack }: ScheduleViewProps) {
   const { user } = useAuthStore();
   const defaultSchool: School = (user?.school === 'taeseong_middle' || user?.school === 'taeseong_high')
@@ -90,67 +88,64 @@ export function ScheduleView({ onBack }: ScheduleViewProps) {
     return `${label}(${DOW[new Date(`${it.start}T00:00:00`).getDay()]})`;
   };
 
+  const ready = !loading && !error && plan.items.length > 0;
   return (
-    <div className="md-root sch-root">
-      <div className="sch-frame">
-        <div className="sch-board">
-          <div className="sch-head">
-            <button className="sch-back" onClick={onBack} title="캘린더로 돌아가기">‹ 캘린더</button>
-            <div className="sch-seg" role="group" aria-label="학교">
-              <button aria-pressed={selectedSchool === 'taeseong_middle'} onClick={() => setSelectedSchool('taeseong_middle')}>태성중</button>
-              <button aria-pressed={selectedSchool === 'taeseong_high'} onClick={() => setSelectedSchool('taeseong_high')}>태성고</button>
-            </div>
-            <button className="sch-icon" onClick={load} disabled={loading} title="새로고침" aria-label="새로고침">
-              <Ic name="refresh" gap={false} />
-            </button>
-          </div>
+    <div className="tv-root sch-root">
+      <ToolHeader tab="schedule" onBack={onBack}>
+        <SchoolSeg value={selectedSchool} onChange={setSelectedSchool} />
+        <RefreshButton onClick={load} busy={loading} />
+      </ToolHeader>
 
-          <div className="sch-titleRow">
-            <button className="sch-arrow" onClick={() => shift(-1)} title="지난 달" aria-label="지난 달">‹</button>
-            <div className="sch-title">
-              <b><Emo e={seasonEmoji(ym.m)} /> {ym.m}월 학사일정</b>
-              <small>{ym.y}년{!loading && !error && ` · 일정 ${plan.items.length}개`}</small>
-              {!isThisMonth && <> <button className="sch-now" onClick={() => setYm({ y: now.getFullYear(), m: now.getMonth() + 1 })}>이번 달로</button></>}
-            </div>
-            <button className="sch-arrow" onClick={() => shift(1)} title="다음 달" aria-label="다음 달">›</button>
-          </div>
-          <div className="sch-dots" role="group" aria-label="달 고르기">
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-              <button key={m} className={cls(m === ym.m && 'is-sel')} aria-pressed={m === ym.m} onClick={() => setYm({ y: ym.y, m })} title={`${m}월`}>{m}</button>
-            ))}
-          </div>
+      <PeriodNav
+        title={<><Emoji e={seasonEmoji(ym.m)} /> {ym.y}년 {ym.m}월</>}
+        sub={!loading && !error ? `일정 ${plan.items.length}개` : undefined}
+        onPrev={() => shift(-1)}
+        onNext={() => shift(1)}
+        prevLabel="지난 달"
+        nextLabel="다음 달"
+        reset={isThisMonth ? null : { label: '이번 달', onClick: () => setYm({ y: now.getFullYear(), m: now.getMonth() + 1 }) }}
+      />
 
+      <div className="tv-body">
+        {loading && <ToolState kind="loading" emoji="📅" text="학사일정을 불러오는 중…" />}
+        {!loading && error && <ToolState kind="error" emoji="😥" text={error} />}
+        {!loading && !error && plan.items.length === 0 && <ToolState kind="empty" emoji="🗓️" text="이 달에는 올라온 일정이 없습니다" />}
+        {ready && (
           <div className="sch-weeks">
-            {loading && <DesignState emoji="📅" text="학사일정을 불러오는 중…" />}
-            {!loading && error && <DesignState emoji="😥" text={error} error />}
-            {!loading && !error && plan.items.length === 0 && <DesignState emoji="🗓️" text="이 달에는 올라온 일정이 없어요" />}
-            {!loading && !error && plan.items.length > 0 && rows.map((r) => (
-              <div key={r.label} className={cls('sch-week', r.isNow && 'is-now')}>
-                {r.isNow && <span className="sch-tag">이번 주</span>}
-                <div className="sch-wk"><b>{r.label}</b><span>{r.range}</span></div>
-                <div className="sch-evs">
-                  {r.items.length === 0 && <span className="sch-none">조용한 한 주</span>}
-                  {r.items.map((it) => (
-                    <div key={it.key} className={cls('sch-ev', `cat-${it.cat}`)} title={it.title}>
-                      <span className="sch-d">{dayText(it)}</span>
-                      <Emo e={it.emoji} />
-                      <span className="sch-t">{it.title}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {rows.map((r) => (
+              <section key={r.label} className={cls('tv-card', 'sch-week', r.isNow && 'is-today')}>
+                <header className="tv-cardHead">
+                  <span className="tv-cardTitle">{r.label}</span>
+                  <span className="tv-cardMeta">{r.range}</span>
+                  {r.isNow && <span className="tv-badge">이번 주</span>}
+                </header>
+                {r.items.length === 0 ? (
+                  <p className="sch-none">일정 없음</p>
+                ) : (
+                  <ul className="sch-list">
+                    {r.items.map((it) => (
+                      <li key={it.key} className={cls('sch-ev', REST.has(it.cat) && 'is-rest')} title={it.title}>
+                        <span className="sch-d">{dayText(it)}</span>
+                        <Emoji e={it.emoji} className="sch-emo" />
+                        <span className="sch-t">{it.title}</span>
+                        {it.cat === 'exam' && <em className="tv-badge">시험</em>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
             ))}
           </div>
-          {!loading && !error && weekly.length > 0 && (
-            <div className="sch-foot">
-              {weekly.map((it) => (
-                <span key={it.key}><Emo e={it.emoji} /> 매주 {DOW[new Date(`${it.start}T00:00:00`).getDay()]}요일 {it.title} · {rangeLabel(it, ym.y, ym.m)}</span>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="sch-ledge" aria-hidden="true"><i /><i /><i /><i /></div>
+        )}
       </div>
+
+      {!loading && !error && weekly.length > 0 && (
+        <div className="tv-foot">
+          {weekly.map((it) => (
+            <div key={it.key}><Emoji e={it.emoji} /> 매주 {DOW[new Date(`${it.start}T00:00:00`).getDay()]}요일 {it.title} · {rangeLabel(it, ym.y, ym.m)}</div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

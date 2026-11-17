@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { addDays, addWeeks, format, startOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 import type { School } from '@shared/types';
 import { SCHOOL_LABELS } from '@shared/types';
 import { useWindowSize, WIDE_MIN } from '../../hooks/useWindowSize';
@@ -16,6 +16,7 @@ import {
   buildFinderRows, buildPeople, cellKey, computeFinderWeek, FINDER_CONDITIONS, matchesFilter, resolvePersonKey, subjectOptions, suggestSlots,
   type FinderCell, type FinderPerson, type FinderRow,
 } from '../../utils/meetingFinder';
+import { RefreshButton, ToolHeader } from '../common/ToolView';
 
 /*
  * 회의 시간 찾기 화면. 입력은 컴시간 시간표와 공유 일정뿐이다.
@@ -364,19 +365,9 @@ export function MeetingFinderView({ onBack }: { onBack: () => void }) {
 
   return (
     <div style={styles.container}>
-      <div style={styles.toolbar}>
-        <button onClick={onBack} style={styles.backBtn} aria-label="달력으로 돌아가기"><ArrowLeft size={14} /></button>
-        <h3 style={styles.heading}>회의 시간 찾기</h3>
-        <button
-          onClick={() => loadGrids(true)}
-          disabled={gridLoading}
-          style={styles.iconBtn}
-          title="시간표 다시 받기"
-          aria-label="시간표 다시 받기"
-        >
-          <RefreshCw size={14} style={gridLoading ? { opacity: 0.4 } : undefined} />
-        </button>
-      </div>
+      <ToolHeader tab="meeting" title="회의 시간 찾기" onBack={onBack}>
+        <RefreshButton onClick={() => loadGrids(true)} busy={gridLoading} label="시간표 다시 받기" />
+      </ToolHeader>
 
       {noSource ? (
         <div style={styles.center}>
@@ -620,30 +611,6 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     minHeight: 0,
-  },
-  toolbar: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    padding: '8px 12px',
-    flexShrink: 0,
-    borderBottom: '1px solid var(--border-subtle)',
-  },
-  backBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    padding: '4px 8px',
-    border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
-    borderRadius: 6,
-    background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
-    color: 'var(--accent)',
-    cursor: 'pointer',
-  },
-  heading: {
-    flex: 1,
-    fontSize: 'var(--fs-control)',
-    fontWeight: 700,
-    color: 'var(--text-primary)',
   },
   iconBtn: {
     display: 'inline-flex',

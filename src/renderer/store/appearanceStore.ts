@@ -18,6 +18,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   colorBy: 'school',
   colorAssist: false,
   hideWeekend: false,
+  emoji: true,
 };
 
 const CACHE_KEY = 't1t-appearance';
@@ -39,6 +40,8 @@ function normalize(raw: Partial<Appearance> | null | undefined): Appearance {
   const out = { ...DEFAULT_APPEARANCE, ...(raw ?? {}) };
   if (!isValidTheme(out.theme)) out.theme = DEFAULT_APPEARANCE.theme;
   if (!(EVENT_FONT_SIZES as readonly number[]).includes(out.eventFontPx)) out.eventFontPx = DEFAULT_APPEARANCE.eventFontPx;
+  // 옛 버전에서 저장한 값에는 이모지 설정이 없다. 켜 둔다
+  if (typeof out.emoji !== 'boolean') out.emoji = DEFAULT_APPEARANCE.emoji;
   return out;
 }
 
@@ -78,6 +81,7 @@ export function applyAppearance(value: Appearance): { preset: ThemePresetKey; mo
   root.setAttribute('data-preset', preset);
   root.setAttribute('data-today', tokens.today);
   root.setAttribute('data-chip', tokens.solidChips ? 'solid' : 'tint');
+  root.setAttribute('data-emoji', value.emoji ? 'on' : 'off');
   root.style.setProperty('--schedule-font-size', `${value.eventFontPx}px`);
   applyPlate(THEME_PRESETS[preset].alpha, plateFloor(preset));
   return { preset, mode: tokens.mode };
@@ -93,8 +97,8 @@ interface AppearanceState extends Appearance {
 }
 
 function pick(state: AppearanceState): Appearance {
-  const { theme, accent, eventFontPx, colorBy, colorAssist, hideWeekend } = state;
-  return { theme, accent, eventFontPx, colorBy, colorAssist, hideWeekend };
+  const { theme, accent, eventFontPx, colorBy, colorAssist, hideWeekend, emoji } = state;
+  return { theme, accent, eventFontPx, colorBy, colorAssist, hideWeekend, emoji };
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;

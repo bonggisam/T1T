@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import type { BoardGroup, BoardImageRef, BoardPost, School } from '@shared/types';
 import { useAuthStore } from '../../store/authStore';
 import { BOARD_GROUP_LABELS, canManageBoardPost, loadBoardImage, useBoardStore } from '../../store/boardStore';
@@ -9,6 +9,7 @@ import { isImageFile } from '../../utils/boardImage';
 import { showToast } from '../common/Toast';
 import { BoardImageViewer, type BoardViewerItem } from './BoardImageViewer';
 import { BoardUploadModal } from './BoardUploadModal';
+import { ToolHeader } from '../common/ToolView';
 
 const ALL_TAB = 'all';
 const GROUPS: BoardGroup[] = ['dept', 'subject'];
@@ -110,16 +111,14 @@ export function BoardView({ onBack }: { onBack: () => void }) {
         if (files.length > 0 && !denied) setUpload({ files });
       }}
     >
-      <div style={styles.toolbar}>
-        <button onClick={onBack} style={styles.backBtn} aria-label="달력으로 돌아가기"><ArrowLeft size={14} /></button>
-        <h3 style={styles.heading}>시험감독</h3>
-        <div className="seg" role="group" aria-label="학교">
+      <ToolHeader tab="duty" onBack={onBack}>
+        <div className="tv-seg" role="group" aria-label="학교">
           {SCHOOLS.map(({ value, label }) => (
             <button key={value} type="button" aria-pressed={school === value} onClick={() => setSchool(value)}>{label}</button>
           ))}
         </div>
-        {!denied && <button onClick={() => setUpload({})} style={styles.addBtn}><Plus size={13} />올리기</button>}
-      </div>
+        {!denied && <button type="button" onClick={() => setUpload({})} className="tv-btn is-primary"><Plus size={13} />올리기</button>}
+      </ToolHeader>
 
       {inSchool.length > 0 && (
         <div style={styles.tabs} role="tablist" aria-label="부서와 교과">
@@ -275,47 +274,6 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'relative',
     overflow: 'hidden',
   },
-  toolbar: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 6,
-    padding: '6px 12px',
-    borderBottom: '1px solid var(--border-subtle)',
-    flexShrink: 0,
-  },
-  backBtn: {
-    display: 'flex',
-    padding: 4,
-    border: 'none',
-    borderRadius: 6,
-    background: 'none',
-    color: 'var(--text-secondary)',
-    cursor: 'pointer',
-  },
-  heading: {
-    flex: 1,
-    margin: 0,
-    minWidth: 60,
-    fontSize: 'var(--fs-subtitle)',
-    fontWeight: 700,
-    color: 'var(--text-primary)',
-  },
-  addBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 3,
-    padding: '4px 10px',
-    border: 'none',
-    borderRadius: 6,
-    background: 'var(--accent)',
-    color: 'var(--on-accent)',
-    fontFamily: 'inherit',
-    fontSize: 'var(--fs-body)',
-    fontWeight: 700,
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-  },
   tabs: {
     display: 'flex',
     flexWrap: 'wrap',
@@ -346,10 +304,11 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     whiteSpace: 'nowrap',
   },
+  // 고른 분류: 다른 메뉴의 고르기 단추처럼 옅은 강조 바탕에 강조색 글자
   tabActive: {
     border: '1px solid var(--accent)',
-    background: 'var(--accent)',
-    color: 'var(--on-accent)',
+    background: 'var(--accent-soft)',
+    color: 'var(--accent)',
   },
   tabCount: {
     fontSize: 'var(--fs-label)',

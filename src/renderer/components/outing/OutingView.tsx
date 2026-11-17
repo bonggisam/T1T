@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { isPageLoadFailure, WebFailNotice } from '../common/WebFailNotice';
-import { Ic } from '../common/Ic';
+import { Settings } from 'lucide-react';
+import { RefreshButton, ToolHeader } from '../common/ToolView';
 
 /**
  * 학생 외출 신청 현황 뷰 — webview 기반.
  * 기본 URL은 빌드 시 .env의 VITE_OUTING_URL에서 주입한다. 저장소에는 값을 두지 않는다.
  * 주입된 값은 설치 파일에서 꺼낼 수 있으므로, 실제 접근 통제는 문서의 공유 권한으로 한다.
- * 화면의 ⚙️ 설정에서 기기별 URL로 바꿀 수 있다 (localStorage 'tonet-outing-url').
+ * 머리줄의 설정 단추에서 기기별 URL로 바꿀 수 있다 (localStorage 'tonet-outing-url').
  */
 const DEFAULT_OUTING_URL = import.meta.env.VITE_OUTING_URL || '';
 const STORAGE_KEY = 'tonet-outing-url';
@@ -113,18 +114,12 @@ export function OutingView({ onBack }: OutingViewProps) {
 
   return (
     <div style={styles.container}>
-      <div style={styles.toolbar}>
-        <button onClick={onBack} style={styles.backBtn} title="캘린더로 돌아가기">
-          <Ic name="calendar" />캘린더
+      <ToolHeader tab="outing" sub={todayStr} onBack={onBack}>
+        <button type="button" onClick={openSettings} className="tv-iconbtn" title="외출상황 URL 설정" aria-label="설정">
+          <Settings size={14} />
         </button>
-        <span style={styles.label}><Ic name="list" />외출상황 ({todayStr})</span>
-        <button onClick={openSettings} style={styles.iconBtn} title="외출상황 URL 설정" aria-label="설정">
-          <Ic name="settings" gap={false} />
-        </button>
-        <button onClick={handleRefresh} style={styles.iconBtn} title="새로고침" aria-label="새로고침">
-          <Ic name="refresh" gap={false} />
-        </button>
-      </div>
+        <RefreshButton onClick={handleRefresh} />
+      </ToolHeader>
       {url && loading && (
         <div style={styles.loadingBar}>
           <div style={styles.loadingProgress} />
@@ -169,22 +164,6 @@ export function OutingView({ onBack }: OutingViewProps) {
 
 const styles: Record<string, React.CSSProperties> = {
   container: { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' },
-  toolbar: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    padding: '6px 12px', borderBottom: '1px solid var(--border-subtle)',
-    flexShrink: 0, background: 'var(--tint-neutral)',
-  },
-  backBtn: {
-    background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
-    border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
-    cursor: 'pointer', padding: '4px 10px', borderRadius: 6,
-    fontSize: 'var(--fs-body)', fontWeight: 600, color: 'var(--accent)',
-  },
-  label: { flex: 1, fontSize: 'var(--fs-control)', fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center' },
-  iconBtn: {
-    background: 'none', border: 'none', cursor: 'pointer',
-    fontSize: 'var(--fs-lead)', padding: '4px 6px', borderRadius: 6,
-  },
   loadingBar: { height: 2, background: 'var(--border-subtle)', overflow: 'hidden', flexShrink: 0 },
   loadingProgress: {
     height: '100%', width: '30%', background: 'var(--accent)',

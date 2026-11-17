@@ -1,18 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { ArrowLeft, Search, Plus, Pencil, Trash2, Check, X, RefreshCw } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, Check, X, RefreshCw, Phone } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useKeyphoneStore, type KeyphoneEntry } from '../../store/keyphoneStore';
 import { showToast } from '../common/Toast';
 import type { School } from '@shared/types';
-import { Ic, type IconName } from '../common/Ic';
-import { Emo } from '../common/designKit';
-import '../common/designs.css';
+import { Emoji, SchoolSeg, ToolHeader, ToolState } from '../common/ToolView';
 import './KeyphoneView.css';
-
-const SCHOOLS: { key: School; label: string; icon: IconName }[] = [
-  { key: 'taeseong_middle', label: '태성중학교', icon: 'school' },
-  { key: 'taeseong_high', label: '태성고등학교', icon: 'graduation' },
-];
 
 interface KeyphoneViewProps {
   onBack: () => void;
@@ -214,112 +207,98 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
     </>
   );
 
+  const counts = {
+    taeseong_middle: entries.filter((e) => e.school === 'taeseong_middle').length,
+    taeseong_high: entries.filter((e) => e.school === 'taeseong_high').length,
+  };
+  const editActions = (onSave: () => void, onCancel: () => void) => (
+    <div className="kp-acts">
+      <button type="button" onClick={onSave} className="tv-iconbtn" title="저장" aria-label="저장"><Check size={14} /></button>
+      <button type="button" onClick={onCancel} className="tv-iconbtn" title="취소" aria-label="취소"><X size={14} /></button>
+    </div>
+  );
+
   return (
-    <div className="md-root kp-root" data-school={selectedSchool}>
-      <div className="kp-head">
-        <button onClick={onBack} className="kp-back" title="돌아가기" aria-label="뒤로">
-          <ArrowLeft size={18} />
-        </button>
-        <span className="kp-title"><Ic name="phone" />키폰 번호부</span>
-        <span className="kp-space" />
+    <div className="tv-root kp-root">
+      <ToolHeader tab="keyphone" title="키폰 번호부" onBack={onBack}>
         {isSuperAdmin && !isEmpty && (
-          <button onClick={handleReset} disabled={seeding} className="kp-reset" title="기존 데이터 삭제 후 초기 데이터로 재등록">
-            <RefreshCw size={13} /> 재시드
+          <button type="button" onClick={handleReset} disabled={seeding} className="tv-btn" title="기존 데이터 삭제 후 초기 데이터로 재등록">
+            <RefreshCw size={12} /> 재시드
           </button>
         )}
-      </div>
-
-      <div className="kp-tabs" role="group" aria-label="학교">
-        {SCHOOLS.map((s) => (
-          <button
-            key={s.key}
-            className="kp-tab"
-            data-school={s.key}
-            aria-pressed={selectedSchool === s.key}
-            onClick={() => setSelectedSchool(s.key)}
-          >
-            <Ic name={s.icon} />{s.label}
-            <span className="kp-count">{entries.filter((e) => e.school === s.key).length}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="kp-tip" role="note">
-        <Emo e="☎️" className="kp-tipEmoji" />
-        <span className="kp-tipText">중 ↔ 고 전화 연결</span>
-        <span className="kp-keys">
-          <kbd>*</kbd><kbd>2</kbd>
-          <span className="kp-then">누르고</span>
-          <kbd className="kp-ext">내선번호</kbd>
-        </span>
-      </div>
+        <SchoolSeg value={selectedSchool} onChange={setSelectedSchool} counts={counts} />
+      </ToolHeader>
 
       <div className="kp-tools">
-        <label className="kp-search">
+        <label className="tv-search">
           <Search size={14} />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="부서·이름·직책·번호 검색" />
         </label>
         {canEdit && (
-          <button onClick={() => startAdd(selectedSchool)} className="kp-add">
-            <Plus size={14} /> 추가
+          <button type="button" onClick={() => startAdd(selectedSchool)} className="tv-btn is-primary">
+            <Plus size={13} /> 추가
           </button>
         )}
       </div>
+      <div className="kp-tip">
+        <div className="tv-note" role="note">
+          <Phone size={13} aria-hidden="true" className="tv-ico has-emoji" />
+          <Emoji e="☎️" />
+          <span>중 ↔ 고 전화 연결</span>
+          <kbd className="tv-key">*</kbd><kbd className="tv-key">2</kbd>
+          <span>누르고 내선번호</span>
+        </div>
+      </div>
 
-      <div className="kp-body">
+      <div className="tv-body">
         {loading ? (
-          <div className="kp-empty">로딩 중…</div>
+          <ToolState kind="loading" text="번호부를 불러오는 중…" />
         ) : isEmpty ? (
-          <div className="kp-empty">
-            <Emo e="☎️" className="kp-emptyEmoji" />
-            <b>키폰 번호부 준비 중…</b>
-            <span>{canEdit ? '잠시 후 초기 데이터가 자동 등록됩니다.' : '관리자가 처음 접속하면 초기 데이터가 자동 등록됩니다.'}</span>
-          </div>
+          <ToolState
+            kind="empty"
+            emoji="☎️"
+            text="키폰 번호부 준비 중…"
+            sub={canEdit ? '잠시 후 초기 데이터가 자동 등록됩니다.' : '관리자가 처음 접속하면 초기 데이터가 자동 등록됩니다.'}
+          />
         ) : filtered.length === 0 ? (
-          <div className="kp-empty"><span>검색 결과가 없습니다</span></div>
+          <ToolState kind="empty" emoji="🔍" text="검색 결과가 없습니다" />
         ) : (
           <>
             {addingForSchool === selectedSchool && (
-              <div className="kp-edit is-add">
+              <div className="tv-card kp-edit is-add">
                 {editFields(addDraft, setAddDraft)}
-                <div className="kp-acts">
-                  <button onClick={saveAdd} className="kp-ok" title="저장"><Check size={14} /></button>
-                  <button onClick={cancelAdd} className="kp-ghost" title="취소"><X size={14} /></button>
-                </div>
+                {editActions(saveAdd, cancelAdd)}
               </div>
             )}
 
             <div className="kp-cols">
               {grouped.map(([name, list]) => (
-                <section key={name} className="kp-group">
-                  <h4 className="kp-dept">
+                <section key={name} className="tv-card kp-group">
+                  <h4 className="tv-sectionTitle kp-dept">
                     <span>{name}</span>
-                    <span className="kp-deptCount">{list.length}</span>
+                    <span className="tv-segCount">{list.length}</span>
                   </h4>
                   {list.map((e) => (editingId === e.id ? (
                     <div key={e.id} className="kp-edit">
                       {editFields(editDraft, setEditDraft)}
-                      <div className="kp-acts">
-                        <button onClick={saveEdit} className="kp-ok" title="저장"><Check size={14} /></button>
-                        <button onClick={cancelEdit} className="kp-ghost" title="취소"><X size={14} /></button>
-                      </div>
+                      {editActions(saveEdit, cancelEdit)}
                     </div>
                   ) : (
-                    <div key={e.id} className="kp-row">
+                    <div key={e.id} className="tv-row kp-row">
                       <span className="kp-name">
                         {e.name || <span className="kp-noname">—</span>}
-                        {e.role && <span className="kp-role">{e.role}</span>}
+                        {e.role && <small className="kp-role">{e.role}</small>}
                       </span>
                       {e.keyphone && (
-                        <button onClick={() => copy(e.keyphone)} className="kp-num" title={`복사: ${e.keyphone}`}>{e.keyphone}</button>
+                        <button type="button" onClick={() => copy(e.keyphone)} className="kp-num" title={`복사: ${e.keyphone}`}>{e.keyphone}</button>
                       )}
                       {e.phone && (
-                        <button onClick={() => copy(e.phone)} className="kp-tel" title={`복사: ${e.phone}`}>{e.phone}</button>
+                        <button type="button" onClick={() => copy(e.phone)} className="kp-tel" title={`복사: ${e.phone}`}>{e.phone}</button>
                       )}
                       {canEdit && (
                         <div className="kp-acts">
-                          <button onClick={() => startEdit(e)} className="kp-ghost" title="수정"><Pencil size={11} /></button>
-                          <button onClick={() => remove(e)} className="kp-ghost is-danger" title="삭제"><Trash2 size={11} /></button>
+                          <button type="button" onClick={() => startEdit(e)} className="tv-iconbtn" title="수정" aria-label="수정"><Pencil size={12} /></button>
+                          <button type="button" onClick={() => remove(e)} className="tv-iconbtn is-danger" title="삭제" aria-label="삭제"><Trash2 size={12} /></button>
                         </div>
                       )}
                     </div>
@@ -331,7 +310,7 @@ export function KeyphoneView({ onBack }: KeyphoneViewProps) {
         )}
       </div>
 
-      <div className="kp-foot">
+      <div className="tv-foot">
         {canEdit
           ? '번호를 누르면 복사됩니다 · 관리자는 항목을 추가·수정·삭제할 수 있습니다.'
           : '번호를 누르면 복사됩니다.'}

@@ -6,6 +6,7 @@ import { useAuthStore } from '../../store/authStore';
 import { showToast } from '../common/Toast';
 import type { Todo } from '@shared/types';
 import { Ic } from '../common/Ic';
+import { ToolHeader } from '../common/ToolView';
 
 const PRIORITY_COLORS = { low: 'var(--success)', medium: 'var(--warning)', high: 'var(--danger)' } as const;
 
@@ -77,10 +78,8 @@ export function TodosView({ onBack }: TodosViewProps) {
 
   return (
     <div className="animate-fade-in" style={styles.container}>
-      <div style={styles.header}>
-        <h3 style={styles.title}><Ic name="checkSquare" />할 일</h3>
-        <button onClick={onBack} style={styles.closeBtn}><Ic name="x" gap={false} /></button>
-      </div>
+      <ToolHeader tab="todos" onBack={onBack} />
+      <div style={styles.body}>
 
       {/* 입력 폼 */}
       <form onSubmit={handleAdd} style={styles.addForm}>
@@ -120,7 +119,7 @@ export function TodosView({ onBack }: TodosViewProps) {
       </form>
 
       {/* 필터 */}
-      <div style={styles.filterBar}>
+      <div className="tv-seg is-wide" role="group" aria-label="할 일 분류" style={{ marginBottom: 10 }}>
         <FilterBtn active={filter === 'active'} onClick={() => setFilter('active')} label={`진행 중 (${activeCount})`} />
         <FilterBtn active={filter === 'completed'} onClick={() => setFilter('completed')} label={`완료 (${completedCount})`} />
         <FilterBtn active={filter === 'all'} onClick={() => setFilter('all')} label={`전체 (${todos.length})`} />
@@ -152,13 +151,14 @@ export function TodosView({ onBack }: TodosViewProps) {
           ))
         )}
       </div>
+      </div>
     </div>
   );
 }
 
 function FilterBtn({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
   return (
-    <button onClick={onClick} style={{ ...styles.filterBtn, ...(active ? styles.filterBtnActive : {}) }}>
+    <button type="button" aria-pressed={active} onClick={onClick}>
       {label}
     </button>
   );
@@ -276,10 +276,8 @@ function TodoItem({ todo, onToggle, onDelete, onUpdate }: {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  container: { display: 'flex', flexDirection: 'column', height: '100%', padding: '0 12px 12px' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0' },
-  title: { fontSize: 'var(--fs-subtitle)', fontWeight: 700, color: 'var(--text-primary)' },
-  closeBtn: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 'var(--fs-lead)', color: 'var(--text-muted)' },
+  container: { display: 'flex', flexDirection: 'column', height: '100%' },
+  body: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px 12px 12px' },
   addForm: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 },
   input: {
     width: '100%', padding: '8px 12px', fontSize: 'var(--fs-control)',
@@ -302,13 +300,6 @@ const styles: Record<string, React.CSSProperties> = {
     border: 'none', borderRadius: 8,
     background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer',
   },
-  filterBar: { display: 'flex', gap: 4, marginBottom: 10 },
-  filterBtn: {
-    flex: 1, padding: '5px 0', fontSize: 'var(--fs-label)', fontWeight: 500,
-    border: 'none', borderRadius: 8,
-    background: 'var(--bg-secondary)', color: 'var(--text-secondary)', cursor: 'pointer',
-  },
-  filterBtnActive: { background: 'var(--accent)', color: 'var(--on-accent)' },
   list: { flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 4 },
   empty: { textAlign: 'center', fontSize: 'var(--fs-control)', color: 'var(--text-muted)', marginTop: 40 },
   todoItem: {

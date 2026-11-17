@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { addDays, addWeeks, differenceInCalendarWeeks, format, isToday } from 'date-fns';
-import { ArrowLeft, ChevronLeft, ChevronRight, PanelLeft, RefreshCw } from 'lucide-react';
+import { PanelLeft, User } from 'lucide-react';
 import type { School, TeacherPeriod } from '@shared/types';
 import { useAuthStore } from '../../store/authStore';
 import { useComciganStore } from '../../store/comciganStore';
@@ -13,8 +13,7 @@ import { getHoliday } from '../../utils/holidays';
 import { NEIS_SYNC_LABEL, timetableWeekStart } from '../../utils/neisTimetable';
 import { teacherKey } from '../../utils/teachingAssignments';
 import { ComciganCallButton } from '../common/ComciganCall';
-import { cls, Emo } from '../common/designKit';
-import '../common/designs.css';
+import { cls, Emoji, PeriodNav, RefreshButton, SchoolSeg, ToolHeader, ToolState } from '../common/ToolView';
 import './MyTimetableView.css';
 
 const WEEKDAYS = ['월', '화', '수', '목', '금'];
@@ -171,11 +170,6 @@ export function MyTimetableView({ onBack, onOpenSettings }: MyTimetableViewProps
     for (const c of dropped) map.set(slotOf(c.weekday, c.period), [...(map.get(slotOf(c.weekday, c.period)) ?? []), c]);
     return map;
   }, [dropped]);
-  /** 학급마다 색 번호. 같은 반 수업은 같은 색이다 */
-  const hueOf = useMemo(() => {
-    const classes = [...new Set(week.lessons.map((p) => p.grade * 100 + p.classNum))].sort((a, b) => a - b);
-    return new Map(classes.map((c, i) => [c, i % 8]));
-  }, [week.lessons]);
   const periodCount = Math.max(
     classTimes.length,
     ...week.lessons.map((p) => p.period),
@@ -211,55 +205,46 @@ export function MyTimetableView({ onBack, onOpenSettings }: MyTimetableViewProps
 
   const who = picked ? `${picked.name} 선생님` : `${user?.name || '선생님'} 선생님`;
   const settingsButton = !picked && onOpenSettings && (
-    <button type="button" onClick={onOpenSettings} className="tt-small">설정 &gt; 내 시간표 열기</button>
+    <button type="button" onClick={onOpenSettings} className="tv-btn">설정 &gt; 내 시간표 열기</button>
   );
 
   let body: React.ReactNode;
   if (week.status === 'noschool') {
     body = (
-      <div className="tt-center">
-        <p className="tt-empty">계정에 학교가 없어 시간표를 만들 수 없습니다.</p>
-        <p className="tt-note">관리자에게 학교를 정해 달라고 해 주세요. 왼쪽에서 다른 선생님의 시간표는 볼 수 있습니다.</p>
-      </div>
+      <ToolState
+        kind="empty"
+        text="계정에 학교가 없어 시간표를 만들 수 없습니다."
+        sub="관리자에게 학교를 정해 달라고 해 주세요. 왼쪽에서 다른 선생님의 시간표는 볼 수 있습니다."
+      />
     );
   } else if (week.status === 'unlinked') {
     body = (
-      <div className="tt-center">
-        <p className="tt-empty">담당 학급 표에서 {who}을 찾지 못했습니다.</p>
-        <p className="tt-note">
-          {adminRole
-            ? '관리자 > 기초 시간표 탭에서 컴시간 파일을 올리면 모든 선생님이 이름으로 연결됩니다.'
-            : '관리자가 기초 시간표를 올리면 이름으로 자동 연결됩니다.'}
-          {!picked && ' 먼저 쓰시려면 설정 > 내 시간표에 담당 과목과 학급을 넣어 주세요.'}
-        </p>
+      <ToolState
+        kind="empty"
+        text={`담당 학급 표에서 ${who}을 찾지 못했습니다.`}
+        sub={(adminRole
+          ? '관리자 > 기초 시간표 탭에서 컴시간 파일을 올리면 모든 선생님이 이름으로 연결됩니다.'
+          : '관리자가 기초 시간표를 올리면 이름으로 자동 연결됩니다.')
+          + (!picked ? ' 먼저 쓰시려면 설정 > 내 시간표에 담당 과목과 학급을 넣어 주세요.' : '')}
+      >
         {settingsButton}
-      </div>
+      </ToolState>
     );
   } else if (week.status === 'loading') {
-    body = <div className="tt-center"><div className="spinner" /><p className="tt-note">시간표를 받는 중입니다</p></div>;
+    body = <ToolState kind="loading" text="시간표를 받는 중입니다" />;
   } else if (week.status === 'error') {
     body = (
-      <div className="tt-center">
-        <p className="tt-empty">{week.error || '나이스에서 시간표를 받지 못했습니다'}</p>
+      <ToolState kind="error" text={week.error || '나이스에서 시간표를 받지 못했습니다'}>
         <div className="tt-actions">
-          <button type="button" onClick={refresh} className="tt-small">다시 시도</button>
+          <button type="button" onClick={refresh} className="tv-btn">다시 시도</button>
           <ComciganCallButton />
         </div>
-      </div>
+      </ToolState>
     );
   } else if (week.noSchoolData) {
-    body = (
-      <div className="tt-center">
-        <p className="tt-empty">이 주는 나이스에 학교 시간표가 없습니다.</p>
-        <p className="tt-note">방학이거나 학교가 아직 시간표를 넣지 않은 주입니다.</p>
-      </div>
-    );
+    body = <ToolState kind="empty" text="이 주는 나이스에 학교 시간표가 없습니다." sub="방학이거나 학교가 아직 시간표를 넣지 않은 주입니다." />;
   } else if (week.lessons.length === 0 && dropped.length === 0) {
-    body = (
-      <div className="tt-center">
-        <p className="tt-empty">이 주에는 {picked ? `${who}의` : '내'} 수업이 없습니다.</p>
-      </div>
-    );
+    body = <ToolState kind="empty" text={`이 주에는 ${picked ? `${who}의` : '내'} 수업이 없습니다.`} />;
   } else {
     body = (
       <div className="tt-scroll">
@@ -318,7 +303,6 @@ export function MyTimetableView({ onBack, onOpenSettings }: MyTimetableViewProps
                         <div
                           key={`${p.grade}-${p.classNum}-${p.subject}`}
                           className={cls('tt-lesson', p.moved && 'is-moved')}
-                          data-hue={hueOf.get(p.grade * 100 + p.classNum) ?? 0}
                           title={`${p.subject} ${p.grade}-${p.classNum}${p.moved ? ' · 교체로 들어온 수업' : ''}`}
                         >
                           <b className="tt-class">{p.grade}-{p.classNum}</b>
@@ -352,23 +336,11 @@ export function MyTimetableView({ onBack, onOpenSettings }: MyTimetableViewProps
 
   const ready = week.status === 'ready' && !week.noSchoolData;
   return (
-    <div className="md-root tt-root" data-side={sideOpen ? 'open' : 'closed'}>
+    <div className="tv-root tt-root" data-side={sideOpen ? 'open' : 'closed'}>
       <aside className="tt-side" aria-label="선생님 고르기">
-        <div className="tt-seg" role="group" aria-label="학교">
-          {LINK_SCHOOLS.map((school) => (
-            <button
-              key={school}
-              type="button"
-              data-school={school}
-              aria-pressed={listSchool === school}
-              onClick={() => setListSchool(school)}
-            >
-              {SHORT_LABEL[school]}
-            </button>
-          ))}
-        </div>
+        <SchoolSeg value={listSchool} onChange={setListSchool} wide />
         <button type="button" className="tt-me" aria-pressed={!picked} onClick={() => setPicked(null)}>
-          <Emo e="⭐" /> 내 시간표
+          <User size={13} aria-hidden="true" className="tv-ico has-emoji" /><Emoji e="⭐" /> 내 시간표
         </button>
         <input
           className="tt-search"
@@ -407,59 +379,42 @@ export function MyTimetableView({ onBack, onOpenSettings }: MyTimetableViewProps
       </aside>
 
       <section className="tt-main">
-        <div className="tt-head">
-          <button type="button" onClick={onBack} className="tt-btn is-back" aria-label="달력으로 돌아가기"><ArrowLeft size={14} /></button>
+        <ToolHeader
+          tab="timetable"
+          title={picked ? `${picked.name} 선생님` : '내 시간표'}
+          sub={picked ? SHORT_LABEL[picked.school] : undefined}
+          onBack={onBack}
+        >
           <button
             type="button"
             onClick={toggleSide}
-            className="tt-btn"
+            className="tv-iconbtn"
             aria-pressed={sideOpen}
             title={sideOpen ? '선생님 목록 접기' : '선생님 목록 펴기'}
             aria-label={sideOpen ? '선생님 목록 접기' : '선생님 목록 펴기'}
           >
             <PanelLeft size={15} />
           </button>
-          <h3 className="tt-title">
-            {picked ? (
-              <>
-                <span>{picked.name} 선생님</span>
-                <small data-school={picked.school}>{SHORT_LABEL[picked.school]}</small>
-              </>
-            ) : <span>내 시간표</span>}
-          </h3>
-          <button
-            type="button"
+          <RefreshButton
             onClick={refresh}
-            disabled={busy || week.status === 'noschool' || week.status === 'unlinked'}
-            className="tt-btn"
-            title="나이스 시간표 다시 받기"
-            aria-label="나이스 시간표 다시 받기"
-          >
-            <RefreshCw size={14} style={busy ? { opacity: 0.4 } : undefined} />
-          </button>
-        </div>
+            busy={busy}
+            disabled={week.status === 'noschool' || week.status === 'unlinked'}
+            label="나이스 시간표 다시 받기"
+          />
+        </ToolHeader>
 
-        <div className="tt-weekbar">
-          <button type="button" onClick={() => setOffset((v) => v - 1)} className="tt-btn" aria-label="앞 주">
-            <ChevronLeft size={16} />
-          </button>
-          <div className="tt-week" aria-live="polite">
-            <strong>{weekRange(monday)}</strong>
-            <span>{relativeWeek(monday)}</span>
-          </div>
-          <button type="button" onClick={() => setOffset((v) => v + 1)} className="tt-btn" aria-label="다음 주">
-            <ChevronRight size={16} />
-          </button>
-          {offset !== 0 && (
-            <button type="button" onClick={() => setOffset(0)} className="tt-small">{relativeWeek(home)}</button>
-          )}
-          {ready && (
-            <p className="tt-sum">
-              주 {week.lessons.length}교시
-              {week.basis === 'base' && changedSlots > 0 && ` · 바뀐 수업 ${changedSlots}칸`}
-            </p>
-          )}
-        </div>
+        <PeriodNav
+          title={weekRange(monday)}
+          sub={relativeWeek(monday)}
+          onPrev={() => setOffset((v) => v - 1)}
+          onNext={() => setOffset((v) => v + 1)}
+          prevLabel="앞 주"
+          nextLabel="다음 주"
+          reset={offset !== 0 ? { label: relativeWeek(home), onClick: () => setOffset(0) } : null}
+          end={ready
+            ? `주 ${week.lessons.length}교시${week.basis === 'base' && changedSlots > 0 ? ` · 바뀐 수업 ${changedSlots}칸` : ''}`
+            : undefined}
+        />
         {ready && week.error && <p className="tt-warn">{week.error}. 전에 받은 시간표를 보여 줍니다.</p>}
 
         <div className="tt-stage">
@@ -467,7 +422,7 @@ export function MyTimetableView({ onBack, onOpenSettings }: MyTimetableViewProps
         </div>
 
         {ready && (week.lessons.length > 0 || dropped.length > 0) && (
-          <p className="tt-foot">
+          <p className="tv-foot tt-foot">
             {week.basis === 'base'
               ? '학교 기초 시간표를 그 주 나이스 시간표와 대조했습니다.'
               : picked || timetableData?.source || !week.fromStore

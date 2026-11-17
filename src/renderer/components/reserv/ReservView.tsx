@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { isPageLoadFailure, WebFailNotice } from '../common/WebFailNotice';
-import { Ic } from '../common/Ic';
+import { Undo2 } from 'lucide-react';
+import { RefreshButton, ToolHeader } from '../common/ToolView';
 
 const RESERV_URL = 'https://ourssm.com/login';
 
@@ -69,17 +70,11 @@ export function ReservView({ onBack }: ReservViewProps) {
 
   return (
     <div className="animate-fade-in" style={styles.container}>
-      <div style={styles.header}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <h3 style={styles.title}><Ic name="building" />회의실 예약</h3>
-          <span style={styles.subtitle}>ourssm.com</span>
-        </div>
-        <div style={{ display: 'flex', gap: 4 }}>
-          <button onClick={goBack} style={styles.iconBtn} title="뒤로">←</button>
-          <button onClick={reload} style={styles.iconBtn} title="새로고침">⟳</button>
-          <button onClick={onBack} style={styles.closeBtn}><Ic name="x" gap={false} /></button>
-        </div>
-      </div>
+      <ToolHeader tab="reserv" title="회의실 예약" sub="ourssm.com" onBack={onBack}>
+        <button type="button" onClick={goBack} className="tv-iconbtn" title="웹 화면 뒤로" aria-label="웹 화면 뒤로"><Undo2 size={14} /></button>
+        <RefreshButton onClick={reload} />
+      </ToolHeader>
+      <div style={styles.body}>
       {failed && <WebFailNotice label="회의실 예약" onRetry={retry} />}
       <div ref={webviewContainerRef} style={styles.webviewWrap}>
         {loading && (
@@ -89,25 +84,14 @@ export function ReservView({ onBack }: ReservViewProps) {
           </div>
         )}
       </div>
+      </div>
     </div>
   );
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  container: { display: 'flex', flexDirection: 'column', height: '100%', padding: '0 12px 12px' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0' },
-  title: { fontSize: 'var(--fs-subtitle)', fontWeight: 700, color: 'var(--text-primary)' },
-  subtitle: { fontSize: 'var(--fs-caption)', color: 'var(--text-muted)' },
-  iconBtn: {
-    background: 'var(--bg-secondary)', border: 'none', cursor: 'pointer',
-    width: 26, height: 26, borderRadius: 6,
-    fontSize: 'var(--fs-control)', color: 'var(--text-secondary)',
-  },
-  closeBtn: {
-    background: 'none', border: 'none', cursor: 'pointer',
-    fontSize: 'var(--fs-lead)', color: 'var(--text-muted)',
-    padding: '2px 6px',
-  },
+  container: { display: 'flex', flexDirection: 'column', height: '100%' },
+  body: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px 12px 12px' },
   webviewWrap: {
     flex: 1, position: 'relative',
     borderRadius: 8, overflow: 'hidden',
