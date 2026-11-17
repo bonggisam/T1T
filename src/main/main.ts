@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, Tray, Menu, globalShortcut, ipcMain, nativeImage, net, powerMonitor, screen, session, shell, webContents as electronWebContents, type NativeImage } from 'electron';
+import { app, BrowserWindow, clipboard, Tray, Menu, globalShortcut, ipcMain, nativeImage, powerMonitor, screen, session, shell, webContents as electronWebContents, type NativeImage } from 'electron';
 import * as http from 'http';
 import * as crypto from 'crypto';
 import * as path from 'path';
@@ -9,6 +9,7 @@ import type { UpdateState } from '../shared/types';
 import { defaultBounds, isReachable, parseSavedState, resolveBounds } from './windowPlacement';
 import type { DisplayArea, Rect, SavedWindowState } from './windowPlacement';
 import * as macUpdater from './macUpdater';
+import { startGithubRelay } from './githubRelay';
 import { isTpassView, tpassAutoLogin } from './tpassLogin';
 import { GOOGLE_CLIENT_ID as INJECTED_GOOGLE_ID, GOOGLE_CLIENT_SECRET as INJECTED_GOOGLE_SECRET, TPASS_PASSWORD } from './credentials.gen';
 
@@ -708,8 +709,10 @@ const UPDATE_CHECK_TIMEOUT_MS = 30 * 1000;
 const STALE_CHECK_MS = 5 * 1000;
 /** 켤 때 확인이 실패하면 30분을 기다리지 않고 이만큼 뒤 한 번 더 확인한다. 로그인 직후에는 인터넷이 아직 안 붙은 경우가 많다 */
 const STARTUP_RETRY_MS = 3 * 60 * 1000;
-/** 연결 점검에서 한 곳의 답을 기다리는 시간 */
-const PROBE_TIMEOUT_MS = 6 * 1000;
+/** 연결 점검에서 한 곳의 답을 기다리는 시간. 중계기가 막힌 주소 하나를 건너뛸 시간(5초)보다 길게 둔다 */
+const PROBE_TIMEOUT_MS = 12 * 1000;
+/** 중계기가 GitHub 주소 하나의 첫 응답을 기다리는 시간. 넘으면 다음 주소로 넘어간다 */
+const RELAY_FIRST_BYTE_MS = 5 * 1000;
 const UPDATE_LOG_COPY_LINES = 60;
 // macOS: 앱이 코드 서명되어 있지 않음(package.json build.mac.identity = "-").
 // Squirrel.Mac 자동 업데이트는 서명이 필수라 미서명 앱은 다운로드 단계에서 항상 실패한다.
@@ -891,7 +894,8 @@ async function probeHost(url: string): Promise<string | null> {
   let timer: NodeJS.Timeout | undefined;
   try {
     await Promise.race([
-      net.fetch(url, { method: 'HEAD', signal: controller.signal }),
+      // 업데이트와 같은 세션(중계기)으로 접속해, 업데이트가 실제로 겪는 연결 상태를 본다
+      autoUpdater.netSession.fetch(url, { method: 'HEAD', signal: controller.signal }),
       new Promise<never>((_resolve, reject) => {
         timer = setTimeout(() => {
           reject(new Error(`${PROBE_TIMEOUT_MS / 1000}초 응답 없음`));
@@ -915,6 +919,26 @@ async function probeGitHub(): Promise<ProbeResult> {
   ]);
   const part = (name: string, error: string | null) => `${name} ${error ? `실패(${error})` : '연결됨'}`;
   return { github, files, summary: `${part('github.com', github)} · ${part('파일 서버', files)}` };
+}
+
+/**
+ * 업데이트 세션이 GitHub 연결 중계기를 거치게 한다 (githubRelay.ts). 학교망에서 GitHub 파일 서버 주소 하나가
+ * 막혀 있으면 그 주소를 건너뛴다. 학교 프록시를 쓰는 PC는 그 설정을 따르고, 중계기를 띄우지 못하면 직접 연결한다.
+ */
+async function routeUpdatesThroughRelay(): Promise<void> {
+  try {
+    const ses = autoUpdater.netSession;
+    const route = (await ses.resolveProxy('https://github.com/')).trim();
+    if (route && route.toUpperCase() !== 'DIRECT') {
+      logUpdate('info', `업데이트 연결: 시스템 프록시를 따릅니다 (${route})`);
+      return;
+    }
+    const relay = await startGithubRelay({ firstByteMs: RELAY_FIRST_BYTE_MS, log: (m) => logUpdate('warn', `중계기: ${m}`) });
+    await ses.setProxy({ proxyRules: `https=127.0.0.1:${relay.port}` });
+    logUpdate('info', `업데이트 연결: 중계기 127.0.0.1:${relay.port}`);
+  } catch (err: any) {
+    logUpdate('warn', `중계기를 쓰지 못해 직접 연결합니다: ${firstLine(err?.message)}`);
+  }
 }
 
 /** 직접 누른 확인이 실패한 이유를 선생님이 알아들을 말로 바꾼다 */
@@ -1160,15 +1184,17 @@ function setupAutoUpdater(): void {
   // 화면 잠금 = 자리 비움 → 받아 둔 업데이트가 있으면 바로 설치
   powerMonitor.on('lock-screen', () => installDownloadedUpdate('lock'));
 
-  // 시작 시 한 번 + 30분 주기 자동 확인 (조용히)
+  // 업데이트 연결을 중계기로 돌린 뒤 확인을 시작한다. 시작 시 한 번 + 30분 주기 자동 확인 (조용히)
   // 켤 때 확인이 실패하면(로그인 직후 인터넷이 아직 안 붙은 경우가 많다) 30분을 기다리지 않고 한 번 더 확인한다
-  runAutoCheck().catch(() => {
-    setTimeout(() => { runAutoCheck().catch(() => {}); }, STARTUP_RETRY_MS);
+  void routeUpdatesThroughRelay().finally(() => {
+    runAutoCheck().catch(() => {
+      setTimeout(() => { runAutoCheck().catch(() => {}); }, STARTUP_RETRY_MS);
+    });
+    if (updaterInterval) clearInterval(updaterInterval);
+    updaterInterval = setInterval(() => {
+      runAutoCheck().catch(() => {});
+    }, 30 * 60 * 1000);
   });
-  if (updaterInterval) clearInterval(updaterInterval);
-  updaterInterval = setInterval(() => {
-    runAutoCheck().catch(() => {});
-  }, 30 * 60 * 1000);
 }
 
 // Google Calendar OAuth IPC — Authorization Code Flow + PKCE (RFC 8252)
