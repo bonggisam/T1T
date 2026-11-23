@@ -26,9 +26,13 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuth() && request.auth.uid == userId;
       allow read: if isAdmin();
-      // Signup: just require auth + own uid (role logic handled by client + app_meta)
+      // 가입 — 본인 문서를 '교사·승인 대기'로만 만든다. 승인과 역할은 관리자가 정한다.
+      // 관리자가 아직 없는 맨 처음(app_meta/initialized 없음)에만 최고 관리자로 만들 수 있다.
       allow create: if isAuth() && request.auth.uid == userId
-        && (!('school' in request.resource.data) || request.resource.data.school in ['taeseong_middle', 'taeseong_high']);
+        && (!('school' in request.resource.data) || request.resource.data.school in ['taeseong_middle', 'taeseong_high'])
+        && ((request.resource.data.role == 'teacher' && request.resource.data.status == 'pending')
+            || (!exists(/databases/$(database)/documents/app_meta/initialized)
+                && request.resource.data.role == 'super_admin' && request.resource.data.status == 'active'));
       // 본인이 프로필 일부 수정 (role/status 변경 불가)
       allow update: if isAuth() && request.auth.uid == userId
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status'])
@@ -224,9 +228,9 @@ service cloud.firestore {
     // App metadata
     match /app_meta/{docId} {
       allow read: if isAuth();
-      allow create: if isAuth();
-      // 활성 사용자만 업데이트 가능 (NEIS 자동 동기화 시간 기록 등)
-      allow update: if isActive();
+      // 활성 사용자만 만들고 고칠 수 있다 (NEIS 자동 동기화 시간 기록 등).
+      // 맨 처음 관리자는 users 문서를 먼저 만들므로 initialized도 통과한다.
+      allow create, update: if isActive();
     }
 
     // Notifications — 본인만 읽고 업데이트/삭제 가능. 생성은 active 사용자 (멘션 알림용)
