@@ -153,8 +153,8 @@ export function TitleBar({
             <button
               onClick={() => window.electronAPI?.close()}
               style={{ ...styles.iconBtn, color: 'var(--danger)' }}
-              title="종료"
-              aria-label="종료"
+              title="닫기 (트레이에서 계속 실행)"
+              aria-label="닫기"
             >
               <X size={16} strokeWidth={2.2} />
             </button>

@@ -346,14 +346,6 @@ export function App() {
     };
   }, []);
 
-  // 저장된 항상 위 설정을 적용. 위젯 모드에서는 메인 프로세스가 기억만 하고 해제할 때 쓴다.
-  const savedAlwaysOnTop = user?.settings?.alwaysOnTop;
-  useEffect(() => {
-    if (typeof savedAlwaysOnTop !== 'boolean') return;
-    window.electronAPI?.toggleAlwaysOnTop(savedAlwaysOnTop)
-      .catch((err) => console.warn('[Window] toggleAlwaysOnTop failed:', err));
-  }, [savedAlwaysOnTop]);
-
   // 로그인한 계정의 테마와 글자 크기를 적용한다
   useEffect(() => {
     if (!user?.id) return;

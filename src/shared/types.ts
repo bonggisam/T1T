@@ -44,6 +44,7 @@ export interface AppearanceChoices {
 
 export interface UserSettings {
   notificationSound: boolean;
+  /** v2.6.19까지 쓰던 계정 설정. 지금은 PC마다 window-prefs.json에 두고 이 값은 읽지 않는다 */
   alwaysOnTop: boolean;
   clickThrough: boolean;
   defaultView: CalendarView;
@@ -376,7 +377,9 @@ export interface UpdateState {
 
 // Electron API bridge
 export interface ElectronAPI {
-  toggleAlwaysOnTop: (value: boolean) => Promise<void>;
+  /** 잠금이 풀린 동안 다른 창 위에 둘지. 이 PC에만 저장하고, 저장된 값을 돌려준다 */
+  toggleAlwaysOnTop: (value: boolean) => Promise<boolean>;
+  getAlwaysOnTop: () => Promise<boolean>;
   setZoomFactor: (factor: number) => void;
   toggleClickThrough: (enabled: boolean) => Promise<void>;
   getClickThrough: () => Promise<boolean>;
@@ -385,6 +388,10 @@ export interface ElectronAPI {
   setSize: (width: number, height: number) => Promise<void>;
   setWidgetMode: (enabled: boolean) => Promise<void>;
   getWidgetMode: () => Promise<boolean>;
+  /** 켤 때 창 위치를 잠글지. 이 PC에만 저장한다 */
+  getStartLocked: () => Promise<boolean>;
+  /** 저장하고 지금 창에도 적용한 뒤, 저장된 값을 돌려준다 */
+  setStartLocked: (value: boolean) => Promise<boolean>;
   getBounds: () => Promise<{ x: number; y: number; width: number; height: number }>;
   setBounds: (bounds: { x: number; y: number; width: number; height: number }) => Promise<void>;
   startEdgeResize: (edge: 'top'|'right'|'bottom'|'left'|'top-left'|'top-right'|'bottom-left'|'bottom-right') => Promise<void>;
@@ -394,6 +401,8 @@ export interface ElectronAPI {
   tpassAutoLogin: (webContentsId: number) => Promise<{ ok: boolean; reason?: string; attempt?: number }>;
   onWidgetModeChanged: (callback: (enabled: boolean) => void) => () => void;
   onClickThroughChanged: (callback: (enabled: boolean) => void) => () => void;
+  /** 트레이에서 항상 위를 바꿨을 때도 호출 */
+  onAlwaysOnTopChanged: (callback: (enabled: boolean) => void) => () => void;
   /** 절전 복귀나 화면 잠금 해제 때 호출 */
   onSystemWoke: (callback: () => void) => () => void;
   onPrivacyToggle: (callback: () => void) => () => void;

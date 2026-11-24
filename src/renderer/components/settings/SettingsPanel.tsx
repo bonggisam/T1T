@@ -43,8 +43,9 @@ function describeUpdateState(state: UpdateState): string {
 export function SettingsPanel({ onClose, onOpenTimetable }: SettingsPanelProps) {
   const { user, logout, saveSettings } = useAuthStore();
   const widget = useWidgetStore();
-  const [alwaysOnTop, setAlwaysOnTop] = useState(user?.settings.alwaysOnTop ?? true);
+  const [alwaysOnTop, setAlwaysOnTop] = useState(false);
   const [clickThrough, setClickThrough] = useState(user?.settings.clickThrough ?? false);
+  const [startLocked, setStartLocked] = useState(false);
   const [notifSound, setNotifSound] = useState(user?.settings.notificationSound ?? true);
   const [reminder, setReminder] = useState<ReminderTime>(user?.settings.reminderDefault ?? '30min');
   const [profileColor, setProfileColor] = useState(user?.profileColor || '#4A90E2');
@@ -72,6 +73,11 @@ export function SettingsPanel({ onClose, onOpenTimetable }: SettingsPanelProps) 
   useEffect(() => {
     window.electronAPI?.getAppVersion().then((v) => setAppVersion(v)).catch(() => {});
     window.electronAPI?.getAutoLaunch().then((v) => setAutoLaunch(v)).catch(() => {});
+    window.electronAPI?.getAlwaysOnTop?.().then((v) => setAlwaysOnTop(v)).catch(() => {});
+    window.electronAPI?.getStartLocked?.().then((v) => setStartLocked(v)).catch(() => {});
+    // 트레이에서 항상 위를 바꿔도 맞춘다
+    const unsub = window.electronAPI?.onAlwaysOnTopChanged?.((enabled) => setAlwaysOnTop(enabled));
+    return () => unsub?.();
   }, []);
   // 이전: 설정창이 전체 화면을 차지하던 시절 윈도우 리사이즈 로직 — 이제 모달이라 불필요
 
@@ -83,10 +89,17 @@ export function SettingsPanel({ onClose, onOpenTimetable }: SettingsPanelProps) 
     });
   }
 
-  function handleAlwaysOnTop(value: boolean) {
-    setAlwaysOnTop(value);
-    window.electronAPI?.toggleAlwaysOnTop(value);
-    persist({ alwaysOnTop: value });
+  // 항상 위와 잠금은 창 자리처럼 이 PC에만 저장한다. 저장하지 못하면 되돌리고 까닭을 보인다
+  function saveOnThisPc(value: boolean, show: (v: boolean) => void, save?: (v: boolean) => Promise<boolean>) {
+    setSaveMsg('');
+    show(value);
+    const failed = (saved: boolean) => {
+      show(saved);
+      setSaveMsg('저장 실패: 이 PC에 저장하지 못했습니다');
+    };
+    save?.(value)
+      .then((saved) => { if (saved !== value) failed(saved); })
+      .catch(() => failed(!value));
   }
 
   function handleClickThrough(value: boolean) {
@@ -177,10 +190,12 @@ export function SettingsPanel({ onClose, onOpenTimetable }: SettingsPanelProps) 
         <Section icon="palette" title="화면">
           <AppearanceSettings />
           <div style={{ height: 4 }} />
-          <ToggleRow label="항상 위 표시" value={alwaysOnTop} onChange={handleAlwaysOnTop} />
+          <ToggleRow label="항상 위 표시 (잠금이 풀렸을 때)" value={alwaysOnTop} onChange={(v) => saveOnThisPc(v, setAlwaysOnTop, window.electronAPI?.toggleAlwaysOnTop)} />
           <ToggleRow label="클릭 통과 모드 (앱을 누르거나 입력할 수 없음)" value={clickThrough} onChange={handleClickThrough} />
+          <ToggleRow label="시작할 때 창 위치 잠금" value={startLocked} onChange={(v) => saveOnThisPc(v, setStartLocked, window.electronAPI?.setStartLocked)} />
+          <p style={styles.privacyNote}>꺼 두면 잠금이 풀린 채로 시작합니다. 켜면 지금 창을 잠그고, 다음에 켤 때도 잠긴 채로 시작합니다. 제목 줄의 자물쇠는 지금 상태만 바꿉니다. 항상 위 표시와 이 설정은 이 PC에만 저장됩니다.</p>
           <ToggleRow label="위치 잠금 단축키 (Ctrl+Shift+C)" value={widget.editShortcut} onChange={(v) => widget.setPref('editShortcut', v)} />
-          <p style={styles.privacyNote}>Word, PowerPoint의 서식 복사 단축키와 겹칩니다. 서식 복사를 쓰시면 꺼 주세요. 편집 단추는 그대로 쓸 수 있습니다.</p>
+          <p style={styles.privacyNote}>Word, PowerPoint의 서식 복사 단축키와 겹칩니다. 서식 복사를 쓰시면 꺼 주세요. 제목 줄의 자물쇠는 그대로 쓸 수 있습니다.</p>
         </Section>
 
         {/* Notification section */}

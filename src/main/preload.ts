@@ -2,7 +2,8 @@ import { contextBridge, ipcRenderer, webFrame } from 'electron';
 import type { WeatherData } from '../shared/types';
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  toggleAlwaysOnTop: (value: boolean) => ipcRenderer.invoke('window:toggle-always-on-top', value),
+  toggleAlwaysOnTop: (value: boolean): Promise<boolean> => ipcRenderer.invoke('window:toggle-always-on-top', value),
+  getAlwaysOnTop: (): Promise<boolean> => ipcRenderer.invoke('window:get-always-on-top'),
   setZoomFactor: (factor: number) => webFrame.setZoomFactor(factor),
   toggleClickThrough: (enabled: boolean) => ipcRenderer.invoke('window:toggle-click-through', enabled),
   getClickThrough: (): Promise<boolean> => ipcRenderer.invoke('window:get-click-through'),
@@ -11,6 +12,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setSize: (width: number, height: number) => ipcRenderer.invoke('window:set-size', width, height),
   setWidgetMode: (enabled: boolean) => ipcRenderer.invoke('window:set-widget-mode', enabled),
   getWidgetMode: () => ipcRenderer.invoke('window:get-widget-mode'),
+  getStartLocked: (): Promise<boolean> => ipcRenderer.invoke('window:get-start-locked'),
+  setStartLocked: (value: boolean): Promise<boolean> => ipcRenderer.invoke('window:set-start-locked', value),
   getBounds: () => ipcRenderer.invoke('window:get-bounds'),
   setBounds: (bounds: { x: number; y: number; width: number; height: number }) => ipcRenderer.invoke('window:set-bounds', bounds),
   startEdgeResize: (edge: string) => ipcRenderer.invoke('window:start-edge-resize', edge),
@@ -21,6 +24,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = (_event: any, enabled: boolean) => callback(enabled);
     ipcRenderer.on('widget-mode-changed', listener);
     return () => ipcRenderer.removeListener('widget-mode-changed', listener);
+  },
+  onAlwaysOnTopChanged: (callback: (enabled: boolean) => void) => {
+    const listener = (_event: any, enabled: boolean) => callback(enabled);
+    ipcRenderer.on('always-on-top-changed', listener);
+    return () => ipcRenderer.removeListener('always-on-top-changed', listener);
   },
   onSystemWoke: (callback: () => void) => {
     const listener = () => callback();

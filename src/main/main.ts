@@ -41,9 +41,18 @@ if (!app.isPackaged) {
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isClickThrough = false;
-let isWidgetMode = true; // Desktop widget mode (pinned behind windows)
-/** 사용자가 고른 항상 위 설정. 위젯 모드를 끄면 이 값으로 돌아간다 */
-let alwaysOnTopPref = true;
+/** 창 위치 잠금(바탕에 머무는 위젯 모드). 켤 때의 값은 windowPrefs.startLocked를 따른다 */
+let isWidgetMode = false;
+/** 이 PC에만 두는 창 설정 (userData/window-prefs.json). 처음에는 둘 다 꺼져 있다 */
+interface WindowPrefs {
+  /** 켤 때 창 위치를 잠글지 */
+  startLocked: boolean;
+  /** 잠금이 풀려 있는 동안 다른 창 위에 둘지 */
+  alwaysOnTop: boolean;
+}
+let windowPrefs: WindowPrefs = { startLocked: false, alwaysOnTop: false };
+/** 처음 화면을 보였는가. 그 전의 Mac activate에서 빈 창을 띄우지 않는다 */
+let shownOnce = false;
 /** 사용자가 직접 누른 최소화인지 구분 (Win+D 복귀와 구별) */
 let userMinimizing = false;
 /** 화면 구성이 바뀌는 동안에는 창 위치를 저장하지 않는다 */
@@ -142,6 +151,32 @@ function saveWindowState(): void {
     fs.writeFileSync(getWindowStatePath(), JSON.stringify(state), 'utf-8');
   } catch (e) { console.warn('[Window] saveState failed:', e); }
 }
+// 파일이 없거나 읽지 못하면 둘 다 꺼진 것으로 본다
+function getWindowPrefsPath(): string {
+  return path.join(app.getPath('userData'), 'window-prefs.json');
+}
+function loadWindowPrefs(): WindowPrefs {
+  try {
+    const p = getWindowPrefsPath();
+    if (fs.existsSync(p)) {
+      const saved = JSON.parse(fs.readFileSync(p, 'utf-8'));
+      return { startLocked: saved?.startLocked === true, alwaysOnTop: saved?.alwaysOnTop === true };
+    }
+  } catch (e) { console.warn('[Window] loadPrefs failed:', e); }
+  return { startLocked: false, alwaysOnTop: false };
+}
+/** 저장하지 못하면 지금 값도 바꾸지 않는다 */
+function saveWindowPrefs(patch: Partial<WindowPrefs>): boolean {
+  const next = { ...windowPrefs, ...patch };
+  try {
+    fs.writeFileSync(getWindowPrefsPath(), JSON.stringify(next), 'utf-8');
+    windowPrefs = next;
+    return true;
+  } catch (e) {
+    console.warn('[Window] savePrefs failed:', e);
+    return false;
+  }
+}
 function currentDisplays(): DisplayArea[] {
   return screen.getAllDisplays().map((d) => ({ id: d.id, workArea: d.workArea as Rect }));
 }
@@ -190,7 +225,8 @@ function createWindow(): void {
     y: initial.y,
     transparent: true,
     frame: false,
-    alwaysOnTop: true,
+    // 잠긴 채 시작할 때는 뜨는 동안만 위에 두고, 화면을 다 불러오면 바탕으로 내린다
+    alwaysOnTop: isWidgetMode || windowPrefs.alwaysOnTop,
     hasShadow: false,
     resizable: true,
     minimizable: true,
@@ -236,6 +272,7 @@ function createWindow(): void {
   // 페이지 로드 완료 시 한번에 표시 (깜빡임 없음)
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
+    shownOnce = true;
   });
 
   if (isDev) {
@@ -302,11 +339,8 @@ function updateTrayMenu(): void {
       label: '항상 위',
       type: 'checkbox',
       // 위젯 모드에서는 창이 바탕에 있으므로 실제 상태가 아니라 설정값을 보여 준다
-      checked: alwaysOnTopPref,
-      click: (menuItem) => {
-        alwaysOnTopPref = menuItem.checked;
-        if (!isWidgetMode) mainWindow?.setAlwaysOnTop(menuItem.checked);
-      },
+      checked: windowPrefs.alwaysOnTop,
+      click: (menuItem) => setAlwaysOnTopPref(menuItem.checked),
     },
     {
       label: '화면 새로고침',
@@ -352,9 +386,10 @@ function toggleWindow(): void {
 /**
  * 창 위치 잠금. 잠그면 창을 옮기거나 크기를 바꾸지 못하고 바탕에 머문다.
  * 내용을 누르고 입력하는 것은 잠금과 상관없이 그대로 된다.
- * @param startup 앱을 켤 때. 다른 프로그램의 입력을 빼앗지 않도록 포커스를 내준다
+ * @param onLoad 앱을 켜거나 화면을 다시 불러온 때. 잠긴 창은 다른 프로그램의 입력을 빼앗지 않도록 포커스를 내주고,
+ *   풀린 창은 보통 창처럼 그대로 둔다. 포커스를 내주면 다른 창 뒤로 밀려 안 켜진 것처럼 보인다
  */
-function applyWidgetMode(enabled: boolean, startup = false): void {
+function applyWidgetMode(enabled: boolean, onLoad = false): void {
   if (!mainWindow) return;
   isWidgetMode = enabled;
   mainWindow.setMovable(!enabled);
@@ -371,13 +406,21 @@ function applyWidgetMode(enabled: boolean, startup = false): void {
       }, 50);
     }
     // 잠금 단추를 누른 직후에도 바로 입력할 수 있어야 하므로 켤 때만 포커스를 내준다
-    if (startup) mainWindow.blur();
+    if (onLoad) mainWindow.blur();
   } else {
     // 풀면 옮기고 크기를 바꿀 수 있다. 항상 위는 사용자 설정을 따른다
-    mainWindow.setAlwaysOnTop(alwaysOnTopPref);
+    mainWindow.setAlwaysOnTop(windowPrefs.alwaysOnTop);
     mainWindow.setSkipTaskbar(false);
-    mainWindow.focus();
+    if (!onLoad) mainWindow.focus();
   }
+}
+
+/** 항상 위 설정을 바꾼다(설정 화면, 트레이). 잠긴 창은 바탕에 있어야 하므로 저장만 하고, 풀 때 적용한다 */
+function setAlwaysOnTopPref(value: boolean): boolean {
+  if (saveWindowPrefs({ alwaysOnTop: value }) && !isWidgetMode) mainWindow?.setAlwaysOnTop(value);
+  updateTrayMenu();
+  mainWindow?.webContents.send('always-on-top-changed', windowPrefs.alwaysOnTop);
+  return windowPrefs.alwaysOnTop;
 }
 
 const EDIT_SHORTCUT = 'CommandOrControl+Shift+C';
@@ -420,13 +463,9 @@ function watchRendererCrash(win: BrowserWindow): void {
 
 // IPC Handlers
 function setupIPC(): void {
-  ipcMain.handle('window:toggle-always-on-top', (_event, value: boolean) => {
-    alwaysOnTopPref = !!value;
-    updateTrayMenu();
-    // 위젯 모드에서는 다른 창 뒤에 있어야 하므로 설정값만 기억하고 해제할 때 적용한다
-    if (!isWidgetMode) mainWindow?.setAlwaysOnTop(alwaysOnTopPref);
-  });
+  ipcMain.handle('window:toggle-always-on-top', (_event, value: boolean) => setAlwaysOnTopPref(value === true));
 
+  ipcMain.handle('window:get-always-on-top', () => windowPrefs.alwaysOnTop);
 
   ipcMain.handle('window:toggle-click-through', (_event, enabled: boolean) => {
     setClickThrough(enabled);
@@ -441,9 +480,9 @@ function setupIPC(): void {
     mainWindow?.minimize();
   });
 
+  // 제목 줄의 X. 알림과 수업 가림이 이어지도록 트레이로 내린다. 완전 종료는 트레이 메뉴의 종료
   ipcMain.handle('window:close', () => {
-    mainWindow?.destroy();
-    app.quit();
+    mainWindow?.hide();
   });
 
   ipcMain.handle('window:set-size', (_event, width: number, height: number) => {
@@ -458,6 +497,17 @@ function setupIPC(): void {
 
   ipcMain.handle('window:get-widget-mode', () => {
     return isWidgetMode;
+  });
+
+  ipcMain.handle('window:get-start-locked', () => windowPrefs.startLocked);
+
+  // 설정에서 바꾸면 지금 창에도 바로 적용한다. 저장하지 못하면 아무것도 바꾸지 않고 저장된 값을 돌려준다
+  ipcMain.handle('window:set-start-locked', (_event, value: boolean) => {
+    if (saveWindowPrefs({ startLocked: value === true })) {
+      applyWidgetMode(windowPrefs.startLocked);
+      mainWindow?.webContents.send('widget-mode-changed', isWidgetMode);
+    }
+    return windowPrefs.startLocked;
   });
 
   ipcMain.handle('window:get-bounds', () => {
@@ -1535,6 +1585,9 @@ app.whenReady().then(() => {
       ? Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }])
       : null);
   }
+  // 설정에서 '시작할 때 창 위치 잠금'을 켠 PC만 잠긴 채로 시작한다
+  windowPrefs = loadWindowPrefs();
+  isWidgetMode = windowPrefs.startLocked;
   createWindow();
   // 시작 속도 최적화: 핵심 IPC만 즉시, 나머지는 지연 로드
   setupIPC();
@@ -1570,9 +1623,9 @@ app.whenReady().then(() => {
 
   if (mainWindow) watchRendererCrash(mainWindow);
 
-  // Start in widget mode after window loads
+  // 처음 뜰 때는 설정대로, 화면을 다시 불러올 때는 지금 상태 그대로 맞춘다
   mainWindow?.webContents.on('did-finish-load', () => {
-    applyWidgetMode(true, true);
+    applyWidgetMode(isWidgetMode, true);
   });
 
   setEditShortcut(true);
@@ -1622,5 +1675,8 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   if (mainWindow === null) {
     createWindow();
+  } else if (shownOnce && !mainWindow.isVisible()) {
+    // Mac: X로 내린 창을 Dock 아이콘으로 다시 연다
+    mainWindow.show();
   }
 });
